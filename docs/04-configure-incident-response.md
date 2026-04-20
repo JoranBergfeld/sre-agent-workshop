@@ -69,32 +69,23 @@ You should now see your incident response plan listed in the **Incident response
 
 ## Verify Alert Rules Exist
 
-Your AKS cluster should already have Azure Monitor alert rules from the Bicep deployment in Module 1. Let's verify:
+Your AKS cluster should already have alert rules from the Bicep deployment in Module 1. These are **log-based (scheduled query) alerts** that query the Log Analytics workspace — not metric-based alerts.
 
 ```bash
-az monitor metrics alert list --resource-group rg-srelab -o table
-```
-
-You should see at least one alert rule. For example:
-- **Container restart count** — fires if pod restarts spike
-- **Pod failure** — fires if pods enter Failed state
-- **Application error rate** — fires if 5xx errors spike (if you enabled Application Insights monitoring)
-
-If the list is empty, the Bicep deployment didn't create alerts. No problem — you can create a simple one manually:
-
-```bash
-az monitor metrics alert create \
-  --name container-restart-alert \
+# List scheduled query rules in the resource group
+az resource list \
   --resource-group rg-srelab \
-  --scopes /subscriptions/{SUBSCRIPTION_ID}/resourcegroups/rg-srelab/providers/microsoft.containerservice/managedclusters/srelab-aks \
-  --description "Alert on container restarts" \
-  --condition "avg restart_count > 5" \
-  --window-size 5m \
-  --evaluation-frequency 1m \
-  --severity 3
+  --resource-type "Microsoft.Insights/scheduledQueryRules" \
+  --query "[].name" -o tsv
 ```
 
-(Replace `{SUBSCRIPTION_ID}` with your subscription ID from `az account show --query id -o tsv`)
+You should see two alert rules:
+- **`srelab-container-restarts`** — fires when any container restarts more than 3 times in 5 minutes (queries `KubePodInventory`)
+- **`srelab-http-500-errors`** — fires when the app returns repeated HTTP 500 errors (queries `ContainerLog`)
+
+> **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
+
+If the list is empty, re-run the **Deploy Infrastructure** workflow from Module 1 — the alerts are defined in `infra/bicep/main.bicep`.
 
 ## How It All Connects
 
