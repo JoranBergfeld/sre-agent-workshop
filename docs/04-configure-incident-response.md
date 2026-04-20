@@ -20,7 +20,18 @@ The SRE Agent can respond to incidents from multiple sources (Azure Monitor, Pag
 
 ### What Just Happened
 
-The agent has now established a connection to your Azure Monitor. When alerts fire in Azure Monitor, they'll flow into the SRE Agent via an alert action rule or webhook. The agent will see each alert in real time and decide whether to investigate based on the incident response plan you're about to create.
+The agent has now established a connection to your Azure Monitor. When alerts fire in Azure Monitor, they'll flow into the SRE Agent via an **alert processing rule**. The agent will see each alert in real time and decide whether to investigate based on the incident response plan you're about to create.
+
+### Verify the Alert Processing Rule
+
+After connecting, verify that the SRE Agent created an alert processing rule that covers your resource group:
+
+1. In the Azure portal, go to **Monitor** → **Alerts** → **Alert processing rules**
+2. You should see a rule created by the SRE Agent (it may be named after your agent or contain "sre" in the name)
+3. Check that its **scope** includes your subscription or specifically `rg-srelab`
+4. Check that it's **enabled**
+
+> **⚠️ If no alert processing rule exists:** Go back to the SRE Agent portal → **Builder** → **Incident platform** and reconnect Azure Monitor. The agent needs this rule to receive alert notifications. Without it, alerts fire in Azure Monitor but the SRE Agent never sees them.
 
 ## Create an Incident Response Plan
 
