@@ -56,6 +56,14 @@ resource federatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/f
 var cosmosAccountId = resourceId('Microsoft.DocumentDB/databaseAccounts', cosmosDbAccountName)
 
 // WORKSHOP: This role assignment is critical — removing it will cause the app to fail (used in Module 5: Break It)
+resource cosmosRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-02-15-preview' = {
+  name: '${cosmosDbAccountName}/${guid(cosmosAccountId, uami.id, '00000000-0000-0000-0000-000000000002')}'
+  properties: {
+    roleDefinitionId: '${cosmosAccountId}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
+    principalId: uami.properties.principalId
+    scope: cosmosAccountId
+  }
+}
 
 // ── Outputs ──────────────────────────────────
 @description('User-Assigned Managed Identity client ID')
