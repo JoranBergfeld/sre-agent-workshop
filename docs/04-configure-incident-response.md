@@ -4,6 +4,33 @@
 
 Set up Azure Monitor as your incident platform and create a response plan so the SRE Agent automatically investigates alerts and takes action.
 
+## Prerequisites
+
+Before configuring incident response, ensure the SRE Agent's managed identity has the required RBAC roles. The agent needs **Reader** access to see your alerts:
+
+```bash
+# Grant Reader to the SRE Agent's managed identity (if not already assigned)
+# Find the agent's app ID first:
+az ad sp list --display-name "srelab-agent" --query "[?contains(displayName, 'onfcq')].appId" -o tsv
+
+# Then grant (replace APP_ID with the value above, or use the principal ID from the portal):
+az role assignment create \
+  --assignee <APP_ID> \
+  --role "Reader" \
+  --scope /subscriptions/9bc0bdaa-0a20-4570-9cae-ef826f5c23a7/resourceGroups/rg-srelab
+```
+
+> **Note:** If you created the SRE Agent through the portal with the recommended setup, these roles are typically already assigned. You can verify with:
+> ```bash
+> AGENT_UAMI=$(az resource list --resource-group rg-srelab \
+>   --resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
+>   --query "[?contains(name, 'agent') && contains(name, 'onfcq')].name" -o tsv)
+> PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group rg-srelab --query principalId -o tsv)
+> az role assignment list --assignee "$PRINCIPAL_ID" --all \
+>   --query "[].{role:roleDefinitionName, scope:scope}" -o table
+> ```
+> Look for **Reader** and **Monitoring Contributor** on `rg-srelab`.
+
 ## Connect Azure Monitor
 
 The SRE Agent can respond to incidents from multiple sources (Azure Monitor, PagerDuty, custom webhooks, etc.). For this workshop, we'll use Azure Monitor — the native Azure alerting platform that's already collecting metrics from your AKS cluster.
@@ -37,21 +64,7 @@ After connecting, verify that the SRE Agent can see your resources:
 3. Confirm that **Azure resources** includes your subscription or `rg-srelab` resource group
 4. If Azure resources is not connected, click **Connect** and add your subscription — this allows the agent to query metrics, resource health, and run Azure CLI commands during investigations
 
-> **⚠️ If alerts aren't being detected:** The most common cause is that the agent's managed identity lacks permissions. Verify it has:
-> - **Reader** role on the monitored resource group or subscription
-> - **Monitoring Contributor** role (for alert acknowledgment)
->
-> Check with:
-> ```bash
-> # Find the agent's managed identity name
-> AGENT_UAMI=$(az resource list --resource-group rg-srelab \
->   --resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
->   --query "[?contains(name, 'agent')].name" -o tsv)
->
-> # List its role assignments
-> PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group rg-srelab --query principalId -o tsv)
-> az role assignment list --assignee "$PRINCIPAL_ID" --all --query "[].{role:roleDefinitionName, scope:scope}" -o table
-> ```
+> **⚠️ If alerts aren't being detected later (in Module 5):** Verify the agent's managed identity has **Reader** + **Monitoring Contributor** roles (see Prerequisites above).
 
 ## Create an Incident Response Plan
 
@@ -59,7 +72,7 @@ An incident response plan tells the agent *which* alerts to respond to and *how*
 
 ### Start the Wizard
 
-1. Still in the **Builder** section, click **Incident response plans**
+1. In the SRE Agent portal, navigate to **Incident management** → **Response plans** (or **Builder** → **Incident response plans** depending on your portal version)
 2. Click **New incident response plan**
 
 ### Step 1: Set Up Filters
