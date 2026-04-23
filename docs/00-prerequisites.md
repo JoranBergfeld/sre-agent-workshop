@@ -27,6 +27,7 @@ The workshop creates several Azure resources that you'll pay for by the hour. He
 - **Minimum role:** Contributor (to create and manage resources)
 - **Optional role:** Owner or User Access Administrator (if you plan to create custom role assignments)
 - **Check your access:** Log in to the [Azure Portal](https://portal.azure.com) and verify you can see your subscription
+- **Resource Providers**: Ensure the required resource providers are registered. Run `setup.sh` or `setup.ps1` to verify.
 
 ### 2. Supported Azure Region
 

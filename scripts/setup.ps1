@@ -43,6 +43,30 @@ if ($acct) {
     Write-Fail "No active subscription"
 }
 
+# -- Resource Providers ---
+Write-Header "Azure Resource Providers"
+if ($acct) {
+    $requiredProviders = @(
+        "Microsoft.ContainerService"
+        "Microsoft.DocumentDB"
+        "Microsoft.OperationalInsights"
+        "Microsoft.Insights"
+        "Microsoft.ManagedIdentity"
+        "Microsoft.OperationsManagement"
+    )
+    foreach ($ns in $requiredProviders) {
+        $state = az provider show --namespace $ns --query registrationState -o tsv 2>$null
+        if ($state -eq "Registered") {
+            Write-Ok "$ns — Registered"
+        } else {
+            Write-Fail "$ns — $state"
+            Write-Host "       Register with: az provider register --namespace $ns"
+        }
+    }
+} else {
+    Write-Warn "Skipped — not logged in to Azure"
+}
+
 # -- kubectl ---
 Write-Header "kubectl"
 if (Get-Command kubectl -ErrorAction SilentlyContinue) {

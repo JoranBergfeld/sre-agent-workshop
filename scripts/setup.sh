@@ -42,6 +42,30 @@ else
   fail "No active subscription"
 fi
 
+# ── Resource Providers ─────────────────────
+header "Azure Resource Providers"
+if az account show &>/dev/null; then
+  REQUIRED_PROVIDERS=(
+    "Microsoft.ContainerService"
+    "Microsoft.DocumentDB"
+    "Microsoft.OperationalInsights"
+    "Microsoft.Insights"
+    "Microsoft.ManagedIdentity"
+    "Microsoft.OperationsManagement"
+  )
+  for ns in "${REQUIRED_PROVIDERS[@]}"; do
+    STATE=$(az provider show --namespace "$ns" --query registrationState -o tsv 2>/dev/null || echo "Unknown")
+    if [ "$STATE" = "Registered" ]; then
+      ok "$ns — Registered"
+    else
+      fail "$ns — ${STATE}"
+      echo "       Register with: az provider register --namespace $ns"
+    fi
+  done
+else
+  warn "Skipped — not logged in to Azure"
+fi
+
 # ── kubectl ────────────────────────────────
 header "kubectl"
 if command -v kubectl &>/dev/null; then
