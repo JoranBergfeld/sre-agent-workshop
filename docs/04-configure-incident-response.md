@@ -50,12 +50,7 @@ This zero-credential polling model means there's nothing extra to configure — 
 
 ### Verify the Connection
 
-After connecting, verify that the SRE Agent can see your resources:
-
-1. In the SRE Agent portal, go to the **Setup** page (click "Complete setup" in the status bar)
-2. Confirm that **Incidents** shows "Azure Monitor" as connected
-3. Confirm that **Azure resources** includes your subscription or `rg-srelab` resource group
-4. If Azure resources is not connected, click **Connect** and add your subscription — this allows the agent to query metrics, resource health, and run Azure CLI commands during investigations
+After connecting, verify that the SRE Agent can see your resources: Confirm that **Builder -> Incident Platform** shows "Azure Monitor" as connected
 
 > **⚠️ If alerts aren't being detected later (in Module 5):** Verify the agent's managed identity has **Reader** + **Monitoring Contributor** roles (see Prerequisites above).
 
@@ -65,8 +60,8 @@ An incident response plan tells the agent *which* alerts to respond to and *how*
 
 ### Start the Wizard
 
-1. In the SRE Agent portal, navigate to **Incident management** → **Response plans** (or **Builder** → **Incident response plans** depending on your portal version)
-2. Click **New incident response plan**
+- In the SRE Agent portal, navigate to **Builder** → **Incident response plans** 
+- Click **New incident response plan**
 
 ### Step 1: Set Up Filters
 
@@ -77,15 +72,15 @@ The filter defines which alerts trigger this plan.
 
 In a production environment, you might create separate plans for Critical, Warning, and Info alerts with different response strategies. For this workshop, we want to catch *everything* so you can observe the agent in action.
 
-3. Click **Next**
+Click **Next**
 
 ### Step 2: Preview Matching Incidents
 
 The wizard shows you past incidents that would have matched this plan. You might see:
-- No previous incidents (if this is your first time setting up monitoring) — this is fine
-- Some historical alerts from your AKS cluster (if you have them) — good, this shows your rule will match real incidents
+- No previous incidents (if this is your first time setting up monitoring), this is fine
+- Some historical alerts from your AKS cluster which may be generated during deployment, this shows your rule will match real incidents
 
-4. Click **Next** to continue
+Click **Next** to continue
 
 ### Step 3: Save and Set Autonomy
 
@@ -100,7 +95,7 @@ This step is important — it controls how much the agent is allowed to do autom
 
 For the workshop, **Autonomous** is perfect. It lets you watch the agent work end-to-end without needing to approve each step. In production, you'd typically start with **Review** mode for 2-4 weeks while you build confidence in the agent's decision-making. Once you're approving the same types of fixes repeatedly, you can graduate to Autonomous for those specific scenarios.
 
-4. Click **Save**
+Click **Save**
 
 You should now see your incident response plan listed in the **Incident response plans** section.
 
