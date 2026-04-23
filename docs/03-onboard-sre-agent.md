@@ -165,7 +165,7 @@ The agent saves everything you tell it during onboarding to persistent knowledge
 - **team.md** — Your team's priorities and operational concerns
 - **debugging.md** — Common failure modes and how to fix them
 
-> **⚠️ Important:** Complete the Team Onboarding conversation before moving to Module 4. The agent's state shows as `BuildingKnowledgeGraph` until onboarding is finished. While in this state, the agent **will not poll for Azure Monitor alerts**. You can check the agent's state in the portal — it should transition to `Running` once onboarding is complete.
+> **⚠️ Note:** The Team Onboarding conversation is the trigger to move the status of the Agent from `BuildingKnowledgeGraph` to `Running`. You can check the agent's state in the portal, it should transition to `Running` once onboarding is complete. This may take a while, so we are not going to wait for this in the workshop. In real-life scenarios it should be taken care of.
 
 **Tip:** The more specific and actionable your onboarding information, the faster the agent will diagnose issues in Module 6. Your debugging hint about role assignments will directly help when the agent investigates the fault we introduce in Module 5.
 
@@ -173,8 +173,8 @@ The agent saves everything you tell it during onboarding to persistent knowledge
 
 Before moving on, confirm that everything is connected:
 
-1. **Check the Code card:** You should see your GitHub repository listed with a green checkmark
-2. **Check the Azure Resources card:** You should see `rg-srelab` listed with a green checkmark
+1. **Check the GitHub connection:** In Connectors (**Builder** → **Connectors**), you should see your GitHub repository listed with the status "Connected".
+2. **Check the AKS Resources:** You should see the AKS resources in the **Monitor** → **Resource Mapping**
 3. **Ask the agent:** In the onboarding conversation, ask "What Azure resources do you see in my resource group?" — it should list your AKS cluster, CosmosDB account, Log Analytics workspace, and other resources you created in Module 1
 4. **Ask the agent:** "Can you tell me about the app's architecture from the code?" — it should reference your Kubernetes manifests and application server code
 
