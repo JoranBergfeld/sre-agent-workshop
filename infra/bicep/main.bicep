@@ -92,7 +92,7 @@ resource restartAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
     description: 'Fires when any container in the AKS cluster restarts more than 3 times within 5 minutes.'
     severity: 2
     enabled: true
-    evaluationFrequency: 'PT1M'
+    evaluationFrequency: 'PT5M'
     windowSize: 'PT5M'
     scopes: [
       aks.outputs.clusterId
@@ -133,7 +133,7 @@ resource http500Alert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
     description: 'Fires when the workshop app logs error responses in container logs — typically caused by CosmosDB connectivity or RBAC failures.'
     severity: 3
     enabled: true
-    evaluationFrequency: 'PT1M'
+    evaluationFrequency: 'PT5M'
     windowSize: 'PT5M'
     scopes: [
       aks.outputs.clusterId
