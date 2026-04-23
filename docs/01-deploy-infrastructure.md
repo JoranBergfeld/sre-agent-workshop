@@ -124,7 +124,7 @@ Location:            eastus2
 AKS Cluster:         srelab-aks
 CosmosDB Endpoint:   https://srelab-cosmos-xxxx.documents.azure.com:443/
 UAMI Client ID:     xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-Log Analytics ID:    /subscriptions/.../resourceGroups/rg-srelab/providers/...
+Log Analytics ID:    xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ============================================
 ```
 
