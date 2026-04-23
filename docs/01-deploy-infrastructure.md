@@ -14,7 +14,7 @@ The workflow deploys the following Azure resources to your subscription. All res
 |----------|--------------|---------|
 | Resource Group | `rg-{workloadName}` | Container for all workshop resources |
 | AKS Cluster | `{workloadName}-aks` | Kubernetes cluster hosting the web app; workload identity + OIDC issuer enabled |
-| CosmosDB Account | `{workloadName}-cosmos` | Serverless NoSQL database; minimal cost for workshop |
+| CosmosDB Account | `{workloadName}-cosmos-{suffix}` | Serverless NoSQL database; globally unique name with 4-char suffix |
 | Log Analytics Workspace | `{workloadName}-law` | Centralized logging for AKS cluster, pods, and application |
 | Application Insights | `{workloadName}-ai` | Application performance monitoring and diagnostics |
 | User-Assigned Managed Identity | `{workloadName}-id` | Workload identity for the app to authenticate to CosmosDB |
@@ -86,7 +86,7 @@ The workflow performs these steps:
 Resource Group:      rg-srelab
 Location:            eastus2
 AKS Cluster:         srelab-aks
-CosmosDB Endpoint:   https://srelab-cosmos.documents.azure.com:443/
+CosmosDB Endpoint:   https://srelab-cosmos-xxxx.documents.azure.com:443/
 UAMI Client ID:     xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 Log Analytics ID:    /subscriptions/.../resourceGroups/rg-srelab/providers/...
 ============================================
@@ -277,16 +277,16 @@ Both nodes should be in `Ready` state. If nodes show `NotReady` or `NotSchedulab
 ```bash
 az cosmosdb show \
   --resource-group rg-srelab \
-  --name srelab-cosmos \
+  --name $(az cosmosdb list --resource-group rg-srelab --query "[0].name" -o tsv) \
   --query "{name:name, kind:kind, status:provisioningState}" \
   -o table
 ```
 
 Expected output:
 ```
-Name           Kind                 Status
-─────────────  ───────────────────  ──────────
-srelab-cosmos  GlobalDocumentDB     Succeeded
+Name                  Kind              Status
+--------------------  ----------------  ---------
+srelab-cosmos-xxxx    GlobalDocumentDB  Succeeded
 ```
 
 ### 7. Verify Managed Identity

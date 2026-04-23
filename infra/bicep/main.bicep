@@ -22,6 +22,9 @@ param tags object = {
   environment: 'demo'
 }
 
+// Deterministic 4-char suffix for globally unique resource names (e.g., CosmosDB)
+var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
+
 // ──────────────────────────────────────────────
 // 1. Monitoring (Log Analytics + App Insights)
 //    Deployed first — AKS needs the workspace ID
@@ -57,6 +60,7 @@ module cosmos 'modules/cosmosdb.bicep' = {
     location: location
     workloadName: workloadName
     tags: tags
+    uniqueSuffix: uniqueSuffix
   }
 }
 

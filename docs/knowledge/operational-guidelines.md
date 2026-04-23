@@ -21,7 +21,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 ## Architecture Overview
 
 - **AKS cluster** (`srelab-aks`): Hosts the web app in the `workshop` namespace
-- **CosmosDB** (`srelab-cosmos`): NoSQL database, accessed via workload identity (no connection strings)
+- **CosmosDB** (`srelab-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
 - **Managed Identity** (`srelab-id`): UAMI with federated credential linked to K8s ServiceAccount `workshop-app`
 - **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
 

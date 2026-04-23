@@ -16,7 +16,8 @@ This is an Azure SRE Agent workshop — a hands-on tutorial where attendees depl
 ### Bicep / Infrastructure
 
 - All resource names follow `{workloadName}-{type}` pattern (default workloadName: `srelab`)
-- CosmosDB uses **NoSQL (Core) API** with `@azure/cosmos` SDK — NOT MongoDB API. Endpoint format: `https://{name}-cosmos.documents.azure.com:443/`
+- CosmosDB uses **NoSQL (Core) API** with `@azure/cosmos` SDK — NOT MongoDB API. Endpoint format: `https://{name}-cosmos-{suffix}.documents.azure.com:443/`
+- The CosmosDB account name includes a 4-char `uniqueString` suffix for global uniqueness (e.g., `srelab-cosmos-a1b2`)
 - The CosmosDB role assignment in `identity.bicep` uses inline `resourceId()` construction (not `existing` resource references) to avoid ARM deployment caching issues
 - Alert rules are `Microsoft.Insights/scheduledQueryRules` (log-based), NOT metric alerts. They query `ContainerLog` (v1 schema) and `KubePodInventory` tables
 - The `identity.bicep` role assignment is the **fault injection target** — Module 5 removes it to break the app

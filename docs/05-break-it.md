@@ -75,15 +75,18 @@ The deployment will **succeed**. The Bicep template is valid syntactically. No e
 > **⚠️ Important:** Azure Resource Manager uses **incremental deployment mode** by default, which means removing a resource from the Bicep template does **not** automatically delete it in Azure — it only stops managing it. The Bicep deployment alone won't break the app. To actually trigger the fault, you need to manually delete the role assignment after the deployment completes:
 
 ```bash
+# First, get the CosmosDB account name (includes random suffix)
+COSMOS_ACCOUNT=$(az cosmosdb list --resource-group rg-srelab --query "[0].name" -o tsv)
+
 # Get the role assignment name (the GUID)
 ASSIGNMENT_NAME=$(az cosmosdb sql role assignment list \
-  --account-name srelab-cosmos \
+  --account-name $COSMOS_ACCOUNT \
   --resource-group rg-srelab \
   --query "[0].name" -o tsv)
 
 # Delete it
 az cosmosdb sql role assignment delete \
-  --account-name srelab-cosmos \
+  --account-name $COSMOS_ACCOUNT \
   --resource-group rg-srelab \
   --role-assignment-id "$ASSIGNMENT_NAME" \
   --yes

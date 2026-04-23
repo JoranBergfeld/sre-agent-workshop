@@ -7,11 +7,14 @@ param workloadName string
 @description('Resource tags')
 param tags object
 
+@description('Unique suffix for globally unique CosmosDB account name')
+param uniqueSuffix string
+
 // ──────────────────────────────────────────────
 // CosmosDB Account — NoSQL (Core) API, Serverless
 // ──────────────────────────────────────────────
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-02-15-preview' = {
-  name: '${workloadName}-cosmos'
+  name: '${workloadName}-cosmos-${uniqueSuffix}'
   location: location
   tags: tags
   kind: 'GlobalDocumentDB'
