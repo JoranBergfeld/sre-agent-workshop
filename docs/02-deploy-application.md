@@ -160,6 +160,6 @@ The workload identity isn't being picked up. Verify:
 
 ## Next Step
 
-→ **Module 3: Onboard the Azure SRE Agent**
+→ **[Module 3: Onboard the Azure SRE Agent](./03-onboard-sre-agent.md)**
 
 In the next module, you'll create an SRE Agent and teach it about your infrastructure. The agent will learn your architecture, read your code, and build the knowledge it needs to diagnose faults when things go wrong.

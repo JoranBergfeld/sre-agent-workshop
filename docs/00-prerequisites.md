@@ -197,6 +197,6 @@ You're about to provision real Azure resources that incur hourly charges. The wo
 
 ## Next Step
 
-→ **Module 1: Deploy Infrastructure**
+→ **[Module 1: Deploy Infrastructure](./01-deploy-infrastructure.md)**
 
 Ready? Proceed to Module 1 to deploy the AKS cluster, CosmosDB, monitoring, and managed identity resources using Bicep.

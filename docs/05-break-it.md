@@ -175,6 +175,6 @@ If you're running this workshop with a group, this is a great moment for storyte
 
 ## Next Step
 
-→ **Module 6: Watch the SRE Agent Work**
+→ **[Module 6: Watch the SRE Agent Work](./06-watch-sre-agent.md)**
 
 In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow. You'll see it correlate logs, read your code, and open a PR with the fix. This is where the magic happens.
