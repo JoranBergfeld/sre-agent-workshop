@@ -121,19 +121,20 @@ Keep this terminal open — you'll use `$SUBSCRIPTION_ID` in the next step.
 ### Create a Service Principal
 
 ```bash
-SP_END_DATE=$(date -d "+30 days" +%Y-%m-%d)
-
 az ad sp create-for-rbac \
   --name "sre-workshop-sp" \
   --role Contributor \
   --scopes /subscriptions/$SUBSCRIPTION_ID \
-  --end-date "$SP_END_DATE" \
   --json-auth
 ```
 
-> **Security best practice:** The `--end-date` flag sets the credential to expire after 30 days, which is compliant with most restrictive tenant policies. Always delete the service principal when done (see Module 7).
+> **⚠️ Tenant policy note:** Some Azure AD tenants enforce credential lifetime policies that may cause this command to fail. If you see an error about credential expiry or policy restrictions, reset the service principal credentials with a shorter lifetime:
 >
-> **Windows (PowerShell):** Replace the first line with `$SP_END_DATE = (Get-Date).AddDays(30).ToString("yyyy-MM-dd")`
+> ```bash
+> az ad sp credential reset --name "sre-workshop-sp" --years 1
+> ```
+>
+> Always delete the service principal when done with the workshop (see Module 7).
 
 This command outputs a JSON block containing the service principal credentials. **Copy the entire JSON output** — you'll paste it into GitHub next.
 
