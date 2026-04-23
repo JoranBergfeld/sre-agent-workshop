@@ -133,10 +133,10 @@ This creates a full audit trail: incident → investigation → issue → PR →
 
 For the SRE Agent to create GitHub issues and assign them to `@copilot`, it needs the GitHub tool enabled.
 
-1. In the SRE Agent portal, go to **Builder** → **Tools** in the left sidebar
+1. In the SRE Agent portal, go to **Capabilities** → **Tools** in the left sidebar
 2. Find the **DevOps** category in the Built-in Tools section
-3. Locate the tools related to GitHub (ie CreateGitHubIssue, CreateGitHubIssue, FetchGitHubIssue, FetchGitHubIssueComments, FetchGitHubIssues) and **enable** them
-4. The agent may ask you to authenticate with GitHub — follow the prompts to connect your GitHub account
+3. Locate the tools related to GitHub (CreateGitHubIssue, CreateGitHubIssueComment, FetchGitHubIssue, FetchGitHubIssueComments, FetchGitHubIssues) and **enable** them
+4. The agent may ask you to authenticate with GitHub — follow the prompts to connect your GitHub account. This won't happen if you've provided the right authorization previously while adding code.
 
 > **Why this matters:** Without the GitHub tool, the agent can investigate and diagnose issues but cannot create issues or PRs on your repository. With it enabled, the full remediation loop works: SRE Agent detects fault → creates issue → `@copilot` fixes code → CI/CD deploys.
 
