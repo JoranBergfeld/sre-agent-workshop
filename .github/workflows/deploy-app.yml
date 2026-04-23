@@ -21,7 +21,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      WORKLOAD: ${{ inputs.workloadName || 'srelab' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

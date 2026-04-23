@@ -32,8 +32,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      LOCATION: ${{ inputs.location || 'eastus2' }}
-      WORKLOAD: ${{ inputs.workloadName || 'srelab' }}
+      LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

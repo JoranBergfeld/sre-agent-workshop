@@ -31,6 +31,42 @@ The workflow deploys the following Azure resources to your subscription. All res
 
 > **⚠️ VM Size Note:** The default VM size (`Standard_D2ads_v6`) may not be available in every subscription or region. If the deployment fails with a "VM size not allowed" error, check the error message for a list of available sizes and update `infra/bicep/modules/aks.bicep` (the `vmSize` property) accordingly. Any 2-vCPU general-purpose VM from the allowed list will work.
 
+## Prerequisites: Register Azure Resource Providers
+
+Before deploying, ensure the required Azure resource providers are registered on your subscription. These are needed by the various Azure services used in this workshop:
+
+| Resource Provider | Required By |
+|---|---|
+| `Microsoft.ContainerService` | AKS cluster |
+| `Microsoft.DocumentDB` | CosmosDB (NoSQL) account |
+| `Microsoft.OperationalInsights` | Log Analytics workspace |
+| `Microsoft.Insights` | Application Insights & alert rules |
+| `Microsoft.ManagedIdentity` | User-Assigned Managed Identity & federated credentials |
+| `Microsoft.OperationsManagement` | Container Insights (AKS monitoring addon) |
+
+> **Note:** Most of these providers are registered by default on new Azure subscriptions. However, `Microsoft.OperationsManagement` is commonly **not** registered and will cause the AKS Container Insights addon to fail silently if missing.
+
+Register all providers with the Azure CLI:
+
+```bash
+az provider register --namespace Microsoft.ContainerService
+az provider register --namespace Microsoft.DocumentDB
+az provider register --namespace Microsoft.OperationalInsights
+az provider register --namespace Microsoft.Insights
+az provider register --namespace Microsoft.ManagedIdentity
+az provider register --namespace Microsoft.OperationsManagement
+```
+
+To verify registration status:
+
+```bash
+az provider show --namespace Microsoft.OperationsManagement --query "registrationState" -o tsv
+```
+
+Registration is typically instant but can take up to a few minutes. Wait for all providers to show `Registered` before proceeding.
+
+---
+
 ## Run the Deployment
 
 Choose one of the two deployment options below. **Option A (GitHub Actions) is recommended** for the full workshop experience, as the push trigger enables the Module 5 fault injection scenario. Option B is useful for local testing and development.

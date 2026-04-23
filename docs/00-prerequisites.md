@@ -155,7 +155,25 @@ Your fork needs the service principal credentials as a GitHub Actions secret. An
 
 > **Security note:** GitHub encrypts these secrets in transit and at rest. They're only exposed to workflows running in your repository and cannot be read back via the GitHub UI.
 
-## Step 4: Verify Your Setup
+## Step 4: Configure Repository Variables (Required for Push-Triggered Workflows)
+
+When workflows trigger automatically on `push` (e.g., the fault injection scenario in Module 5), they cannot read manual `workflow_dispatch` inputs. Repository variables ensure all workflows use the correct workload name and location, regardless of how they're triggered.
+
+**Steps:**
+
+1. Go to your fork on GitHub (https://github.com/{YOUR_USERNAME}/sre-agent-workshop)
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Switch to the **Variables** tab
+4. Click **New repository variable** and add these variables:
+
+| Variable Name | Value | Description |
+|---------------|-------|-------------|
+| `WORKLOAD_NAME` | Your chosen workload name (e.g., `srelab`) | Used in all resource naming — must match what you used in Module 1 |
+| `AZURE_LOCATION` | Your chosen Azure region (e.g., `eastus2`) | Must match the region used in Module 1 |
+
+> **Why this matters:** Without these variables, push-triggered workflows fall back to the default `srelab` / `eastus2`. If you customized your workload name during the infrastructure deployment, the app deployment and Module 5 fault injection will target the wrong resource group and fail.
+
+## Step 5: Verify Your Setup
 
 Run these commands to confirm everything is ready:
 
@@ -194,7 +212,9 @@ Before moving to Module 1, verify:
 - [ ] Repository forked to your account
 - [ ] Service principal created and JSON saved
 - [ ] `AZURE_CREDENTIALS` secret added to your fork
-- [ ] Secrets are visible in Settings → Secrets and variables → Actions
+- [ ] `WORKLOAD_NAME` variable added to your fork (if using a custom name)
+- [ ] `AZURE_LOCATION` variable added to your fork (if using a non-default region)
+- [ ] Secrets and variables are visible in Settings → Secrets and variables → Actions
 
 ## Cost Reminder
 
