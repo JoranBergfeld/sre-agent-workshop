@@ -102,4 +102,55 @@ app.MapGet("/products", async (ILogger<Program> logger) =>
     }
 });
 
+// ── Red Button demo (red-button-500 scenario) ─────────────────────────────
+// A deliberately minimal two-button page. The green button always works; the red
+// button ships a broken feature that returns HTTP 500. RED_BUTTON_MODE is an
+// operational kill-switch (unset ⇒ broken). The durable fix removes the broken branch.
+const string RedButtonPage = """
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"><title>Red Button Demo</title></head>
+    <body style="font-family:system-ui,sans-serif;background:#f6f7f9;margin:0;color:#1a1a1a">
+      <div style="max-width:420px;margin:48px auto;background:#fff;border-radius:10px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center">
+        <h1 style="font-size:18px;margin:0 0 6px">Red Button Demo</h1>
+        <p style="font-size:13px;color:#555;margin:0 0 20px">Green works. Red returns HTTP 500.</p>
+        <button id="green" style="background:#1a7f37;color:#fff;border:none;border-radius:8px;padding:12px 20px;font-weight:700;font-size:14px;cursor:pointer;margin:4px">Green</button>
+        <button id="red" style="background:#b3261e;color:#fff;border:none;border-radius:8px;padding:12px 20px;font-weight:700;font-size:14px;cursor:pointer;margin:4px">Red</button>
+        <p id="result" style="font-size:13px;margin-top:20px;min-height:18px"></p>
+      </div>
+      <script>
+        async function press(path) {
+          const el = document.getElementById('result');
+          el.textContent = 'GET ' + path + ' …';
+          try {
+            const r = await fetch(path);
+            el.textContent = 'GET ' + path + ' → ' + r.status + ' ' + r.statusText;
+            el.style.color = r.ok ? '#1a7f37' : '#b3261e';
+          } catch (e) {
+            el.textContent = 'GET ' + path + ' → network error';
+            el.style.color = '#b3261e';
+          }
+        }
+        document.getElementById('green').onclick = () => press('/api/green');
+        document.getElementById('red').onclick = () => press('/api/red');
+      </script>
+    </body>
+    </html>
+    """;
+
+app.MapGet("/demo", () => Results.Content(RedButtonPage, "text/html"));
+
+app.MapGet("/api/green", () => Results.Json(new { status = "ok", button = "green" }));
+
+app.MapGet("/api/red", (ILogger<Program> logger) =>
+{
+    var mode = Environment.GetEnvironmentVariable("RED_BUTTON_MODE") ?? "broken";
+    if (mode == "broken")
+    {
+        logger.LogError("Red button pressed — /api/red is broken, returning HTTP 500");
+        return Results.Json(new { error = "The red button is broken" }, statusCode: 500);
+    }
+    return Results.Json(new { status = "ok", button = "red" });
+});
+
 app.Run();
