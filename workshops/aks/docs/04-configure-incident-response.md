@@ -142,7 +142,7 @@ Here's the flow when something goes wrong:
 7. Agent proposes fix OR executes fix (based on autonomy level)
 ```
 
-In your case, when the app starts failing in Module 5, Azure Monitor will detect the spike in errors. The SRE Agent will pick up the alert, query the app's logs, see authentication failures, check the Bicep deployment history, find the removed role assignment, and either propose or automatically open a PR to restore it.
+For example, when you run the `cosmos-rbac-removal` scenario in Module 5, the app starts failing to authenticate to CosmosDB and Azure Monitor detects the spike in errors. The SRE Agent picks up the alert, queries the app's logs, sees the authentication failures, checks the Bicep deployment history, finds the removed role assignment, and either proposes or automatically opens a PR to restore it.
 
 ## What Happens Next
 
