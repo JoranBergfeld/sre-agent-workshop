@@ -179,7 +179,7 @@ You should see alert rules for HTTP 500 errors and App Service restarts, wired t
 with:
 
 ```markdown
-You'll see **one alert per scenario**, each querying the Application Insights `AppRequests` table. For example, `canary-bad-release` adds `srelabapp-canary-5xx` and `red-button-500` adds `srelabapp-redbutton-5xx`. The always-current list of scenarios and their alerts lives in the [Scenarios catalog](../README.md#scenarios).
+You'll see **one alert per scenario**, each querying the Application Insights `AppRequests` table. For example, `canary-bad-release` adds `srelabapp-canary-5xx` and `red-button-500` adds `srelabapp-redbutton-5xx`. The always-current list of scenarios lives in the [Scenarios catalog](../README.md#scenarios) — each scenario contributes its own alert.
 
 > **Why log-based alerts?** These alerts query the Application Insights `AppRequests` table via `Microsoft.Insights/scheduledQueryRules`, so they fire on real HTTP 5xx responses regardless of how the app logs internally — the standard approach for request-level alerting on App Service.
 ```
