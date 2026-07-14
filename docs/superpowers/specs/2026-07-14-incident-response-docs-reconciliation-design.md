@@ -43,6 +43,8 @@ a *single* break scenario and never generalized as scenarios multiplied:
   - "Next Step" still says *"the break scenario for this track is published separately … Once a scenario
     **is available**, follow its README."* This is a placeholder from when the track had zero scenarios;
     it now has two and links to neither.
+  - "How It All Connects" and "What Happens Next" narrate a **removed SQL grant / Azure SQL** fault that
+    matches **no** App Service scenario — copied-template drift describing a nonexistent scenario.
 
 - **VM `workshops/vm/docs/02-configure-incident-response.md`**
   - In sync content-wise (its remediation-actions table references Scenarios 1–4), but terse (34 lines vs.
@@ -89,7 +91,15 @@ that would re-drift.
     **`AppRequests`** — canary-bad-release → `…-canary-5xx`, red-button-500 → `…-redbutton-5xx`.
   - Remove the `AppServiceConsoleLogs` / `AppServiceHTTPLogs` / "App Service restarts" wording. Keep the
     `az … scheduledQueryRules --query "[].name"` command; describe the alerts as "one per scenario,
-    querying App Insights `AppRequests`."
+    querying App Insights `AppRequests`." Concrete names (default `workloadName=srelabapp`):
+    `srelabapp-canary-5xx`, `srelabapp-redbutton-5xx`.
+- **How It All Connects / What Happens Next:** These sections currently narrate a **removed SQL grant /
+  Azure SQL authentication** fault that matches **no** App Service scenario (the track has only
+  `canary-bad-release` and `red-button-500`) — leftover drift from a copied template. Reframe both to the
+  catalog-defer pattern using **red-button-500** as the illustrative example: the learner picks a Break It
+  scenario from the catalog, and — for example — the red-button-500 scenario's red button triggers an HTTP
+  500 that Azure Monitor detects, the agent investigates, and the fix flows through GitHub. Do not
+  reference SQL/Azure SQL anywhere.
 - **Next Step:** Replace the "published separately / once a scenario is available" placeholder with the
   catalog-defer pattern: link the track README `## Scenarios` table, and use **red-button-500** as the
   short illustrative example (the minimal green/red two-button 500 demo — the natural beginner on-ramp),
@@ -125,6 +135,8 @@ that would re-drift.
 
 - Every scenario link added/changed resolves to an existing `README.md` (relative paths correct).
 - No remaining hardcoded scenario counts or exhaustive alert lists in the three edited docs.
+- No remaining `SQL` / `Azure SQL` fault narrative in the App Service doc (it describes a nonexistent
+  scenario).
 - `scripts/validate-scenarios.sh` still prints `Scenario validation passed` (docs edits must not touch
   generated artifacts; run it as a guard).
 - Spot-check the alert names cited against the manifests/Bicep (`container-restarts`, `http-500-errors`,
