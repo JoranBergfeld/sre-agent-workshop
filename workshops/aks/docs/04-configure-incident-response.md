@@ -111,9 +111,12 @@ az resource list \
   --query "[].name" -o tsv
 ```
 
-You should see two alert rules:
-- **`srelab-container-restarts`** — fires when any container restarts more than 3 times in 5 minutes (queries `KubePodInventory`)
-- **`srelab-http-500-errors`** — fires when the app returns repeated HTTP 500 errors (queries `ContainerLog`)
+What you see is the **base** alert plus **one alert per scenario** (each scenario wires its own alert through the generated aggregator):
+
+- **`srelab-container-restarts`** (base, always deployed) — fires when any container restarts more than 3 times in 5 minutes (queries `KubePodInventory`).
+- **One alert per scenario.** For example, `cosmos-rbac-removal` adds `srelab-http-500-errors` and `workload-identity-break` adds `srelab-workload-identity-auth-errors` (both query `ContainerLog`).
+
+The always-current list of scenarios lives in the [Scenarios catalog](../README.md#scenarios) — each scenario contributes its own alert.
 
 > **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
@@ -143,7 +146,9 @@ In your case, when the app starts failing in Module 5, Azure Monitor will detect
 
 ## What Happens Next
 
-In **Module 5: Break It**, we'll intentionally introduce a fault by editing the Bicep template to remove the CosmosDB role assignment. When the change deploys:
+In **Module 5: Break It**, you'll intentionally inject a fault, then watch the SRE Agent detect and diagnose it. Each Break It scenario is self-contained — pick one from the [Scenarios catalog](../README.md#scenarios) and follow its README (inject → validate → let the agent remediate → clean up).
+
+As an example, the [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/README.md) scenario edits the Bicep template to remove the CosmosDB role assignment. When the change deploys:
 
 1. The app will start failing to authenticate to CosmosDB
 2. Azure Monitor will detect the error spike
@@ -154,4 +159,4 @@ Now that incident response is configured, you're ready to introduce the fault.
 
 ## Next Step
 
-→ [Module 5: Break It](../scenarios/cosmos-rbac-removal/README.md)
+→ **Module 5: Break It** — choose a scenario from the [Scenarios catalog](../README.md#scenarios). New to the workshop? Start with [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/README.md).
