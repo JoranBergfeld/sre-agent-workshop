@@ -22,3 +22,13 @@ module canaryBadReleaseAlert '../../../scenarios/canary-bad-release/alert.bicep'
     scopeResourceId: logAnalyticsResourceId
   }
 }
+
+module redButton500Alert '../../../scenarios/red-button-500/alert.bicep' = {
+  name: 'alert-red-button-500'
+  params: {
+    location: location
+    workloadName: workloadName
+    tags: tags
+    scopeResourceId: logAnalyticsResourceId
+  }
+}
