@@ -32,3 +32,7 @@ Example:
 
 No remediation action runs without an approval prompt and valid ticket format.
 
+## Next Step
+
+Choose a scenario from the [Scenarios catalog](../README.md#scenarios) and follow its README to inject the fault, then remediate with the approval-gated action above. New to the VM track? Start with [`disk-full`](../scenarios/disk-full/README.md), which fills the `C:` drive until the disk-pressure alert fires.
+

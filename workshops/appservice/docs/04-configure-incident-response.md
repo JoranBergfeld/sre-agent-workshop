@@ -101,7 +101,7 @@ You should now see your incident response plan listed in the **Incident response
 
 ## Verify Alert Rules Exist
 
-Your App Service should already have alert rules from the Bicep deployment in Module 1. These are **log-based (scheduled query) alerts** that query the Log Analytics workspace — not metric-based alerts.
+On this track there are **no base alerts** — every alert is contributed by a Break It scenario and wired automatically through the generated aggregator when you deploy the infrastructure. These are **log-based (scheduled query) alerts** that query Application Insights — not metric-based alerts.
 
 ```bash
 # List scheduled query rules in the resource group
@@ -111,11 +111,11 @@ az resource list \
   --query "[].name" -o tsv
 ```
 
-You should see alert rules for HTTP 500 errors and App Service restarts, wired to query `AppServiceConsoleLogs` and `AppServiceHTTPLogs` in Log Analytics.
+You'll see **one alert per scenario**, each querying the Application Insights `AppRequests` table. For example, `canary-bad-release` adds `srelabapp-canary-5xx` and `red-button-500` adds `srelabapp-redbutton-5xx`. The always-current list of scenarios lives in the [Scenarios catalog](../README.md#scenarios) — each scenario contributes its own alert.
 
-> **Why log-based alerts?** App Service doesn't expose a native `restart_count` metric suitable for `az monitor metrics alert`. Instead, Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `AppServiceConsoleLogs` and `AppServiceHTTPLogs` tables in Log Analytics — this is the standard approach for application-level alerting in App Service.
+> **Why log-based alerts?** These alerts query the Application Insights `AppRequests` table via `Microsoft.Insights/scheduledQueryRules`, so they fire on real HTTP 5xx responses regardless of how the app logs internally — the standard approach for request-level alerting on App Service.
 
-If the list is empty, re-run the **Deploy App Service Infrastructure** workflow from Module 1 — the alerts are defined in `workshops/appservice/infra/bicep/main.bicep`.
+If the list is empty, re-run the **Deploy App Service Infrastructure** workflow from Module 1 — scenario alerts are generated into `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep` and deployed with the infrastructure.
 
 ## How It All Connects
 
@@ -137,13 +137,15 @@ Here's the flow when something goes wrong:
 7. Agent proposes fix OR executes fix (based on autonomy level)
 ```
 
-In your case, when the app starts failing in Module 5, Azure Monitor will detect the spike in errors. The SRE Agent will pick up the alert, query the app's logs, see authentication failures, check the Bicep deployment history, find the removed SQL grant, and either propose or automatically open a PR to restore it.
+For example, when you run the `red-button-500` scenario in Module 5, clicking the red button makes the app return HTTP 500s and Azure Monitor detects the spike. The SRE Agent picks up the alert, queries the app's logs and request telemetry to pinpoint the failing endpoint, and drives the fix through this track's GitHub flow (issue → PR → deploy).
 
 ## What Happens Next
 
-In **Module 5: Break It**, we'll intentionally introduce a fault by editing the Bicep template to remove the managed-identity SQL grant. When the change deploys:
+In **Module 5: Break It**, you'll intentionally inject a fault, then watch the SRE Agent detect and diagnose it. Each Break It scenario is self-contained — pick one from the [Scenarios catalog](../README.md#scenarios) and follow its README (inject → validate → let the agent remediate → clean up).
 
-1. The app will start failing to authenticate to Azure SQL
+As an example, the [`red-button-500`](../scenarios/red-button-500/README.md) scenario serves a minimal two-button page whose red button triggers an HTTP 500. When you inject it:
+
+1. Clicking the red button makes the app return HTTP 500 errors
 2. Azure Monitor will detect the error spike
 3. The SRE Agent will pick up the alert and begin investigating
 4. In **Module 6: Watch SRE Agent**, you'll observe the agent's investigation in real time
@@ -152,7 +154,4 @@ Now that incident response is configured, you're ready to introduce the fault.
 
 ## Next Step
 
-→ **Module 5: Break It** — the break scenario for this track is published separately under
-`workshops/appservice/scenarios/`. Once a scenario is available, follow its README to inject the
-fault, then return here. In the meantime, preview what the agent does in
-[Module 6: Watch the SRE Agent](./90-watch-sre-agent.md).
+→ **Module 5: Break It** — choose a scenario from the [Scenarios catalog](../README.md#scenarios) and follow its README to inject the fault, then return here. New to the workshop? Start with [`red-button-500`](../scenarios/red-button-500/README.md) — a minimal two-button page whose red button triggers an HTTP 500, the fastest way to see the agent work end-to-end.
