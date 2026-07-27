@@ -8,22 +8,31 @@ asynchronously because `--no-wait` is used.
 Bash:
 
 ```bash
-RESOURCE_GROUP="rg-srelabapp"
-az group delete --name "$RESOURCE_GROUP" --yes --no-wait
+workshops/appservice/scripts/cleanup.sh
+```
+
+For a custom resource group:
+
+```bash
+workshops/appservice/scripts/cleanup.sh rg-myworkload
 ```
 
 PowerShell 7:
 
 ```powershell
-$ResourceGroup = "rg-srelabapp"
-az group delete --name $ResourceGroup --yes --no-wait
+./workshops/appservice/scripts/cleanup.ps1
 ```
 
-Use `rg-<workload>` if you selected a custom workload. The resource group
-contains the B1 App Service, Log Analytics, Application Insights, scenario
-alert, GitHub deployment user-assigned managed identity, its federated
-credential, and its role assignment. If you created the SRE Agent in this
-resource group, it is removed as well.
+For a custom resource group:
+
+```powershell
+./workshops/appservice/scripts/cleanup.ps1 -ResourceGroup rg-myworkload
+```
+
+The scripts call `az group delete --yes --no-wait`. The resource group contains
+the B1 App Service, monitoring resources, GitHub deployment user-assigned
+managed identity, and its federated identity credential (FIC). If you created
+the SRE Agent in this resource group, it is removed as well.
 
 Check deletion safely:
 
