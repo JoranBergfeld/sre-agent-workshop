@@ -1,32 +1,43 @@
-# Operational Guidelines
+# App Service Handover Operational Guidelines
 
-## Infrastructure as Code — No Direct Changes
+## Purpose
 
-All infrastructure changes MUST go through code. Never modify Azure resources directly via CLI, portal, or API during incident remediation.
+Use an approval-gated handoff from the Azure SRE Agent to the GitHub Copilot
+coding agent. The SRE Agent investigates and proposes the handoff. Explicit
+operator approval gates issue creation, and the operator retains control of
+review, merge, and recovery.
 
-**When you identify a fix:**
+## Incident policy
 
-1. **Create a GitHub issue** describing the root cause, affected resources, and the required Bicep change
-2. **Assign the issue to `@copilot`** (the Copilot coding agent) — it will pick up the issue, create a branch, make the fix, and open a PR automatically
-3. After the PR is merged, an operator manually triggers the **Deploy App Service Infrastructure** workflow to apply the change (deployment is intentionally manual via `workflow_dispatch`, not automatic on merge)
+1. Investigate the alert and gather evidence before proposing a fix.
+2. Correlate failed `POST /api/feature` requests with
+   `NotImplementedException` telemetry and the connected repository.
+3. Do not make direct Azure changes or edit code during incident response.
+4. Present the diagnosis and ask for explicit operator approval before creating
+   a GitHub issue.
+5. After approval, create exactly one issue and assign it to
+   `copilot-swe-agent`.
+6. The SRE Agent must not create a branch or pull request, merge changes, or
+   deploy the application. Those steps belong to the Copilot coding agent and
+   operator.
 
-**Do NOT:**
-- Run `az` CLI commands to directly create, modify, or delete Azure resources
-- Use the Azure portal to make manual changes
-- Apply temporary fixes outside of version control
-- Create branches or PRs yourself — delegate to `@copilot` via GitHub issues
+## Required issue content
 
-**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `workshops/appservice/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
+The issue must state:
 
-## Architecture Overview
+- Route: `POST /api/feature`.
+- Current behavior: HTTP 500.
+- Expected behavior: HTTP 200 with exactly
+  `{"status":"completed","message":"The unfinished feature is now implemented."}`.
+- Preserve the existing `/health` behavior.
+- Replace the test that documents the broken behavior with a test for the
+  implemented success contract.
+- Make code-only changes. Do not modify Bicep or GitHub Actions workflows.
 
-- **App Service** (`srelabapp-web-{suffix}`): Linux B1 plan hosting the .NET 10 shop; endpoints `/`, `/health`, `/products`
-- **Azure SQL Database** (`srelabapp-sql-{suffix}` / `srelabapp-db`): catalog store, accessed passwordlessly via managed identity (no connection-string secrets)
-- **Managed Identity** (`srelabapp-id`): UAMI assigned to the web app; granted a least-privilege contained user (`db_datareader`) in Azure SQL
-- **Authentication chain**: Web App → User-Assigned Managed Identity → AAD token → Azure SQL contained user (`db_datareader`)
+## Recovery and closure
 
-## Telemetry
-
-- **Application Insights** (`srelabapp-ai`, workspace-based) collects requests, dependencies, and exceptions
-- **Log Analytics** (`srelabapp-law`) also receives App Service platform logs (`AppServiceConsoleLogs`, `AppServiceHTTPLogs`) via diagnostic settings
-- The shop logs failures to stdout (`AppServiceConsoleLogs`) and they surface as `AppExceptions` in App Insights
+1. The operator reviews and merges the Copilot pull request.
+2. The merge triggers the OIDC-based **Deploy App Service Application**
+   workflow.
+3. Validate the endpoint and health check after deployment. Close the issue and
+   incident only after recovery is confirmed.
