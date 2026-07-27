@@ -4,6 +4,7 @@ set -euo pipefail
 LOCATION="eastus2"
 WORKLOAD="srelabapp"
 PUBLISH_DIR=""
+UPSTREAM_REPOSITORY="JoranBergfeld/sre-agent-workshop"
 
 usage() {
   cat <<'EOF'
@@ -102,8 +103,8 @@ if [[ "$REPOSITORY" != */* ]] || [ -z "${REPOSITORY%%/*}" ] || [ -z "${REPOSITOR
 fi
 
 IS_TEMPLATE=$(gh api "repos/$REPOSITORY" --jq .is_template)
-if [ "$IS_TEMPLATE" = "true" ]; then
-  echo "This is a template repository. Select 'Use this template', clone the new repository, and run setup there." >&2
+if [ "$REPOSITORY" = "$UPSTREAM_REPOSITORY" ] || [ "$IS_TEMPLATE" = "true" ]; then
+  echo "Use the template, clone the generated repository, and run setup in the generated repository." >&2
   exit 1
 fi
 

@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$UpstreamRepository = "JoranBergfeld/sre-agent-workshop"
 
 function Invoke-NativeCommand {
     param(
@@ -78,8 +79,8 @@ try {
     $isTemplate = [string](Invoke-NativeCommand -Command "gh" -Arguments @(
         "api", "repos/$repository", "--jq", ".is_template"
     ))
-    if ($isTemplate.Trim() -eq "true") {
-        throw "This is a template repository. Select 'Use this template', clone the new repository, and run setup there."
+    if ($repository -eq $UpstreamRepository -or $isTemplate.Trim() -eq "true") {
+        throw "Use the template, clone the generated repository, and run setup in the generated repository."
     }
 
     $owner = $repositoryParts[0]

@@ -13,7 +13,7 @@ path from investigation to remediation.
 
 ## 🚀 Start here: App Service quickstart
 
-1. Select [**Use this template**](https://github.com/Azure/sre-agent-workshop/generate).
+1. Select [**Use this template**](https://github.com/JoranBergfeld/sre-agent-workshop/generate).
 2. Create a repository you control, then clone it:
 
    ```bash
@@ -210,5 +210,5 @@ MIT License.
 
 ---
 
-**Ready to begin?** [Create a repository from the template](https://github.com/Azure/sre-agent-workshop/generate)
+**Ready to begin?** [Create a repository from the template](https://github.com/JoranBergfeld/sre-agent-workshop/generate)
 and follow the [App Service handover track](workshops/appservice/README.md).
