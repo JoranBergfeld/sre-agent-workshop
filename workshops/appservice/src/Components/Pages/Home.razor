@@ -1,0 +1,49 @@
+﻿@page "/"
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SRE Agent to Copilot</PageTitle>
+
+<section class="handover-card" aria-labelledby="handover-title">
+    <p class="eyebrow">Incident response handover</p>
+    <h1 id="handover-title">SRE Agent to Copilot</h1>
+    <p class="intro">
+        Trigger the intentionally unfinished endpoint and observe the failure that
+        GitHub Copilot coding agent will resolve.
+    </p>
+
+    <button type="button" @onclick="RunFeature" disabled="@isRunning">
+        Run unfinished feature
+    </button>
+
+    @if (result is not null)
+    {
+        <div class="result" role="status" aria-live="polite">
+            <strong>HTTP @result.StatusCode</strong>
+            <span>@result.Message</span>
+        </div>
+    }
+</section>
+
+@code {
+    private FeatureResult? result;
+    private bool isRunning;
+
+    private async Task RunFeature()
+    {
+        isRunning = true;
+
+        try
+        {
+            result = await JSRuntime.InvokeAsync<FeatureResult>(
+                "featureDemo.run",
+                "/api/feature",
+                6);
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+
+    private sealed record FeatureResult(int StatusCode, string Message);
+}

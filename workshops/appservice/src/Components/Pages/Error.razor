@@ -1,0 +1,27 @@
+﻿@page "/error"
+@using System.Diagnostics
+
+<PageTitle>Error</PageTitle>
+
+<section class="handover-card">
+    <p class="eyebrow">Request error</p>
+    <h1>Something went wrong.</h1>
+    <p>The request could not be completed. Try again or return to the home page.</p>
+    @if (ShowRequestId)
+    {
+        <p class="request-id">
+            Request ID: <code>@RequestId</code>
+        </p>
+    }
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}
