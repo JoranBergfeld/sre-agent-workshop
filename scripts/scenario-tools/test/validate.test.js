@@ -19,6 +19,21 @@ test('valid scenario yields no cross-field errors', () => {
   assert.deepEqual(errs, []);
 });
 
+test('appservice scenario without remediate yields no cross-field errors', () => {
+  const manifest = {
+    ...baseManifest,
+    id: 'cloud-agent-handover',
+    title: 'SRE Agent to Copilot Handover',
+    track: 'appservice',
+  };
+
+  const errs = checkScenario(
+    { track: 'appservice', id: 'cloud-agent-handover', manifest, dir: '/x/cloud-agent-handover' },
+    { fileExists }
+  );
+  assert.deepEqual(errs, []);
+});
+
 test('id must equal folder name', () => {
   const errs = checkScenario(
     { track: 'vm', id: 'other', manifest: baseManifest, dir: '/x/other' },
