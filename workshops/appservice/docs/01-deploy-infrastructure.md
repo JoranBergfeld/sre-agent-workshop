@@ -65,8 +65,11 @@ Save the application URL for later modules.
 
 ### Source template rejected
 
-If setup says `This is a template repository`, return to GitHub, select
-**Use this template**, clone the generated repository, and run setup there.
+If setup says the repository is still a template, return to GitHub, select
+**Use this template**, clone the generated repository, and run setup in the
+generated repository. Current setup output says:
+
+`Use the template, clone the generated repository, and run setup in the generated repository.`
 
 ### Copilot is not assignable
 
