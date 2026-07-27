@@ -7,23 +7,47 @@ param workloadName string
 @description('Resource tags')
 param tags object
 
-// ──────────────────────────────────────────────
-// User-Assigned Managed Identity
-// Assigned to the App Service and granted a least-privilege
-// contained user in Azure SQL (the grant runs in CI, not Bicep).
-// ──────────────────────────────────────────────
-resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${workloadName}-id'
+@description('GitHub repository in owner/repository format')
+param githubRepository string
+
+var websiteContributorRoleId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  'de139f84-1756-47ae-9be6-808fbbe84772'
+)
+
+resource deploymentIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${workloadName}-github-deploy'
   location: location
   tags: tags
 }
 
-// ── Outputs ──────────────────────────────────
-@description('User-Assigned Managed Identity client ID')
-output uamiClientId string = uami.properties.clientId
+resource githubMainFederatedCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: deploymentIdentity
+  name: 'github-main'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: 'repo:${githubRepository}:ref:refs/heads/main'
+    audiences: [
+      'api://AzureADTokenExchange'
+    ]
+  }
+}
 
-@description('User-Assigned Managed Identity principal ID')
-output uamiPrincipalId string = uami.properties.principalId
+resource websiteContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, deploymentIdentity.id, websiteContributorRoleId)
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: websiteContributorRoleId
+    principalId: deploymentIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
-@description('User-Assigned Managed Identity resource ID')
-output uamiId string = uami.id
+@description('Deployment identity client ID')
+output clientId string = deploymentIdentity.properties.clientId
+
+@description('Deployment identity principal ID')
+output principalId string = deploymentIdentity.properties.principalId
+
+@description('Deployment identity resource ID')
+output resourceId string = deploymentIdentity.id
