@@ -1,8 +1,10 @@
 # Contributing
 
 Thanks for extending the SRE Agent Workshop! The most common contribution is **a new
-scenario**. Scenarios are self-contained folders governed by a manifest contract, so adding
-one requires **no edits to shared infrastructure or tooling**.
+scenario**. Scenarios are self-contained folders governed by a manifest contract. In most
+cases, adding one does not require hand-editing shared infrastructure or tooling because the
+generator updates the track's derived artifacts; a scenario that introduces a new track-wide
+capability may still require focused shared changes.
 
 ## Prerequisites
 
@@ -19,22 +21,30 @@ one requires **no edits to shared infrastructure or tooling**.
    # e.g. scripts/new-scenario.sh vm memory-leak "Memory Leak"
    ```
 
-   `<track>` is `aks` or `vm`; `<scenario-id>` is kebab-case and becomes the folder name.
+   `<track>` is `aks`, `vm`, or `appservice`; `<scenario-id>` is kebab-case and becomes
+   the folder name.
 
 2. **Fill in `scenario.yaml`.** Required: `id` (== folder name), `title`, `track`,
-   `summary`, `severity` (0–4), `inject`, `validate`, `docPage`. Recommended: `estimatedMinutes`,
-   `difficulty`, `learningObjectives`, `signal`, `remediate`, `investigation`. The full
-   contract lives in [`schemas/scenario.schema.json`](schemas/scenario.schema.json).
+   `summary`, `severity` (0–4), `inject`, `validate`, and `docPage`. Optional:
+   `estimatedMinutes`, `difficulty`, `learningObjectives`, `signal`, `remediate`, and
+   `investigation`. The full contract lives in
+   [`schemas/scenario.schema.json`](schemas/scenario.schema.json).
 
-3. **Implement the scripts** — both `.sh` and `.ps1` for `inject`, `validate`, and each
-   `remediate` action. Keep each remediation script named after its `action` (the VM approval
-   gate resolves actions by globbing `scenarios/*/<action>.sh`, so action names are unique
-   per track).
+3. **Implement the scripts** — both `.sh` and `.ps1` are required for `inject` and
+   `validate`. Remediation is optional; when `remediate` is present, every action also needs
+   both shell variants.
 
-4. **Author `alert.bicep` and `query.kql`.** `alert.bicep` must declare exactly
-   `location`, `workloadName`, `tags`, and `scopeResourceId`, and bind `scopes: [scopeResourceId]`.
-   The generator wires it into the track aggregator automatically. If your scenario needs no
-   alert, drop `signal` from the manifest and delete `alert.bicep`.
+   The remediation script basename must equal `action` only on the **VM** track, whose
+   approval gate resolves actions by globbing `scenarios/*/<action>.sh`. Do not apply that
+   rule globally: the AKS track intentionally uses `action: restore-cosmos-rbac` with
+   `remediate.sh` and `remediate.ps1`. Action names must still be unique within each track.
+
+4. **Author the optional signal and investigation files.** When a scenario includes
+   `signal`, its `alert.bicep` must declare exactly `location`, `workloadName`, `tags`, and
+   `scopeResourceId`, and bind `scopes: [scopeResourceId]`. The generator wires it into the
+   track aggregator automatically. If the scenario needs no alert, omit `signal` and
+   `alert.bicep`. When `investigation` is present, add the referenced query file (normally
+   `query.kql`).
 
 5. **Write `README.md`** — the attendee walkthrough (inject → observe → investigate →
    remediate → validate).
@@ -62,17 +72,24 @@ and `az bicep build` on every `alert.bicep` + aggregator.
 
 ## Add a track (advanced)
 
-Tracks are the closed set in `scripts/scenario-tools/lib/paths.js` (`TRACKS`). To add one
-(e.g. `appservice`):
+Tracks are the closed set in `scripts/scenario-tools/lib/paths.js` (`TRACKS`). Current
+registrations are:
 
-1. Add an entry to `TRACKS` with its alert `scopeParam` (the Bicep param name the aggregator
-   passes into each scenario's `scopeResourceId`, e.g. an App Service resource ID).
-2. Create `workshops/<track>/` with `README.md` (include the
+- `aks` → `clusterId`
+- `vm` → `logAnalyticsResourceId`
+- `appservice` → `logAnalyticsResourceId`
+
+To add another track:
+
+1. Add an entry to `TRACKS` with its alert `scopeParam`, the Bicep parameter the generated
+   aggregator passes into each scenario's `scopeResourceId`.
+2. Add the track value to `schemas/scenario.schema.json`
+   (`properties.track.enum`).
+3. Create `workshops/<track>/` with `README.md` (include the
    `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->` markers), `docs/`, `infra/bicep/`,
    and `scenarios/`.
-3. If the track deploys alerts, have `infra/bicep/main.bicep` call the generated
+4. If the track deploys alerts, have `infra/bicep/main.bicep` call the generated
    `modules/scenario-alerts.bicep` with the track's scope resource ID.
-4. Add the track's enum value to `schemas/scenario.schema.json` (`properties.track.enum`).
 5. Add a workflow `validate-<track>-infra.yml` mirroring the existing ones, repathed to
    `workshops/<track>/infra/**`.
 6. Scaffold a first scenario and run `scripts/validate-scenarios.sh --write`.

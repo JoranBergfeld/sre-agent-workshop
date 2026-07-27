@@ -8,8 +8,8 @@
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/dotnet:2": { "version": "10.0" }
   },
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq",
-  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore workshops/appservice/src/Shop.csproj",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq zip",
+  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore workshops/appservice/tests/HandoverApp.Tests.csproj",
   "forwardPorts": [5000],
   "hostRequirements": { "cpus": 4 },
   "customizations": {

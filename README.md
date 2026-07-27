@@ -1,14 +1,45 @@
 # Azure SRE Agent Workshop 🔧
 
-**Deploy infrastructure, break it on purpose, and watch AI fix it.**
+**The fastest path is a minimal App Service handover: trigger a known application
+failure, watch Azure SRE Agent diagnose it, then approve a GitHub issue for the
+Copilot coding agent to fix.**
 
-A hands-on workshop that teaches operations teams how the Azure SRE Agent detects, diagnoses, and remediates infrastructure faults across **Kubernetes and VM-based enterprise workloads**. You'll provision real infrastructure, deploy an application, introduce realistic failures, and observe the SRE Agent investigate and propose fixes via GitHub.
+The repository remains a multi-track workshop for learning incident response on
+Azure App Service, AKS, and VM-based enterprise workloads. Each track provisions
+real infrastructure, injects reproducible faults, and demonstrates a controlled
+path from investigation to remediation.
 
 ---
 
-## Start here
+## 🚀 Start here: App Service quickstart
 
-New to the Azure SRE Agent? Read the shared concept layer first:
+1. Select [**Use this template**](https://github.com/Azure/sre-agent-workshop/generate).
+2. Create a repository you control, then clone it:
+
+   ```bash
+   git clone https://github.com/<owner>/<repository>.git
+   cd <repository>
+   ```
+
+3. Run the App Service setup with Bash or PowerShell:
+
+   ```bash
+   workshops/appservice/scripts/setup.sh
+   ```
+
+   ```powershell
+   ./workshops/appservice/scripts/setup.ps1
+   ```
+
+4. Follow the [App Service: SRE Agent to Copilot Handover](workshops/appservice/README.md).
+
+The App Service prerequisites include Azure and GitHub access, authenticated
+`az` and `gh` CLIs, .NET 10, and permission to create role assignments. The
+track guide covers these requirements and cleanup.
+
+## Shared concepts
+
+These track-agnostic guides explain the service and incident-response model:
 
 1. [What is the SRE Agent?](docs/00-what-is-sre-agent.md)
 2. [Why use it?](docs/01-why-sre-agent.md)
@@ -16,163 +47,168 @@ New to the Azure SRE Agent? Read the shared concept layer first:
 
 ## Choose a track
 
-| Track | Focus | Start |
-| --- | --- | --- |
-| **AKS / Cloud-Native** | Kubernetes workload identity, CosmosDB RBAC fault injection | [workshops/aks/](workshops/aks/README.md) |
-| **VM / Enterprise Migration** | Windows Server + IIS, Bastion access, approval-gated remediation | [workshops/vm/](workshops/vm/README.md) |
-| **App Service / PaaS** | .NET 10 shop on App Service (Linux) + Azure SQL, passwordless managed identity | [workshops/appservice/](workshops/appservice/README.md) |
+| Track | Level | Focus | Start |
+| --- | --- | --- | --- |
+| **App Service / PaaS** | **Beginner — recommended** | Minimal .NET 10 Blazor app, App Service telemetry, SRE Agent diagnosis, and an approval-gated handover to the Copilot coding agent | [workshops/appservice/](workshops/appservice/README.md) |
+| **AKS / Cloud-Native** | Advanced alternative | Kubernetes workload identity, Cosmos DB RBAC failures, and GitOps-based remediation | [workshops/aks/](workshops/aks/README.md) |
+| **VM / Enterprise Migration** | Advanced alternative | Windows Server and IIS operations, Bastion access, and approval-gated remediation scripts | [workshops/vm/](workshops/vm/README.md) |
 
-Each track follows the same loop: **deploy from code → inject a realistic fault →
-watch the agent investigate → apply controlled remediation → capture a postmortem.**
+Each track follows the same broad loop: **deploy from code → inject a realistic
+fault → watch the agent investigate → apply controlled remediation → capture
+what was learned.**
 
 ## Open in Codespaces
 
-You can run any track in a preconfigured [GitHub Codespace](https://docs.github.com/codespaces)
-— no local tool installation required. Each track has its own dev container under
-`.devcontainer/<track>/` bundling that track's toolchain (Azure CLI + Bicep, PowerShell,
-GitHub CLI, Node, jq, plus kubectl for AKS or .NET 10 for App Service).
+You can run a generated repository in a preconfigured
+[GitHub Codespace](https://docs.github.com/codespaces) instead of installing the
+toolchain locally. Each track has a dev container under `.devcontainer/<track>/`
+with Azure CLI + Bicep, PowerShell, GitHub CLI, Node.js, and its track-specific
+tools. The recommended App Service configuration also includes .NET 10, `jq`,
+and `zip`; the AKS configuration adds Kubernetes tooling.
 
-1. Click **Code → Codespaces → New with options…**
-2. Under **Dev container configuration**, pick your track: **SRE Workshop — AKS**,
-   **SRE Workshop — VM**, or **SRE Workshop — App Service**.
-3. Create the Codespace and wait for setup to finish.
-
-When it opens, authenticate the CLIs interactively with `az login` and `gh auth login`.
+1. In the repository created from the template, select **Code → Codespaces →
+   New with options…**
+2. Under **Dev container configuration**, select **SRE Workshop — App Service**
+   for the quickstart, or choose **SRE Workshop — AKS** / **SRE Workshop — VM**
+   for an advanced track.
+3. Create the Codespace and wait for its setup commands to finish.
+4. Authenticate interactively with `az login` and `gh auth login` before running
+   the selected track's setup or deployment steps.
 
 ## Scenarios at a glance
 
+- App Service scenarios: [workshops/appservice/scenarios/INDEX.md](workshops/appservice/scenarios/INDEX.md)
 - AKS scenarios: [workshops/aks/scenarios/INDEX.md](workshops/aks/scenarios/INDEX.md)
 - VM scenarios: [workshops/vm/scenarios/INDEX.md](workshops/vm/scenarios/INDEX.md)
 
 ## Contributing a scenario
 
-This repo is built to grow. See [CONTRIBUTING.md](CONTRIBUTING.md) to add a new scenario
-(one self-contained folder) or a whole new track.
+This repository is designed to grow. See [CONTRIBUTING.md](CONTRIBUTING.md) to
+add a self-contained scenario or register another track.
 
 ---
 
-## 💰 Cost Estimate
+## 💰 Cost planning
 
-This workshop runs on Azure resources that incur real costs. The following estimate assumes the full ~3–4 hour workshop:
+Azure resources incur costs only for the track you deploy. The recommended App
+Service quickstart does **not** provision AKS or VM resources. Pricing varies by
+region, currency, retention, traffic, and SRE Agent usage, so confirm current
+Azure pricing before deployment.
 
-| Resource | Cost/Hour | Notes |
-|----------|-----------|-------|
-| AKS (2× Standard_DS2_v2 nodes) | ~$0.25 | Largest cost; note: nodes run during entire workshop |
-| CosmosDB (serverless) | ~$0.05 | Minimal RUs for a workshop scenario |
-| Log Analytics + App Insights | ~$0.10 | Standard monitoring pricing |
-| SRE Agent | ~$0.50 | Depends on model provider and investigation volume |
-| **Total** | **~$1.00/hr** | ~$4–6 for full workshop |
+| Track | Main cost drivers | Planning guidance |
+| --- | --- | --- |
+| **App Service** | B1 Linux App Service, Log Analytics, Application Insights, and SRE Agent usage | Usually the lowest-infrastructure-cost track; allow for usage-based monitoring and agent charges |
+| **AKS** | Two AKS worker nodes, Cosmos DB, Log Analytics, Application Insights, and SRE Agent usage | Cluster nodes run until cleanup and are typically the largest AKS-track cost |
+| **VM** | Windows VMs, Azure Bastion, Log Analytics, Application Insights, and SRE Agent usage | VM and Bastion runtime can make this track more expensive; auto-shutdown reduces but does not eliminate cost |
 
-**Budget recommendation: Set aside $10 to be safe.** Remember to run the **Cleanup** module when done—resources still incur costs when left running.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Azure subscription with **Contributor** access
-- Azure CLI and `kubectl` installed
-- GitHub account (you'll fork this repo)
-- Supported region: **East US 2**, **Sweden Central**, or **Australia East**
-- Outbound network access to `*.azuresre.ai` (SRE Agent access)
-
-### Clone & Begin
-
-```bash
-# 1. Fork this repository on GitHub
-#    (Go to https://github.com/Azure/sre-agent-workshop and click "Fork")
-
-# 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/sre-agent-workshop.git
-cd sre-agent-workshop
-
-# 3. Read the shared concept layer, then pick a track
-cat docs/00-what-is-sre-agent.md
-
-# 4. Follow your track's walkthrough
-cat workshops/aks/README.md   # or: cat workshops/vm/README.md
-```
-
-Then follow each module in order. Each one builds on the previous.
+Set a budget and run the selected track's cleanup module as soon as you finish.
+Resources left deployed continue to incur charges.
 
 ---
 
-## 📁 Repository Structure
+## 📁 Repository structure
 
-```
+```text
 sre-agent-workshop/
-├── README.md                     # This portfolio landing
+├── README.md                     # Multi-track landing and recommended quickstart
 ├── CONTRIBUTING.md               # How to add scenarios and tracks
 ├── docs/                         # Shared, track-agnostic concept layer
 │   ├── 00-what-is-sre-agent.md
 │   ├── 01-why-sre-agent.md
 │   └── 02-how-it-works.md
 ├── workshops/
-│   ├── aks/                      # AKS / Cloud-Native track
+│   ├── appservice/               # Beginner SRE Agent → Copilot handover
 │   │   ├── README.md
-│   │   ├── docs/                 # Module walkthroughs (00-04, 90, 99)
-│   │   ├── knowledge/            # SRE Agent knowledge files (operational guidelines)
-│   │   ├── infra/bicep/          # Bicep modules + generated scenario-alerts
+│   │   ├── docs/                 # App Service module walkthroughs
+│   │   ├── infra/bicep/          # App Service, monitoring, identity, and alerts
+│   │   ├── knowledge/            # SRE Agent operational guidance
+│   │   ├── scenarios/            # Handover fault scenario (+ INDEX.md)
+│   │   ├── scripts/              # Bash and PowerShell setup / cleanup
+│   │   ├── src/                  # .NET 10 Blazor application
+│   │   └── tests/                # Application integration tests
+│   ├── aks/                      # Advanced cloud-native track
+│   │   ├── docs/
+│   │   ├── infra/bicep/
 │   │   ├── k8s/                  # Kubernetes manifests
-│   │   ├── src/app/              # Node.js web app
-│   │   ├── scripts/              # setup / cleanup helpers
-│   │   └── scenarios/            # Self-contained fault scenarios (+ INDEX.md)
-│   └── vm/                       # VM / Enterprise Migration track (same shape)
+│   │   ├── knowledge/
+│   │   ├── scenarios/
+│   │   ├── scripts/
+│   │   └── src/app/              # Node.js application
+│   └── vm/                       # Advanced enterprise-migration track
+│       ├── docs/
+│       ├── infra/bicep/
+│       ├── scenarios/
+│       └── tools/                # Approval-gated remediation tooling
 ├── schemas/
-│   └── scenario.schema.json      # The scenario manifest contract
+│   └── scenario.schema.json      # Scenario manifest contract
 ├── scripts/
-│   ├── new-scenario.sh           # Scaffold a new scenario
-│   ├── validate-scenarios.sh     # Validate + regenerate indexes/aggregators
-│   └── scenario-tools/           # Node tooling behind the wrappers
-└── .github/workflows/            # Per-track deploy/validate + scenario CI
+│   ├── new-scenario.sh           # Scaffold a scenario
+│   ├── validate-scenarios.sh     # Validate and regenerate derived artifacts
+│   └── scenario-tools/           # Node.js tooling behind the wrappers
+├── .devcontainer/                # Per-track Codespaces configurations
+└── .github/workflows/            # Per-track deploy/validate and scenario CI
 ```
 
 ---
 
-## ⚠️ Important Notes
+## ⚠️ Important notes
 
 ### Regions
-The Azure SRE Agent is available in **East US 2**, **Sweden Central**, and **Australia East**. Choose one of these when provisioning your workshop environment.
 
-### Network Requirements
-- Your network must allow outbound HTTPS to `*.azuresre.ai`
-- If behind a corporate proxy, ensure it doesn't block this domain
+Azure SRE Agent is available in **East US 2**, **Sweden Central**, and
+**Australia East**. Choose a supported region when provisioning a workshop
+environment.
 
-### AKS Accessibility
-The AKS cluster must be public (not private). The SRE Agent needs network access to query cluster logs and metrics.
+### Network requirements
 
-### Cleanup is Critical
-Resources like AKS and CosmosDB incur hourly costs even if idle. **Always run the Cleanup module** to delete resources when done. A forgotten cluster can cost $20–30 overnight.
+- Allow outbound HTTPS to `*.azuresre.ai`.
+- If you use a corporate proxy, confirm that it does not block this domain.
 
-### Production Use
-This workshop is designed for learning. Do not use these patterns (especially Autonomous autonomy level) in production without additional controls, approval gates, and testing.
+### AKS accessibility
+
+The AKS track requires a public cluster so the SRE Agent can query cluster logs
+and metrics. This requirement does not apply to the App Service or VM track.
+
+### Cleanup is critical
+
+Every track creates billable resources. Run its **Cleanup** module when finished;
+AKS nodes, Windows VMs, Bastion, App Service, and monitoring resources can
+continue accruing charges while deployed.
+
+### Production use
+
+This workshop is designed for learning. Do not apply its autonomy settings or
+remediation patterns to production without additional controls, approval gates,
+and testing.
 
 ---
 
-## 📚 Resources & References
+## 📚 Resources and references
 
-- **[Azure SRE Agent Docs](https://sre.azure.com/docs/overview)** — Full SRE Agent documentation
-- **[Azure SRE Agent Portal](https://sre.azure.com)** — Where you create and monitor agents
-- **[AKS Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview)** — Deep dive into workload identity in Kubernetes
-- **[Bicep Documentation](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)** — Learn Infrastructure-as-Code with Bicep
-- **[Azure Monitor Alerts](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-overview)** — Alert rules and incident response
+- **[Azure SRE Agent Docs](https://sre.azure.com/docs/overview)** — SRE Agent documentation
+- **[Azure SRE Agent Portal](https://sre.azure.com)** — Create and monitor agents
+- **[Azure App Service Documentation](https://learn.microsoft.com/azure/app-service/)** — Recommended-track hosting platform
+- **[AKS Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview)** — AKS identity details
+- **[Bicep Documentation](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)** — Infrastructure as code
+- **[Azure Monitor Alerts](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-overview)** — Alerting and incident response
 
 ---
 
 ## 🤝 Contributing
 
-Found an issue or want to improve the workshop? Contributions welcome!
+Contributions are welcome:
 
-- **Report issues:** Open a GitHub issue with details (module, error, screenshots)
-- **Suggest improvements:** Fork, make changes, and open a pull request
-- **Ask questions:** Discussion welcome in issue threads
+- **Report issues:** Open a GitHub issue with the track, module, error, and useful diagnostics.
+- **Suggest improvements:** Create a branch in your repository and open a pull request.
+- **Ask questions:** Start a discussion in the relevant issue thread.
 
 ---
 
 ## 📄 License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License.
 
 ---
 
-**Ready to begin?** Start with [What is the SRE Agent?](docs/00-what-is-sre-agent.md) →
+**Ready to begin?** [Create a repository from the template](https://github.com/Azure/sre-agent-workshop/generate)
+and follow the [App Service handover track](workshops/appservice/README.md).
