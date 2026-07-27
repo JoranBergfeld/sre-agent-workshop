@@ -1,0 +1,14 @@
+// Failed feature requests and their operation identifiers.
+AppRequests
+| where TimeGenerated > ago(30m)
+| where Name contains "POST /api/feature" or Url endswith "/api/feature"
+| where Success == false or toint(ResultCode) >= 500
+| project TimeGenerated, Name, Url, ResultCode, Success, OperationId
+| order by TimeGenerated desc
+
+// Correlate the request OperationId with the intentional missing implementation.
+// AppExceptions
+// | where TimeGenerated > ago(30m)
+// | where ExceptionType endswith "NotImplementedException"
+// | project TimeGenerated, ExceptionType, OuterMessage, OperationId
+// | order by TimeGenerated desc

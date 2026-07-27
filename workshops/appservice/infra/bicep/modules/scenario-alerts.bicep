@@ -13,18 +13,8 @@ param tags object
 @description('Scope resource ID each scenario alert binds to')
 param logAnalyticsResourceId string
 
-module canaryBadReleaseAlert '../../../scenarios/canary-bad-release/alert.bicep' = {
-  name: 'alert-canary-bad-release'
-  params: {
-    location: location
-    workloadName: workloadName
-    tags: tags
-    scopeResourceId: logAnalyticsResourceId
-  }
-}
-
-module redButton500Alert '../../../scenarios/red-button-500/alert.bicep' = {
-  name: 'alert-red-button-500'
+module cloudAgentHandoverAlert '../../../scenarios/cloud-agent-handover/alert.bicep' = {
+  name: 'alert-cloud-agent-handover'
   params: {
     location: location
     workloadName: workloadName

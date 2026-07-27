@@ -4,5 +4,4 @@
 
 | Scenario | Severity | Est. | Difficulty | Summary |
 | --- | --- | --- | --- | --- |
-| [Canary Release Regression](canary-bad-release/) | 3 | 30m | intermediate | A new shop release with a SQL schema-mismatch bug is deployed to a staging slot and given 50% canary traffic, so ~half of /products calls return 500 while /health stays green and the production slot is unaffected. |
-| [Red Button 500](red-button-500/) | 2 | 15m | beginner | A minimalistic two-button page ships a broken "red" feature — clicking red calls /api/red, which returns HTTP 500, while the green button (/api/green) and /health stay 200. A burst of red-button traffic trips a 5xx alert and the SRE Agent diagnoses the failing endpoint and drives the fix. |
+| [SRE Agent to Copilot Handover](cloud-agent-handover/) | 2 | 20m | beginner | Blazor app ships one unfinished endpoint; button burst 500 alerts SRE Agent; after learner approval issue assigned to Copilot. |
