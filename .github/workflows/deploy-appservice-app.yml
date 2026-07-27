@@ -1,5 +1,3 @@
-# Builds and deploys the .NET 10 shop to App Service, then runs the DB
-# schema + managed-identity grant via sqlcmd (AAD auth as the SQL admin SP).
 name: Deploy App Service Application
 
 on:
@@ -7,13 +5,8 @@ on:
     branches: [main]
     paths:
       - 'workshops/appservice/src/**'
-      - 'workshops/appservice/db/**'
+      - 'workshops/appservice/tests/**'
   workflow_dispatch:
-    inputs:
-      workloadName:
-        description: 'Workload name (must match the infra deployment)'
-        type: string
-        default: srelabapp
 
 permissions:
   id-token: write
@@ -22,8 +15,6 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabapp' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,84 +24,28 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish app
-        run: |
-          dotnet publish workshops/appservice/src/Shop.csproj -c Release -o ./publish
-          cd publish && zip -r ../app.zip . && cd ..
+      - name: Test application
+        run: dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+
+      - name: Publish application
+        run: dotnet publish workshops/appservice/src/HandoverApp.csproj --configuration Release --output publish
+
+      - name: Create deployment archive
+        working-directory: publish
+        run: zip -r "$GITHUB_WORKSPACE/app.zip" .
 
       - name: Azure Login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Resolve resource names
-        id: names
-        run: |
-          WEB_APP=$(az webapp list -g "rg-${{ env.WORKLOAD }}" --query "[0].name" -o tsv)
-          SQL_FQDN=$(az sql server list -g "rg-${{ env.WORKLOAD }}" --query "[0].fullyQualifiedDomainName" -o tsv)
-          UAMI_CLIENT_ID=$(az identity show --name "${{ env.WORKLOAD }}-id" -g "rg-${{ env.WORKLOAD }}" --query clientId -o tsv)
-          echo "web_app=$WEB_APP" >> "$GITHUB_OUTPUT"
-          echo "sql_fqdn=$SQL_FQDN" >> "$GITHUB_OUTPUT"
-          echo "uami_client_id=$UAMI_CLIENT_ID" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy zip to App Service
+      - name: Deploy application
         run: |
           az webapp deploy \
-            --resource-group "rg-${{ env.WORKLOAD }}" \
-            --name "${{ steps.names.outputs.web_app }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_WEBAPP_NAME }}" \
             --src-path app.zip \
-            --type zip
-
-      - name: Deploy zip to staging slot
-        run: |
-          SLOT=$(az webapp deployment slot list \
-            --resource-group "rg-${{ env.WORKLOAD }}" \
-            --name "${{ steps.names.outputs.web_app }}" \
-            --query "[?name=='staging'].name" -o tsv)
-          if [ -n "$SLOT" ]; then
-            az webapp deploy \
-              --resource-group "rg-${{ env.WORKLOAD }}" \
-              --name "${{ steps.names.outputs.web_app }}" \
-              --slot staging \
-              --src-path app.zip \
-              --type zip
-          else
-            echo "::notice::staging slot not present — skipping slot seed. Re-run 'Deploy App Service Infrastructure' to provision it (needed for the canary-bad-release scenario)."
-          fi
-
-      - name: Install sqlcmd (go-sqlcmd)
-        run: |
-          curl -fsSL -o sqlcmd.tar.bz2 \
-            https://github.com/microsoft/go-sqlcmd/releases/download/v1.8.0/sqlcmd-linux-amd64.tar.bz2
-          tar xjf sqlcmd.tar.bz2
-          sudo mv sqlcmd /usr/local/bin/sqlcmd
-          sqlcmd --version
-
-      - name: Apply DB schema and grant managed identity
-        env:
-          SQL_FQDN: ${{ steps.names.outputs.sql_fqdn }}
-          UAMI_CLIENT_ID: ${{ steps.names.outputs.uami_client_id }}
-        run: |
-          # Compute the SQL SID (little-endian client-id bytes) for the contained user.
-          UAMI_SID="0x$(python3 -c "import uuid;print(uuid.UUID('${UAMI_CLIENT_ID}').bytes_le.hex())")"
-
-          # AAD auth as the logged-in SP (the SQL admin) via ActiveDirectoryDefault.
-          sqlcmd --authentication-method ActiveDirectoryDefault \
-            -S "${SQL_FQDN}" -d "${{ env.WORKLOAD }}-db" \
-            -i workshops/appservice/db/schema.sql
-
-          sqlcmd --authentication-method ActiveDirectoryDefault \
-            -S "${SQL_FQDN}" -d "${{ env.WORKLOAD }}-db" \
-            -v uamiName="${{ env.WORKLOAD }}-id" uamiSid="${UAMI_SID}" \
-            -i workshops/appservice/db/grant.sql
-
-      - name: Print app URL
-        run: |
-          HOST=$(az webapp show -g "rg-${{ env.WORKLOAD }}" -n "${{ steps.names.outputs.web_app }}" --query defaultHostName -o tsv)
-          echo "============================================"
-          echo "  Application Deployment Complete"
-          echo "============================================"
-          echo "App URL:   https://${HOST}"
-          echo "Health:    https://${HOST}/health"
-          echo "Products:  https://${HOST}/products"
-          echo "============================================"
+            --type zip \
+            --output none

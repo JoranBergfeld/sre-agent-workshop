@@ -1,0 +1,31 @@
+name: Validate App Service Application
+
+on:
+  pull_request:
+    paths:
+      - 'workshops/appservice/src/**'
+      - 'workshops/appservice/tests/**'
+      - '.github/workflows/validate-appservice-app.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'workshops/appservice/tests/**'
+      - '.github/workflows/validate-appservice-app.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test application
+        run: dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
