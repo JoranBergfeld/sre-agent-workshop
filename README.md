@@ -25,6 +25,20 @@ New to the Azure SRE Agent? Read the shared concept layer first:
 Each track follows the same loop: **deploy from code → inject a realistic fault →
 watch the agent investigate → apply controlled remediation → capture a postmortem.**
 
+## Open in Codespaces
+
+You can run any track in a preconfigured [GitHub Codespace](https://docs.github.com/codespaces)
+— no local tool installation required. Each track has its own dev container under
+`.devcontainer/<track>/` bundling that track's toolchain (Azure CLI + Bicep, PowerShell,
+GitHub CLI, Node, jq, plus kubectl for AKS or .NET 10 for App Service).
+
+1. Click **Code → Codespaces → New with options…**
+2. Under **Dev container configuration**, pick your track: **SRE Workshop — AKS**,
+   **SRE Workshop — VM**, or **SRE Workshop — App Service**.
+3. Create the Codespace and wait for setup to finish.
+
+When it opens, authenticate the CLIs interactively with `az login` and `gh auth login`.
+
 ## Scenarios at a glance
 
 - AKS scenarios: [workshops/aks/scenarios/INDEX.md](workshops/aks/scenarios/INDEX.md)
