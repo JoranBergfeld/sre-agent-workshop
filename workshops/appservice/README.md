@@ -1,7 +1,8 @@
-# App Service / PaaS SRE Workshop
+# App Service: SRE Agent to Copilot Handover
 
-Deploy Azure App Service (Linux) + Azure SQL, run a .NET 10 shop with passwordless
-managed-identity auth, then break and recover it with the Azure SRE Agent.
+Deploy a small .NET 10 app to Azure App Service, connect Azure SRE Agent to its
+telemetry and generated GitHub repository, then follow an approval-gated
+handover to the GitHub Copilot coding agent. Allow **30–45 minutes after SRE Agent and Copilot access are available**.
 
 ## Workshop modules
 
@@ -26,11 +27,15 @@ managed-identity auth, then break and recover it with the Azure SRE Agent.
 
 ## Cost
 
-| Resource | ~Cost/hr | Notes |
-| --- | --- | --- |
-| App Service Plan (S1 Linux) | ~$0.10 | Standard tier — required for deployment slots |
-| Azure SQL Database (Basic) | ~$0.007 | 5 DTU, minimal |
-| Log Analytics + App Insights | ~$0.10 | Standard monitoring |
-| SRE Agent | ~$0.50 | Depends on model/volume |
+Costs vary by region, currency, retention, traffic, and SRE Agent usage. These
+conservative approximations are intended only for workshop planning.
 
-Remember to run the **Cleanup** module (99) when done — idle resources still bill.
+| Resource | Approximate cost | Notes |
+| --- | --- | --- |
+| B1 Linux App Service | A few US cents per hour | Regional pricing varies |
+| Log Analytics + Application Insights | Usage based; usually low for this exercise | Ingestion and retention affect cost |
+| SRE Agent | Usage and access-plan dependent | Check current Azure pricing for your environment |
+
+Initial setup runs locally and deploys the starting application. Later, merging
+the Copilot pull request to `main` automatically triggers the OIDC-based app
+deployment workflow.
