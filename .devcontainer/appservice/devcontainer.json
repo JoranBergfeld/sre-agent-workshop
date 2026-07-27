@@ -1,0 +1,29 @@
+{
+  "name": "SRE Workshop — App Service",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/azure-cli:1": { "installBicep": true },
+    "ghcr.io/devcontainers/features/powershell:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/dotnet:2": { "version": "10.0" }
+  },
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq",
+  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore workshops/appservice/src/Shop.csproj",
+  "forwardPorts": [5000],
+  "hostRequirements": { "cpus": 4 },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-bicep",
+        "ms-vscode.azurecli",
+        "ms-vscode.powershell",
+        "github.vscode-github-actions",
+        "redhat.vscode-yaml",
+        "github.copilot",
+        "github.copilot-chat",
+        "ms-dotnettools.csdevkit"
+      ]
+    }
+  }
+}
