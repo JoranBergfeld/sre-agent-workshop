@@ -37,12 +37,15 @@ the SRE Agent in this resource group, it is removed as well.
 Check deletion safely:
 
 ```bash
-az group exists --name "$RESOURCE_GROUP"
+az group exists --name rg-srelabapp
 ```
 
 ```powershell
-az group exists --name $ResourceGroup
+az group exists --name rg-srelabapp
 ```
+
+If setup used a custom workload, replace `rg-srelabapp` with its resource
+group name.
 
 The expected result is `false` after Azure finishes deletion.
 
