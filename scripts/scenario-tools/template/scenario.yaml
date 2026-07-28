@@ -2,7 +2,7 @@ id: __SCENARIO_ID__
 title: __SCENARIO_TITLE__
 platform: __PLATFORM__
 incidentType: Application failure
-summary: A generic application failure blocks the happy path.
+summary: A controlled fault produces an observable service degradation for SRE Agent investigation.
 severity: 2
 estimatedMinutes: 30
 difficulty: beginner

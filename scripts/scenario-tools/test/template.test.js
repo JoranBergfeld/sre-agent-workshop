@@ -67,6 +67,7 @@ test('template materializes a valid standalone scenario capsule', (t) => {
   }
 
   const manifest = yaml.load(readFileSync(resolve(dest, 'scenario.yaml'), 'utf8'));
+  assert.equal(manifest.summary, 'A controlled fault produces an observable service degradation for SRE Agent investigation.');
   const validate = makeValidator();
   assert.ok(validate(manifest), JSON.stringify(validate.errors));
 

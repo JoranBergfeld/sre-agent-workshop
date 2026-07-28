@@ -34,6 +34,9 @@ function parseArgs(argv) {
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === '--platform') {
+      if (platform !== undefined) {
+        fail('Duplicate --platform option. Use it only once.');
+      }
       platform = rest[++i];
       if (!platform || platform.startsWith('--')) {
         fail('Missing value for --platform.');
@@ -41,6 +44,9 @@ function parseArgs(argv) {
       continue;
     }
     if (arg.startsWith('--platform=')) {
+      if (platform !== undefined) {
+        fail('Duplicate --platform option. Use it only once.');
+      }
       platform = arg.slice('--platform='.length);
       if (!platform) {
         fail('Missing value for --platform.');
@@ -99,5 +105,4 @@ console.log('');
 console.log('Next steps:');
 console.log(`  1. Review scenarios/${id}/scenario.yaml and finish the manifest.`);
 console.log(`  2. Edit scenarios/${id}/README.md and infra/bicep/main.bicep.`);
-console.log(`  3. Run scripts/validate-scenarios.sh --write`);
-console.log(`  4. chmod +x scenarios/${id}/scripts/*.sh`);
+console.log(`  3. Run: scripts/validate-scenarios.sh --write`);

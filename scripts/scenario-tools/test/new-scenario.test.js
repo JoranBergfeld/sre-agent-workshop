@@ -32,12 +32,13 @@ test('creates a standalone scenario under scenarios/<id>', (t) => {
   assert.ok(existsSync(resolve(root, 'scenarios', 'disk-full', 'scenario.yaml')));
   assert.ok(result.stdout.includes(`Created scenario disk-full (Azure App Service) at ${resolve(root, 'scenarios', 'disk-full')}`));
   assert.ok(result.stdout.includes('Next steps:'));
-  assert.ok(result.stdout.includes('chmod +x scenarios/disk-full/scripts/*.sh'));
+  assert.ok(result.stdout.includes('Run: scripts/validate-scenarios.sh --write'));
 
   const manifest = readFileSync(resolve(root, 'scenarios', 'disk-full', 'scenario.yaml'), 'utf8');
   assert.match(manifest, /platform: Azure App Service/);
   assert.match(manifest, /id: disk-full/);
   assert.match(manifest, /title: Disk Full/);
+  assert.match(manifest, /summary: A controlled fault produces an observable service degradation for SRE Agent investigation\./);
 });
 
 test('rejects a missing platform', (t) => {
@@ -58,6 +59,16 @@ test('rejects invalid ids', (t) => {
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Invalid id/);
+});
+
+test('rejects duplicate platform options', (t) => {
+  const root = makeRoot();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const result = run(['disk-full', 'Disk Full', '--platform', 'Azure App Service', '--platform=AKS'], root);
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Duplicate --platform option/);
 });
 
 test('rejects an existing destination', (t) => {
