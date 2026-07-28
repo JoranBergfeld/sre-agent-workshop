@@ -39,6 +39,7 @@ You need:
 | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | `az` |
 | [GitHub CLI](https://cli.github.com/) | `gh` |
 | [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet` 10.x |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | `uv` (only for local changed-line coverage; CI installs its own pinned `diff-cover` dependency) |
 | Bash path | `zip` and `jq` |
 | PowerShell path | PowerShell 7 |
 
@@ -51,6 +52,17 @@ gh auth refresh -s read:org,repo
 ```
 
 The GitHub scopes required by your organization may vary with its policy.
+
+If you plan to reproduce the changed-line coverage gate locally, verify `uv`
+in the shell you use:
+
+```bash
+uv --version
+```
+
+```powershell
+uv --version
+```
 
 ## Supported regions
 
@@ -66,6 +78,7 @@ Choose one:
 - [ ] `az account show` returns the intended subscription.
 - [ ] `gh auth status` succeeds for the intended GitHub account.
 - [ ] `dotnet --version` reports 10.x.
+- [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
 - [ ] You have role-assignment permission for the workshop resource group.
 - [ ] Copilot coding agent and SRE Agent access are available.
 

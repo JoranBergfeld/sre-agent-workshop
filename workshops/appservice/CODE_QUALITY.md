@@ -38,6 +38,7 @@ coverage, and run the gate:
 
 ```bash
 git fetch origin main
+rm -rf workshops/appservice/TestResults
 dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
   --results-directory workshops/appservice/TestResults \
