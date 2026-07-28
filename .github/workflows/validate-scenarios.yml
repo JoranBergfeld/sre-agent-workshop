@@ -3,22 +3,14 @@ name: Validate Scenarios
 on:
   push:
     paths:
-      - 'scenarios/**'
-      - 'README.md'
+      - 'workshops/**/scenarios/**'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
-      # Temporary migration support: remove after the legacy validator and workshop scenarios are retired.
-      - 'workshops/**/scenarios/**'
-      - 'schemas/legacy-scenario.schema.json'
   pull_request:
     paths:
-      - 'scenarios/**'
-      - 'README.md'
+      - 'workshops/**/scenarios/**'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
-      # Temporary migration support: remove after the legacy validator and workshop scenarios are retired.
-      - 'workshops/**/scenarios/**'
-      - 'schemas/legacy-scenario.schema.json'
 
 permissions:
   contents: read
@@ -42,20 +34,14 @@ jobs:
         run: npm test
 
       - name: Validate scenarios (schema + drift)
-        run: scripts/validate-scenarios.sh
+        run: node scripts/scenario-tools/bin/validate.js
 
       - name: Set up Bicep
         run: az bicep install
 
       - name: Build all scenario + aggregator bicep
         run: |
-          set -euo pipefail
           shopt -s nullglob
-          for f in scenarios/*/infra/bicep/main.bicep scenarios/*/infra/bicep/modules/alert.bicep; do
-            echo "Building $f"
-            az bicep build --file "$f" --stdout > /dev/null
-          done
-          # Temporary migration support: remove once the legacy workshop scenarios and validator are gone.
           for f in workshops/*/scenarios/*/alert.bicep workshops/*/infra/bicep/modules/scenario-alerts.bicep; do
             echo "Building $f"
             az bicep build --file "$f" --stdout > /dev/null
