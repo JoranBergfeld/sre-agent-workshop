@@ -7,5 +7,6 @@ if [ "${1:-}" = "--write" ]; then
   node "$TOOLS_DIR/bin/generate.js"
   node "$TOOLS_DIR/bin/generate-legacy.js"
 fi
-node "$TOOLS_DIR/bin/validate.js"
-node "$TOOLS_DIR/bin/validate-legacy.js"
+node "$TOOLS_DIR/bin/validate.js" --quiet-success
+node "$TOOLS_DIR/bin/validate-legacy.js" --quiet-success
+echo "Scenario validation passed"

@@ -15,6 +15,8 @@ function pathError(label) {
 }
 
 function checkLegacyPath(errors, dir, label, rawPath, { fileExists, isExecutable = () => true }) {
+  const requireExecutable = label.endsWith('.bash');
+
   if (!rawPath) {
     errors.push(`${label} is required`);
     return;
@@ -37,7 +39,7 @@ function checkLegacyPath(errors, dir, label, rawPath, { fileExists, isExecutable
     return;
   }
 
-  if (rawPath.endsWith('.sh') && !isExecutable(resolved)) {
+  if (requireExecutable && !isExecutable(resolved)) {
     errors.push(`${label} ${rawPath} must be executable (chmod +x)`);
   }
 }
@@ -73,6 +75,7 @@ function checkLegacyScenario({ track, id, manifest, dir }, io) {
 }
 
 const validate = makeLegacyValidator();
+const quietSuccess = process.argv.slice(2).includes('--quiet-success');
 let failed = false;
 const fail = (msg) => { console.error(`✖ ${msg}`); failed = true; };
 
@@ -126,4 +129,4 @@ for (const track of legacyListTracks()) {
 }
 
 if (failed) { console.error('\nScenario validation FAILED'); process.exit(1); }
-console.log('Scenario validation passed');
+if (!quietSuccess) console.log('Scenario validation passed');

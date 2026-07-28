@@ -25,7 +25,13 @@ function pathError(label) {
   return `${label} must stay inside the scenario directory`;
 }
 
-function checkReferencedPath(errors, dir, label, rawPath, { fileExists, isExecutable = () => true }) {
+function checkReferencedPath(
+  errors,
+  dir,
+  label,
+  rawPath,
+  { fileExists, isExecutable = () => true, requireExecutable = false }
+) {
   if (!rawPath) {
     errors.push(`${label} is required`);
     return;
@@ -48,14 +54,14 @@ function checkReferencedPath(errors, dir, label, rawPath, { fileExists, isExecut
     return;
   }
 
-  if (rawPath.endsWith('.sh') && !isExecutable(resolved)) {
+  if (requireExecutable && !isExecutable(resolved)) {
     errors.push(`${label} ${rawPath} must be executable (chmod +x)`);
   }
 }
 
 // Pure cross-field validation. `fileExists` and `isExecutable` are injected so
 // the logic is testable without touching the filesystem. Executable checks
-// apply only to `.sh` scripts.
+// apply only to fields explicitly marked as Bash scripts.
 export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable = () => true }) {
   const errors = [];
 
@@ -69,12 +75,20 @@ export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable 
 
   for (const kind of ['setup', 'inject', 'validate', 'cleanup']) {
     const pair = manifest[kind] ?? {};
-    checkReferencedPath(errors, dir, `${kind}.bash`, pair.bash, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `${kind}.bash`, pair.bash, {
+      fileExists,
+      isExecutable,
+      requireExecutable: true,
+    });
     checkReferencedPath(errors, dir, `${kind}.powershell`, pair.powershell, { fileExists, isExecutable });
   }
 
   for (const action of manifest.remediate ?? []) {
-    checkReferencedPath(errors, dir, `remediate.${action.action}.bash`, action.bash, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `remediate.${action.action}.bash`, action.bash, {
+      fileExists,
+      isExecutable,
+      requireExecutable: true,
+    });
     checkReferencedPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, { fileExists, isExecutable });
   }
 

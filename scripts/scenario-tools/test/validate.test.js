@@ -29,6 +29,7 @@ const baseManifest = {
 const present = new Set([
   'scenario.yaml',
   'README.md',
+  'setup',
   'setup.sh',
   'setup.ps1',
   'inject.sh',
@@ -104,12 +105,19 @@ test('optional remediate block may be omitted', () => {
   assert.deepEqual(errs, []);
 });
 
-test('non-executable .sh is reported', () => {
+test('Bash fields require executability regardless of filename extension', () => {
+  const manifest = {
+    ...baseManifest,
+    setup: { bash: 'scripts/setup', powershell: 'scripts/setup.ps1' },
+  };
+
   const errs = checkScenario(
-    { id: 'disk-full', manifest: baseManifest, dir: '/x/disk-full' },
+    { id: 'disk-full', manifest, dir: '/x/disk-full' },
     { fileExists, isExecutable: () => false }
   );
-  assert.ok(errs.some((e) => e.includes('setup.bash scripts/setup.sh must be executable')));
+
+  assert.ok(errs.some((e) => e.includes('setup.bash scripts/setup must be executable')));
+  assert.ok(!errs.some((e) => e.includes('setup.powershell')));
 });
 
 test('findDuplicateActions returns sorted duplicate action names', () => {

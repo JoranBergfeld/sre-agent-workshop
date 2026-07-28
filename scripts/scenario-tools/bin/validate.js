@@ -14,6 +14,7 @@ const isExecutable = (p) => {
   }
 };
 
+const quietSuccess = process.argv.slice(2).includes('--quiet-success');
 const validate = makeValidator();
 const scenarios = loadAllScenarios();
 let failed = false;
@@ -57,4 +58,6 @@ if (failed) {
   process.exit(1);
 }
 
-console.log('Scenario validation passed');
+if (!quietSuccess) {
+  console.log('Scenario validation passed');
+}
