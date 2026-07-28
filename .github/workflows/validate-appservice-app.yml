@@ -37,9 +37,11 @@ jobs:
 
       - name: Fetch pull request base
         if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: >-
           git fetch --no-tags origin
-          "+refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
       - name: Test application with coverage
         shell: bash
@@ -70,8 +72,10 @@ jobs:
 
       - name: Enforce 100% changed-line coverage
         if: github.event_name == 'pull_request'
+        env:
+          COMPARE_BRANCH: origin/${{ github.base_ref }}
         run: >-
           diff-cover "$COVERAGE_FILE"
-          --compare-branch="origin/${{ github.base_ref }}"
+          --compare-branch="$COMPARE_BRANCH"
           --fail-under=100
           --show-uncovered
