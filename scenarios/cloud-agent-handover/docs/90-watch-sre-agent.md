@@ -90,24 +90,24 @@ After the Path A deployment completes, run the scenario validator.
 Bash:
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/validate.sh
+./scripts/validate.sh
 ```
 
 PowerShell 7:
 
 ```powershell
-./workshops/appservice/scenarios/cloud-agent-handover/validate.ps1
+./scripts/validate.ps1
 ```
 
 If you chose a custom workload, pass its resource group:
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/validate.sh \
+./scripts/validate.sh \
   --resource-group "rg-<workload>"
 ```
 
 ```powershell
-./workshops/appservice/scenarios/cloud-agent-handover/validate.ps1 `
+./scripts/validate.ps1 `
   -ResourceGroup "rg-<workload>"
 ```
 

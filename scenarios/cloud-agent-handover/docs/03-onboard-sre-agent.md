@@ -1,7 +1,7 @@
 # Module 3: Onboard the SRE Agent
 
 Open [sre.azure.com](https://sre.azure.com), then create or select an agent for
-the workshop. Portal labels can change, so use the current setup experience
+the scenario. Portal labels can change, so use the current setup experience
 rather than relying on an exact screen layout.
 
 ## Connect Azure
@@ -15,7 +15,7 @@ resources created by setup:
 - The Azure Monitor alert named `<workload>-unfinished-feature-5xx`.
 
 Use the portal's current resource and monitoring connection steps. Keep the
-agent scoped to the workshop resource group.
+agent scoped to the scenario resource group.
 
 ## Connect the generated repository
 
@@ -32,7 +32,7 @@ for the current details.
 
 Add this repository file as a knowledge source:
 
-[`workshops/appservice/knowledge/operational-guidelines.md`](../knowledge/operational-guidelines.md)
+[`scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`](../knowledge/operational-guidelines.md)
 
 It tells the SRE Agent to investigate first, request explicit approval before
 creating an issue, assign the approved issue to `copilot-swe-agent`, and leave

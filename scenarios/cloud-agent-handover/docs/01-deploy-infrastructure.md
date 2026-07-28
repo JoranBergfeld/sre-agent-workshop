@@ -8,13 +8,13 @@ there is no infrastructure deployment workflow to trigger.
 Use the defaults (`eastus2`, workload `srelabapp`):
 
 ```bash
-workshops/appservice/scripts/setup.sh
+./scripts/setup.sh
 ```
 
 Or choose supported values:
 
 ```bash
-workshops/appservice/scripts/setup.sh \
+./scripts/setup.sh \
   --location swedencentral \
   --workload myhandover
 ```
@@ -24,13 +24,13 @@ workshops/appservice/scripts/setup.sh \
 Use the defaults:
 
 ```powershell
-./workshops/appservice/scripts/setup.ps1
+./scripts/setup.ps1
 ```
 
 Or choose supported values:
 
 ```powershell
-./workshops/appservice/scripts/setup.ps1 `
+./scripts/setup.ps1 `
   -Location swedencentral `
   -Workload myhandover
 ```

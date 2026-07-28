@@ -12,7 +12,7 @@ Three tracks ship today:
 
 - **`workshops/aks/`** — AKS + CosmosDB + a Node.js app (the original tutorial).
 - **`workshops/vm/`** — a VM / enterprise-migration track with an approval-gated remediation model.
-- **`workshops/appservice/`** — the minimal .NET 10 Blazor handover track for the Cloud Agent.
+- **`scenarios/cloud-agent-handover/`** — the minimal .NET 10 Blazor handover scenario for the Cloud Agent.
 
 The framework is meant to be **extended by contributors** — `CONTRIBUTING.md` is the contract.
 When adding or changing anything, prefer the scenario tooling and keep the per-track structure intact.
@@ -107,7 +107,7 @@ The authoritative contract is `schemas/scenario.schema.json`.
   `Invoke-ApprovedRemediation.ps1`) maps an action to a scenario-owned script, requires a `CHG`/`INC`
   ticket plus an explicit `APPROVE`, and writes an audit entry. The SRE Agent never runs remediation directly.
 
-### App Service (`workshops/appservice/`)
+### App Service (`scenarios/cloud-agent-handover/`)
 
 - Minimal .NET 10 Blazor app with `/health` and `POST /api/feature`; the feature
   endpoint intentionally throws until the Copilot issue fix is merged.
@@ -152,7 +152,7 @@ The authoritative contract is `schemas/scenario.schema.json`.
   fixes go through an issue assigned to `@copilot`, and an operator manually
   triggers the AKS deployment after merge. VM retains its explicit
   ticket-and-approval remediation gate. App Service uses
-  `workshops/appservice/knowledge/operational-guidelines.md`: the SRE Agent asks
+  `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`: the SRE Agent asks
   for approval before creating one issue assigned to `copilot-swe-agent`, a
   human reviews and merges the Copilot pull request, and the merge triggers the
   automatic OIDC-based **Deploy App Service Application** workflow.

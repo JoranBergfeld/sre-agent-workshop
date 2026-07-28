@@ -19,12 +19,12 @@ healthy. The failure is consistent with the endpoint's
 
 ## Required changes
 
-- Implement the endpoint in `workshops/appservice/src/**`.
+- Implement the endpoint in `scenarios/cloud-agent-handover/src/**`.
 - Replace the test that documents the initial HTTP 500 response with a test
   for the exact HTTP 200 success contract.
 - Preserve the existing health and home-page behavior.
-- Keep changes limited to `workshops/appservice/src/**` and
-  `workshops/appservice/tests/**`.
+- Keep changes limited to `scenarios/cloud-agent-handover/src/**` and
+  `scenarios/cloud-agent-handover/tests/**`.
 - Do not modify Bicep or GitHub Actions workflows.
 
 ## Acceptance criteria

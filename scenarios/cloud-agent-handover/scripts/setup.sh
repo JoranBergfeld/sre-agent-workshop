@@ -89,6 +89,7 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+SCENARIO_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 cd "$REPO_ROOT"
 
@@ -149,7 +150,7 @@ az group create \
 
 OUTPUTS=$(az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
-  --template-file workshops/appservice/infra/bicep/main.bicep \
+  --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
   --parameters \
     location="$LOCATION" \
     workloadName="$WORKLOAD" \
@@ -161,11 +162,12 @@ WEB_APP=$(jq -er '.webAppName.value' <<<"$OUTPUTS")
 WEB_HOST=$(jq -er '.webAppHostName.value' <<<"$OUTPUTS")
 CLIENT_ID=$(jq -er '.deploymentClientId.value' <<<"$OUTPUTS")
 
-PUBLISH_DIR=$(mktemp -d)
+PUBLISH_DIR="$SCENARIO_DIR/.cloud-agent-handover-publish.$$"
+mkdir -p "$PUBLISH_DIR"
 trap cleanup_temp EXIT
 
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
-dotnet publish workshops/appservice/src/HandoverApp.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
   --configuration Release \
   --output "$PUBLISH_DIR/publish"
 (cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)

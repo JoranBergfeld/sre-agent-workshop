@@ -60,6 +60,7 @@ catch {
     throw "GitHub CLI is not authenticated. Run 'gh auth login' and try again."
 }
 
+$scenarioRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 Push-Location $repoRoot
 
@@ -134,7 +135,7 @@ query($owner:String!, $name:String!) {
     $outputsJson = (Invoke-NativeCommand -Command "az" -Arguments @(
         "deployment", "group", "create",
         "--resource-group", $resourceGroup,
-        "--template-file", "workshops/appservice/infra/bicep/main.bicep",
+        "--template-file", "scenarios/cloud-agent-handover/infra/bicep/main.bicep",
         "--parameters",
         "location=$Location",
         "workloadName=$Workload",
@@ -158,14 +159,15 @@ query($owner:String!, $name:String!) {
         }
     }
 
-    $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sre-handover-$([Guid]::NewGuid())"
+    $publishRoot = Join-Path $scenarioRoot ".cloud-agent-handover-publish-$PID"
+    New-Item -ItemType Directory -Force -Path $publishRoot | Out-Null
 
     try {
         Invoke-NativeCommand -Command "dotnet" -Arguments @(
-            "test", "workshops/appservice/tests/HandoverApp.Tests.csproj"
+            "test", "scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
         ) -DiscardOutput
         Invoke-NativeCommand -Command "dotnet" -Arguments @(
-            "publish", "workshops/appservice/src/HandoverApp.csproj",
+            "publish", "scenarios/cloud-agent-handover/src/HandoverApp.csproj",
             "--configuration", "Release",
             "--output", (Join-Path $publishRoot "publish")
         ) -DiscardOutput

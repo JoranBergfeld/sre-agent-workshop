@@ -20,7 +20,7 @@ The agent should either list issues or safely report that none exist.
 ## Require approval
 
 Configure the incident source or response plan to use Azure Monitor and match
-the workshop's `Unfinished feature returns HTTP 500` alert. Set the response
+the scenario's `Unfinished feature returns HTTP 500` alert. Set the response
 policy so the agent:
 
 1. Investigates and presents evidence.

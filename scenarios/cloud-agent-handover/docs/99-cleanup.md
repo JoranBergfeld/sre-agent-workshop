@@ -1,6 +1,6 @@
 # Module 99: Cleanup
 
-Delete the workshop resource group when you finish. Deletion starts
+Delete the scenario resource group when you finish. Deletion starts
 asynchronously because `--no-wait` is used.
 
 ## Delete Azure resources
@@ -8,25 +8,25 @@ asynchronously because `--no-wait` is used.
 Bash:
 
 ```bash
-workshops/appservice/scripts/cleanup.sh
+./scripts/cleanup.sh
 ```
 
 For a custom resource group:
 
 ```bash
-workshops/appservice/scripts/cleanup.sh rg-myworkload
+./scripts/cleanup.sh rg-myworkload
 ```
 
 PowerShell 7:
 
 ```powershell
-./workshops/appservice/scripts/cleanup.ps1
+./scripts/cleanup.ps1
 ```
 
 For a custom resource group:
 
 ```powershell
-./workshops/appservice/scripts/cleanup.ps1 -ResourceGroup rg-myworkload
+./scripts/cleanup.ps1 -ResourceGroup rg-myworkload
 ```
 
 The scripts call `az group delete --yes --no-wait`. The resource group contains

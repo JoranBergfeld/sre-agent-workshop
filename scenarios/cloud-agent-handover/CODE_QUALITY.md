@@ -14,7 +14,7 @@ reviewable, testable code change.
 | Changed-line coverage | Requires every changed executable application line to be exercised without demanding 100% legacy coverage. |
 
 The coverage gate applies to changed C# application lines under
-`workshops/appservice/src`. Generated Razor code, test code, documentation, and
+`scenarios/cloud-agent-handover/src`. Generated Razor code, test code, documentation, and
 unchanged application lines are not part of the 100% threshold.
 
 ## Run the tests
@@ -22,10 +22,10 @@ unchanged application lines are not part of the 100% threshold.
 From the repository root:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
-The starting workshop intentionally expects `POST /api/feature` to fail.
+The starting scenario intentionally expects `POST /api/feature` to fail.
 The Copilot pull request must replace that broken-state assertion with the
 exact successful endpoint contract while preserving the health and home-page
 tests.
@@ -38,16 +38,16 @@ coverage, and run the gate:
 
 ```bash
 git fetch origin main
-rm -rf workshops/appservice/TestResults
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
+rm -rf scenarios/cloud-agent-handover/TestResults
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
-  --results-directory workshops/appservice/TestResults \
+  --results-directory scenarios/cloud-agent-handover/TestResults \
   -- \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
 
 coverage_file="$(
-  find workshops/appservice/TestResults \
+  find scenarios/cloud-agent-handover/TestResults \
     -name coverage.cobertura.xml \
     -print -quit
 )"

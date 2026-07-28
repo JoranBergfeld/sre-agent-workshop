@@ -20,7 +20,7 @@ trust must target your generated repository.
 
 You need:
 
-- An Azure subscription with **Contributor** at the workshop resource-group
+- An Azure subscription with **Contributor** at the scenario resource-group
   scope or broader.
 - **Owner** or **User Access Administrator** at that scope or broader. The
   Bicep deployment creates a Website Contributor role assignment for the
@@ -79,7 +79,7 @@ Choose one:
 - [ ] `gh auth status` succeeds for the intended GitHub account.
 - [ ] `dotnet --version` reports 10.x.
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
-- [ ] You have role-assignment permission for the workshop resource group.
+- [ ] You have role-assignment permission for the scenario resource group.
 - [ ] Copilot coding agent and SRE Agent access are available.
 
 Next: [Deploy infrastructure and the starting app](./01-deploy-infrastructure.md).

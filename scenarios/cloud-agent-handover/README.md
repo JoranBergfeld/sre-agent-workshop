@@ -1,6 +1,6 @@
 # Scenario: SRE Agent to Copilot Handover
 
-> Track: `appservice` · Scenario id: `cloud-agent-handover`
+> Scenario: `cloud-agent-handover` · App Service
 
 ## What breaks
 
@@ -12,18 +12,18 @@ failed requests and triggers the route-specific alert.
 
 In the deployed app, select **Run unfinished feature**.
 
-A facilitator can inject the same request burst from this scenario directory.
+A facilitator can inject the same request burst from this scenario capsule.
 
 **Bash**
 
 ```bash
-./inject.sh
+./scripts/inject.sh
 ```
 
 **PowerShell 7**
 
 ```powershell
-./inject.ps1
+./scripts/inject.ps1
 ```
 
 ## Run without Azure infrastructure
@@ -66,13 +66,13 @@ Run the validator after deployment.
 **Bash**
 
 ```bash
-./validate.sh
+./scripts/validate.sh
 ```
 
 **PowerShell 7**
 
 ```powershell
-./validate.ps1
+./scripts/validate.ps1
 ```
 
 The endpoint must return HTTP 200 with:
