@@ -1,41 +1,64 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/JoranBergfeld/sre-agent-workshop/schemas/scenario.schema.json",
-  "title": "SRE Agent Workshop Scenario",
+  "title": "SRE Agent Scenario Capsule",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "title", "track", "summary", "severity", "inject", "validate", "docPage"],
+  "required": [
+    "id",
+    "title",
+    "platform",
+    "incidentType",
+    "summary",
+    "severity",
+    "estimatedMinutes",
+    "difficulty",
+    "costProfile",
+    "guide",
+    "setup",
+    "inject",
+    "validate",
+    "cleanup"
+  ],
   "properties": {
     "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
     "title": { "type": "string", "minLength": 1 },
-    "track": { "type": "string", "enum": ["aks", "vm", "appservice"] },
+    "platform": { "type": "string", "minLength": 1 },
+    "incidentType": { "type": "string", "minLength": 1 },
     "summary": { "type": "string", "minLength": 1 },
     "severity": { "type": "integer", "minimum": 0, "maximum": 4 },
     "estimatedMinutes": { "type": "integer", "minimum": 1 },
     "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
-    "learningObjectives": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "costProfile": { "type": "string", "enum": ["low", "medium", "high"] },
+    "guide": { "$ref": "#/$defs/localPath" },
+    "learningObjectives": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "setup": { "$ref": "#/$defs/scriptPair" },
+    "inject": { "$ref": "#/$defs/scriptPair" },
+    "validate": { "$ref": "#/$defs/scriptPair" },
+    "cleanup": { "$ref": "#/$defs/scriptPair" },
     "signal": {
       "type": "object",
       "additionalProperties": false,
       "required": ["alertModule", "alertName"],
       "properties": {
-        "alertModule": { "type": "string" },
-        "alertName": { "type": "string" }
+        "alertModule": { "$ref": "#/$defs/localPath" },
+        "alertName": { "type": "string", "minLength": 1 }
       }
     },
-    "inject": { "$ref": "#/$defs/scriptPair" },
-    "validate": { "$ref": "#/$defs/scriptPair" },
     "remediate": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["action", "bash", "powershell"],
+        "required": ["action", "bash", "powershell", "description"],
         "properties": {
           "action": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-          "bash": { "type": "string" },
-          "powershell": { "type": "string" },
-          "description": { "type": "string" }
+          "bash": { "$ref": "#/$defs/localPath" },
+          "powershell": { "$ref": "#/$defs/localPath" },
+          "description": { "type": "string", "minLength": 1 }
         }
       }
     },
@@ -43,18 +66,28 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["query"],
-      "properties": { "query": { "type": "string" } }
+      "properties": {
+        "query": { "$ref": "#/$defs/localPath" }
+      }
     },
-    "docPage": { "type": "string" }
+    "source": { "$ref": "#/$defs/localPath" },
+    "tests": { "$ref": "#/$defs/localPath" }
   },
   "$defs": {
+    "localPath": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "pattern": "^(?:/|[A-Za-z]:[\\\\/])"
+      }
+    },
     "scriptPair": {
       "type": "object",
       "additionalProperties": false,
       "required": ["bash", "powershell"],
       "properties": {
-        "bash": { "type": "string" },
-        "powershell": { "type": "string" }
+        "bash": { "$ref": "#/$defs/localPath" },
+        "powershell": { "$ref": "#/$defs/localPath" }
       }
     }
   }
