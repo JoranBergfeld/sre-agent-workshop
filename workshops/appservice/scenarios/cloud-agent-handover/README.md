@@ -26,24 +26,38 @@ A facilitator can inject the same request burst from this scenario directory.
 ./inject.ps1
 ```
 
+## Run without Azure infrastructure
+
+If Azure infrastructure or SRE Agent is unavailable, start at the GitHub
+handoff:
+
+1. Open [`sample-issue.md`](./sample-issue.md).
+2. Review the proposed issue as the explicit approval gate.
+3. Open a blank GitHub issue and use the sample heading as its title.
+4. Copy the remaining sample Markdown into the issue body and submit it
+   without an assignee.
+5. Review the created issue, then manually assign it to Copilot
+   (`copilot-swe-agent`).
+
+This fallback represents the possible output of an SRE Agent investigation; it
+does not claim that Azure telemetry was collected. Continue with the Copilot
+pull request and CI steps below. Without deployed infrastructure, stop after the GitHub review and merge; do not claim Azure recovery.
+
 ## Watch the handoff
 
-Watch for this sequence without relying on exact agent or alert timing:
+The Azure and GitHub-only paths converge when Copilot is assigned:
 
-1. An incident appears for the route-specific alert.
-2. The SRE Agent correlates failed `POST /api/feature` requests,
-   `NotImplementedException` telemetry, and the connected repository.
-3. The SRE Agent presents its diagnosis and requests explicit operator
-   approval.
-4. After approval, it creates one issue assigned to Copilot
-   (`copilot-swe-agent`).
-5. The Copilot coding agent creates the fix pull request.
-6. The operator reviews and merges the pull request.
-7. The OIDC-based **Deploy App Service Application** workflow deploys the
-   merged code.
+1. The Copilot coding agent creates the fix pull request.
+2. **Validate App Service Application** runs the endpoint tests and enforces
+   100% coverage for changed executable application lines.
+3. The operator reviews the source, tests, and CI result.
+4. The operator merges the pull request.
+5. If infrastructure exists, the OIDC-based **Deploy App Service
+   Application** workflow deploys the merged code.
 
 There is no manual kill switch or remediation script. The pull request is the
-intended recovery path.
+intended recovery path. When using Azure, the SRE Agent must still investigate,
+request approval, and create the issue before this common flow begins.
 
 ## Validate recovery
 
