@@ -123,20 +123,25 @@ The authoritative contract is `schemas/scenario.schema.json`.
   `workshops/aks/infra/**`; syntax + what-if).
 - **VM:** `deploy-vm-infra.yml`, `validate-vm-infra.yml`.
 - **App Service:** `validate-appservice-infra.yml` (**Validate Cloud Agent
-  Handover Infrastructure**), `validate-appservice-app.yml` (**Validate Cloud
-  Agent Handover Application**), and `deploy-appservice-app.yml` (**Deploy
-  Cloud Agent Handover Application**). The deployment runs automatically for
-  app/test changes pushed to `main` and also supports manual dispatch.
+  Handover Infrastructure**, credential-free PR/main syntax check),
+  `preview-cloud-agent-handover-infra.yml` (**Preview Cloud Agent Handover
+  Infrastructure**, manual Azure what-if with `AZURE_CREDENTIALS`),
+  `validate-appservice-app.yml` (**Validate Cloud Agent Handover
+  Application**), and `deploy-appservice-app.yml` (**Deploy Cloud Agent
+  Handover Application**). The deployment runs automatically for app/test
+  changes pushed to `main` and also supports manual dispatch.
 - **Framework:** `validate-scenarios.yml` — schema check, unit tests, drift check, and `az bicep build`
   on every `alert.bicep` + aggregator.
 - **Docs freshness:** `sre-docs-freshness.md` is the gh-aw **source**; `sre-docs-freshness.lock.yml`
   (and `.github/aw/actions-lock.json`) are generated — edit the `.md` and recompile with `gh aw compile`.
-- AKS and VM infrastructure deployments remain manual. The App Service
-  application deployment is automatic on qualifying pushes to `main`. In the
-  Actions tab, refer to workflows by their track-qualified display names. AKS
-  deploy/validate workflows authenticate with the `AZURE_CREDENTIALS` secret;
-  `publish-aks-image.yml` uses `GITHUB_TOKEN`/GHCR; App Service deployment uses
-  OIDC repository variables provisioned by the local setup scripts.
+- AKS and VM infrastructure deployments remain manual. App Service
+  infrastructure validation is credential-free, the Cloud Agent handover
+  preview workflow is manual only, and the application deployment is automatic
+  on qualifying pushes to `main`. In the Actions tab, refer to workflows by
+  their track-qualified display names. AKS deploy/validate workflows
+  authenticate with the `AZURE_CREDENTIALS` secret; `publish-aks-image.yml`
+  uses `GITHUB_TOKEN`/GHCR; App Service deployment uses OIDC repository
+  variables provisioned by the local setup scripts.
 
 ## Docs & the SRE Agent
 

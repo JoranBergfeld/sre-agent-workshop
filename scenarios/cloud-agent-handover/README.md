@@ -2,6 +2,16 @@
 
 > Scenario: `cloud-agent-handover` · App Service
 
+Run every command below from the repository root.
+
+## Follow the workshop modules
+
+1. [00 Prerequisites](./docs/00-prerequisites.md)
+2. [01 Deploy infrastructure and the starting app](./docs/01-deploy-infrastructure.md)
+3. [02 Verify the application](./docs/02-deploy-application.md)
+4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
+5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+
 ## What breaks
 
 The otherwise healthy Blazor app ships with `POST /api/feature` throwing a
@@ -17,13 +27,13 @@ A facilitator can inject the same request burst from this scenario capsule.
 **Bash**
 
 ```bash
-./scripts/inject.sh
+./scenarios/cloud-agent-handover/scripts/inject.sh
 ```
 
 **PowerShell 7**
 
 ```powershell
-./scripts/inject.ps1
+./scenarios/cloud-agent-handover/scripts/inject.ps1
 ```
 
 ## Run without Azure infrastructure
@@ -59,6 +69,8 @@ There is no manual kill switch or remediation script. The pull request is the
 intended recovery path. When using Azure, the SRE Agent must still investigate,
 request approval, and create the issue before this common flow begins.
 
+Continue with [90 Watch the handover](./docs/90-watch-sre-agent.md).
+
 ## Validate recovery
 
 Run the validator after deployment.
@@ -66,13 +78,13 @@ Run the validator after deployment.
 **Bash**
 
 ```bash
-./scripts/validate.sh
+./scenarios/cloud-agent-handover/scripts/validate.sh
 ```
 
 **PowerShell 7**
 
 ```powershell
-./scripts/validate.ps1
+./scenarios/cloud-agent-handover/scripts/validate.ps1
 ```
 
 The endpoint must return HTTP 200 with:
@@ -86,3 +98,5 @@ Both validators print this exact healthy message:
 ```text
 Healthy: POST /api/feature returned the implemented HTTP 200 contract.
 ```
+
+Finish with [99 Cleanup](./docs/99-cleanup.md).

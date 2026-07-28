@@ -1,0 +1,36 @@
+name: Preview Cloud Agent Handover Infrastructure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    env:
+      LOCATION: ${{ vars.AZURE_LOCATION || 'eastus2' }}
+      WORKLOAD: ${{ vars.WORKLOAD_NAME || 'srelabapp' }}
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Preview infrastructure changes
+        shell: bash
+        run: |
+          RESOURCE_GROUP="${RESOURCE_GROUP:-rg-$WORKLOAD}"
+
+          az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
+            --parameters scenarios/cloud-agent-handover/infra/bicep/main.bicepparam \
+              location="$LOCATION" \
+              workloadName="$WORKLOAD" \
+              githubRepository="${{ github.repository }}"
