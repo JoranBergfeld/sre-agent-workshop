@@ -4,13 +4,21 @@ import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { REPO_ROOT } from './paths.js';
 
-export function makeValidator() {
+function compileSchema(fileName) {
   const schema = JSON.parse(
-    readFileSync(resolve(REPO_ROOT, 'schemas', 'scenario.schema.json'), 'utf8')
+    readFileSync(resolve(REPO_ROOT, 'schemas', fileName), 'utf8')
   );
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
   return ajv.compile(schema);
+}
+
+export function makeValidator() {
+  return compileSchema('scenario.schema.json');
+}
+
+export function makeLegacyValidator() {
+  return compileSchema('legacy-scenario.schema.json');
 }
 
 // Pure cross-field validation. `fileExists` and `isExecutable` are injected so

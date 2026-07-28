@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WORKSHOPS_DIR } from '../lib/paths.js';
 import { listTracks, scenarioDirs, loadScenario } from '../lib/scenarios.js';
-import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
+import { makeLegacyValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
 
 const fileExists = (p) => existsSync(p);
@@ -10,7 +10,8 @@ const isExecutable = (p) => {
   try { return (statSync(p).mode & 0o111) !== 0; } catch { return false; }
 };
 
-const validate = makeValidator();
+// Framework Task 4 switches top-level capsules to makeValidator and removes legacy compatibility.
+const validate = makeLegacyValidator();
 let failed = false;
 const fail = (msg) => { console.error(`✖ ${msg}`); failed = true; };
 

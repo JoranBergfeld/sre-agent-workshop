@@ -4,7 +4,7 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync
 import { resolve, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
-import { makeValidator, checkScenario } from '../lib/validate.js';
+import { makeLegacyValidator, checkScenario } from '../lib/validate.js';
 
 function materialize(track, id) {
   const tmp = mkdtempSync(resolve(tmpdir(), 'scn-'));
@@ -27,7 +27,8 @@ function materialize(track, id) {
 test('template passes schema and cross-field checks after substitution', () => {
   const dir = materialize('vm', 'example');
   const manifest = yaml.load(readFileSync(resolve(dir, 'scenario.yaml'), 'utf8'));
-  const validate = makeValidator();
+  // Framework Task 5 migrates the template to the capsule schema.
+  const validate = makeLegacyValidator();
   assert.ok(validate(manifest), JSON.stringify(validate.errors));
   const errs = checkScenario(
     { track: 'vm', id: basename(dir), manifest, dir },
