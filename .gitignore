@@ -6,6 +6,7 @@
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
 infra/bicep/main.json
+scenarios/*/infra/bicep/main.json
 node_modules/
 
 # VM workshop runtime artifacts (investigation traces, postmortems, audit logs)

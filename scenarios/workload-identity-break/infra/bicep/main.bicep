@@ -120,15 +120,15 @@ resource restartAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
 }
 
 // ──────────────────────────────────────────────
-// 6. Per-scenario alerts (generated from workshops/aks/scenarios/*)
+// 6. Scenario alert
 // ──────────────────────────────────────────────
-module scenarioAlerts 'modules/scenario-alerts.bicep' = {
-  name: 'scenario-alerts'
+module scenarioAlert 'modules/alert.bicep' = {
+  name: 'scenario-alert'
   params: {
     location: location
     workloadName: workloadName
     tags: tags
-    clusterId: aks.outputs.clusterId
+    scopeResourceId: aks.outputs.clusterId
   }
 }
 

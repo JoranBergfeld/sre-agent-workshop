@@ -55,6 +55,8 @@ Select one incident and follow its complete setup, exercise, recovery, and clean
 | Scenario | Platform | Incident | Severity | Est. | Difficulty | Cost | Summary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [SRE Agent to Copilot Handover](scenarios/cloud-agent-handover/) | Azure App Service | Application HTTP 500 | 2 | 20m | beginner | low | Blazor app ships one unfinished endpoint; button burst 500 alerts SRE Agent; after learner approval issue assigned to Copilot. |
+| [CosmosDB RBAC Removal](scenarios/cosmos-rbac-removal/) | Azure Kubernetes Service | Dependency authorization failure | 3 | 25m | intermediate | high | The app's managed-identity CosmosDB role assignment is deleted, so /items returns HTTP 500 while /health stays green. |
+| [Workload Identity Break](scenarios/workload-identity-break/) | Azure Kubernetes Service | Workload identity authentication failure | 3 | 30m | advanced | high | The workload's federated identity credential is deleted, so pods cannot acquire an AAD token and /items returns HTTP 500 with auth errors while /health stays green. |
 
 <!-- END SCENARIO CATALOG -->
 
