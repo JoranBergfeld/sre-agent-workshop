@@ -5,20 +5,28 @@ on:
     branches:
       - main
     paths:
-      - '.github/workflows/validate-scenarios.yml'
-      - 'scripts/validate-scenarios.sh'
-      - 'scenarios/**'
-      - 'workshops/**/scenarios/**'
+      - 'README.md'
+      - 'schemas/legacy-scenario.schema.json'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
+      - 'scripts/validate-scenarios.sh'
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scenarios/**'
+      - 'workshops/**/scenarios/**'
+      - 'workshops/*/README.md'
+      - 'workshops/*/infra/bicep/modules/scenario-alerts.bicep'
   pull_request:
     paths:
-      - '.github/workflows/validate-scenarios.yml'
-      - 'scripts/validate-scenarios.sh'
-      - 'scenarios/**'
-      - 'workshops/**/scenarios/**'
+      - 'README.md'
+      - 'schemas/legacy-scenario.schema.json'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
+      - 'scripts/validate-scenarios.sh'
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scenarios/**'
+      - 'workshops/**/scenarios/**'
+      - 'workshops/*/README.md'
+      - 'workshops/*/infra/bicep/modules/scenario-alerts.bicep'
 
 permissions:
   contents: read
@@ -47,10 +55,11 @@ jobs:
       - name: Set up Bicep
         run: az bicep install
 
-      - name: Build all scenario + aggregator bicep
+      - name: Build validated scenario artifacts
         run: |
           set -euo pipefail
           declare -A built_mains=()
+          declare -A built_bicep_files=()
 
           if [ -d scenarios ]; then
             while IFS= read -r -d '' manifest; do
@@ -62,25 +71,30 @@ jobs:
               fi
               if [[ -z "${built_mains["$main_bicep"]+x}" ]]; then
                 built_mains["$main_bicep"]=1
-                echo "Building $main_bicep"
-                az bicep build --file "$main_bicep" --stdout > /dev/null
+                built_bicep_files["$main_bicep"]=1
+              fi
+              alert_module="$scenario_dir/infra/bicep/modules/alert.bicep"
+              if [ -f "$alert_module" ]; then
+                built_bicep_files["$alert_module"]=1
               fi
             done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0)
           fi
 
-          while IFS= read -r -d '' bicep_file; do
-            case "$bicep_file" in
-              */infra/bicep/modules/*|*/infra/bicep/main.bicep)
-                continue
-                ;;
-            esac
+          # Legacy workshop coverage stays discovery-based so the current set of
+          # alert bicep files, aggregators, and the standalone service-health
+          # template are built without hardcoding a count.
+          for pattern in \
+            'workshops/*/scenarios/*/alert.bicep' \
+            'workshops/*/infra/bicep/modules/scenario-alerts.bicep' \
+            'workshops/*/scenarios/*/service-health-alert.bicep'; do
+            for bicep_file in $pattern; do
+              [ -e "$bicep_file" ] || continue
+              built_bicep_files["$bicep_file"]=1
+            done
+          done
+
+          printf '%s\n' "${!built_mains[@]}" "${!built_bicep_files[@]}" | sort -u | while IFS= read -r bicep_file; do
+            [ -n "$bicep_file" ] || continue
             echo "Building $bicep_file"
             az bicep build --file "$bicep_file" --stdout > /dev/null
-          done < <(find . -type f -name '*.bicep' -print0)
-
-          # Temporary migration support: keep the historical workshop targets visible
-          # until the old hierarchy is fully retired.
-          # while IFS= read -r -d '' bicep_file; do
-          #   echo "Building $bicep_file"
-          #   az bicep build --file "$bicep_file" --stdout > /dev/null
-          # done < <(find workshops -type f \( -name 'main.bicep' -o -name 'alert.bicep' -o -name 'scenario-alerts.bicep' \) -print0)
+          done
