@@ -12,7 +12,9 @@ node_modules/
 workshops/vm/output/*
 !workshops/vm/output/.gitkeep
 
-# App Service workshop: .NET build artifacts
-workshops/appservice/**/bin/
-workshops/appservice/**/obj/
-workshops/appservice/TestResults/
+# App Service scenario: .NET build artifacts
+scenarios/cloud-agent-handover/src/bin/
+scenarios/cloud-agent-handover/src/obj/
+scenarios/cloud-agent-handover/tests/bin/
+scenarios/cloud-agent-handover/tests/obj/
+scenarios/cloud-agent-handover/**/TestResults/
