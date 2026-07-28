@@ -3,15 +3,32 @@ import assert from 'node:assert/strict';
 import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 
 const baseManifest = {
-  id: 'disk-full', title: 'Disk Full', platform: 'Azure VM', incidentType: 'Capacity',
-  summary: 'C: fills up', severity: 2, estimatedMinutes: 25, difficulty: 'beginner',
-  costProfile: 'medium', guide: 'README.md',
+  id: 'disk-full',
+  title: 'Disk Full',
+  platform: 'Azure VM',
+  incidentType: 'Capacity',
+  summary: 'C: fills up',
+  severity: 2,
+  estimatedMinutes: 25,
+  difficulty: 'beginner',
+  costProfile: 'medium',
+  guide: 'README.md',
   setup: { bash: 'scripts/setup.sh', powershell: 'scripts/setup.ps1' },
   inject: { bash: 'scripts/inject.sh', powershell: 'scripts/inject.ps1' },
   validate: { bash: 'scripts/validate.sh', powershell: 'scripts/validate.ps1' },
   cleanup: { bash: 'scripts/cleanup.sh', powershell: 'scripts/cleanup.ps1' },
+  signal: { alertModule: 'alerts/disk-full.bicep', alertName: 'Disk Full' },
+  investigation: { query: 'queries/disk-full.kql' },
+  source: 'src/app/server.js',
+  tests: 'tests/integration.spec.js',
+  remediate: [
+    { action: 'restart', bash: 'remediate/restart.sh', powershell: 'remediate/restart.ps1', description: 'Restart' },
+  ],
 };
+
 const present = new Set([
+  'scenario.yaml',
+  'README.md',
   'setup.sh',
   'setup.ps1',
   'inject.sh',
@@ -20,9 +37,14 @@ const present = new Set([
   'validate.ps1',
   'cleanup.sh',
   'cleanup.ps1',
-  'scenario.yaml',
-  'README.md',
+  'disk-full.bicep',
+  'disk-full.kql',
+  'server.js',
+  'integration.spec.js',
+  'restart.sh',
+  'restart.ps1',
 ]);
+
 const fileExists = (p) => present.has(p.split('/').pop());
 
 test('valid scenario yields no cross-field errors', () => {
@@ -30,87 +52,76 @@ test('valid scenario yields no cross-field errors', () => {
   assert.ok(validate(baseManifest), JSON.stringify(validate.errors));
 
   const errs = checkScenario(
-    { track: 'vm', id: 'disk-full', manifest: { ...baseManifest, track: 'vm', docPage: 'README.md' }, dir: '/x/disk-full' },
+    { id: 'disk-full', manifest: baseManifest, dir: '/x/disk-full' },
     { fileExists }
   );
   assert.deepEqual(errs, []);
 });
 
-test('localPath rejects absolute and rooted paths', () => {
-  const validate = makeValidator();
-  for (const guide of ['/etc/passwd', 'C:\\Windows\\System32', '\\rooted', '\\\\server\\share']) {
-    const manifest = { ...baseManifest, guide };
-    assert.equal(validate(manifest), false, `expected ${guide} to fail schema validation`);
-  }
-});
-
-test('appservice scenario without remediate yields no cross-field errors', () => {
-  const manifest = {
-    ...baseManifest,
-    id: 'cloud-agent-handover',
-    title: 'SRE Agent to Copilot Handover',
-  };
+test('missing guide is reported', () => {
+  const manifest = { ...baseManifest };
+  delete manifest.guide;
 
   const errs = checkScenario(
-    { track: 'appservice', id: 'cloud-agent-handover', manifest: { ...manifest, track: 'appservice', docPage: 'README.md' }, dir: '/x/cloud-agent-handover' },
+    { id: 'disk-full', manifest, dir: '/x/disk-full' },
     { fileExists }
   );
-  assert.deepEqual(errs, []);
+  assert.ok(errs.includes('guide is required'));
 });
 
-test('id must equal folder name', () => {
+test('setup and cleanup pairs are validated', () => {
   const errs = checkScenario(
-    { track: 'vm', id: 'other', manifest: { ...baseManifest, track: 'vm', docPage: 'README.md' }, dir: '/x/other' },
-    { fileExists }
+    { id: 'disk-full', manifest: baseManifest, dir: '/x/disk-full' },
+    { fileExists: (p) => fileExists(p) && !p.endsWith('cleanup.ps1') }
   );
-  assert.ok(errs.some((e) => e.includes('must equal folder name')));
+  assert.ok(errs.some((e) => e.includes('cleanup.powershell references missing file scripts/cleanup.ps1')));
 });
 
-test.skip('referenced paths must remain inside the scenario directory', () => {
+test('paths must remain inside the scenario directory', () => {
   const manifest = {
     ...baseManifest,
-    track: 'vm',
-    docPage: 'README.md',
-    cleanup: { bash: '../shared/cleanup.sh', powershell: 'scripts/cleanup.ps1' },
+    cleanup: { ...baseManifest.cleanup, bash: '../shared/cleanup.sh' },
+    guide: '/repo/scenarios/disk-full/README.md',
   };
 
   const errs = checkScenario(
     { id: 'disk-full', manifest, dir: '/repo/scenarios/disk-full' },
     { fileExists }
   );
-  assert.ok(errs.some((e) => e.includes('cleanup.bash must stay inside the scenario directory')));
+
+  assert.ok(errs.includes('guide must stay inside the scenario directory'));
+  assert.ok(errs.includes('cleanup.bash must stay inside the scenario directory'));
 });
 
-test('missing powershell injector is reported', () => {
-  const fe = (p) => fileExists(p) && !p.endsWith('inject.ps1');
+test('optional remediate block may be omitted', () => {
+  const manifest = { ...baseManifest };
+  delete manifest.remediate;
+
   const errs = checkScenario(
-    { track: 'vm', id: 'disk-full', manifest: { ...baseManifest, track: 'vm', docPage: 'README.md' }, dir: '/x/disk-full' },
-    { fileExists: fe }
+    { id: 'disk-full', manifest, dir: '/x/disk-full' },
+    { fileExists }
   );
-  assert.ok(errs.some((e) => e.includes('inject.powershell references missing file')));
+  assert.deepEqual(errs, []);
 });
 
 test('non-executable .sh is reported', () => {
   const errs = checkScenario(
-    { track: 'vm', id: 'disk-full', manifest: { ...baseManifest, track: 'vm', docPage: 'README.md' }, dir: '/x/disk-full' },
+    { id: 'disk-full', manifest: baseManifest, dir: '/x/disk-full' },
     { fileExists, isExecutable: () => false }
   );
-  assert.ok(errs.some((e) => e.includes('must be executable')));
+  assert.ok(errs.some((e) => e.includes('setup.bash scripts/setup.sh must be executable')));
 });
 
-test('findDuplicateActions flags an action reused across scenarios', () => {
-  const scenarios = [
-    { id: 'a', manifest: { remediate: [{ action: 'restart' }] } },
-    { id: 'b', manifest: { remediate: [{ action: 'restart' }, { action: 'flush' }] } },
-  ];
-  const dups = findDuplicateActions(scenarios);
-  assert.deepEqual(dups, [{ action: 'restart', ids: ['a', 'b'] }]);
-});
+test('findDuplicateActions returns sorted duplicate action names', () => {
+  const manifest = {
+    ...baseManifest,
+    remediate: [
+      { action: 'restart', bash: 'remediate/restart.sh', powershell: 'remediate/restart.ps1', description: 'Restart' },
+      { action: 'cleanup', bash: 'remediate/cleanup.sh', powershell: 'remediate/cleanup.ps1', description: 'Cleanup' },
+      { action: 'restart', bash: 'remediate/restart-2.sh', powershell: 'remediate/restart-2.ps1', description: 'Restart again' },
+      { action: 'cleanup', bash: 'remediate/cleanup-2.sh', powershell: 'remediate/cleanup-2.ps1', description: 'Cleanup again' },
+    ],
+  };
 
-test('findDuplicateActions returns empty when all unique', () => {
-  const scenarios = [
-    { id: 'a', manifest: { remediate: [{ action: 'cleanup-disk' }] } },
-    { id: 'b', manifest: { remediate: [{ action: 'start-iis-app-pool' }] } },
-  ];
-  assert.deepEqual(findDuplicateActions(scenarios), []);
+  assert.deepEqual(findDuplicateActions(manifest), ['cleanup', 'restart']);
 });

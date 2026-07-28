@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import Ajv from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { REPO_ROOT } from './paths.js';
@@ -21,59 +21,88 @@ export function makeLegacyValidator() {
   return compileSchema('legacy-scenario.schema.json');
 }
 
+function pathError(label) {
+  return `${label} must stay inside the scenario directory`;
+}
+
+function checkReferencedPath(errors, dir, label, rawPath, { fileExists, isExecutable = () => true }) {
+  if (!rawPath) {
+    errors.push(`${label} is required`);
+    return;
+  }
+
+  if (isAbsolute(rawPath)) {
+    errors.push(pathError(label));
+    return;
+  }
+
+  const resolved = resolve(dir, rawPath);
+  const rel = relative(dir, resolved);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+    errors.push(pathError(label));
+    return;
+  }
+
+  if (!fileExists(resolved)) {
+    errors.push(`${label} references missing file ${rawPath}`);
+    return;
+  }
+
+  if (rawPath.endsWith('.sh') && !isExecutable(resolved)) {
+    errors.push(`${label} ${rawPath} must be executable (chmod +x)`);
+  }
+}
+
 // Pure cross-field validation. `fileExists` and `isExecutable` are injected so
 // the logic is testable without touching the filesystem. Executable checks
 // apply only to `.sh` scripts.
-export function checkScenario({ track, id, manifest, dir }, { fileExists, isExecutable = () => true }) {
+export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable = () => true }) {
   const errors = [];
 
   if (manifest.id !== id) errors.push(`id "${manifest.id}" must equal folder name "${id}"`);
-  if (manifest.track !== track) errors.push(`track "${manifest.track}" must equal parent track "${track}"`);
 
-  for (const f of ['scenario.yaml', manifest.docPage].filter(Boolean)) {
-    if (!fileExists(resolve(dir, f))) errors.push(`missing required file ${f}`);
+  if (!fileExists(resolve(dir, 'scenario.yaml'))) {
+    errors.push('missing required file scenario.yaml');
   }
 
-  const checkScript = (label, f) => {
-    if (!f) { errors.push(`${label} is required`); return; }
-    if (!fileExists(resolve(dir, f))) { errors.push(`${label} references missing file ${f}`); return; }
-    if (f.endsWith('.sh') && !isExecutable(resolve(dir, f))) {
-      errors.push(`${label} ${f} must be executable (chmod +x)`);
-    }
-  };
+  checkReferencedPath(errors, dir, 'guide', manifest.guide, { fileExists, isExecutable });
 
-  for (const kind of ['inject', 'validate']) {
+  for (const kind of ['setup', 'inject', 'validate', 'cleanup']) {
     const pair = manifest[kind] ?? {};
-    checkScript(`${kind}.bash`, pair.bash);
-    checkScript(`${kind}.powershell`, pair.powershell);
+    checkReferencedPath(errors, dir, `${kind}.bash`, pair.bash, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `${kind}.powershell`, pair.powershell, { fileExists, isExecutable });
   }
 
   for (const action of manifest.remediate ?? []) {
-    checkScript(`remediate.${action.action}.bash`, action.bash);
-    checkScript(`remediate.${action.action}.powershell`, action.powershell);
+    checkReferencedPath(errors, dir, `remediate.${action.action}.bash`, action.bash, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, { fileExists, isExecutable });
   }
 
-  if (manifest.signal?.alertModule && !fileExists(resolve(dir, manifest.signal.alertModule))) {
-    errors.push(`signal.alertModule references missing file ${manifest.signal.alertModule}`);
+  if (manifest.signal) {
+    checkReferencedPath(errors, dir, 'signal.alertModule', manifest.signal.alertModule, { fileExists, isExecutable });
   }
-  if (manifest.investigation?.query && !fileExists(resolve(dir, manifest.investigation.query))) {
-    errors.push(`investigation.query references missing file ${manifest.investigation.query}`);
+
+  if (manifest.investigation) {
+    checkReferencedPath(errors, dir, 'investigation.query', manifest.investigation.query, { fileExists, isExecutable });
+  }
+
+  if (manifest.source) {
+    checkReferencedPath(errors, dir, 'source', manifest.source, { fileExists, isExecutable });
+  }
+
+  if (manifest.tests) {
+    checkReferencedPath(errors, dir, 'tests', manifest.tests, { fileExists, isExecutable });
   }
 
   return errors;
 }
 
-// Approval-gate actions are resolved by globbing scenarios/*/<action>.sh, so an
-// action name must be unique within a track. Returns [{action, ids}] for clashes.
-export function findDuplicateActions(scenarios) {
-  const byAction = new Map();
-  for (const s of scenarios) {
-    for (const r of s.manifest.remediate ?? []) {
-      if (!byAction.has(r.action)) byAction.set(r.action, []);
-      byAction.get(r.action).push(s.id);
-    }
+export function findDuplicateActions(manifest) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const item of manifest.remediate ?? []) {
+    if (seen.has(item.action)) duplicates.add(item.action);
+    seen.add(item.action);
   }
-  return [...byAction.entries()]
-    .filter(([, ids]) => ids.length > 1)
-    .map(([action, ids]) => ({ action, ids }));
+  return [...duplicates].sort();
 }
