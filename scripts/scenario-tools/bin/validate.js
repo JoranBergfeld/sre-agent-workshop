@@ -1,16 +1,19 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { WORKSHOPS_DIR } from '../lib/paths.js';
+import { REPO_ROOT, WORKSHOPS_DIR } from '../lib/paths.js';
 import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib/scenarios.js';
 import { makeLegacyValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
-import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
+import { LEGACY_README_BEGIN, LEGACY_README_END, legacyRenderIndex, legacyRenderAggregator, legacyRenderReadmeBlock } from '../lib/legacy-generate.js';
+import { loadAllScenarios } from '../lib/scenarios.js';
+import { CATALOG_BEGIN, CATALOG_END, renderCatalog } from '../lib/generate.js';
 
 const fileExists = (p) => existsSync(p);
 const isExecutable = (p) => {
   try { return (statSync(p).mode & 0o111) !== 0; } catch { return false; }
 };
 
-// Framework Task 4 switches top-level capsules to makeValidator and removes legacy compatibility.
+// Framework Task 4 switches top-level capsules to makeValidator and removes
+// legacy compatibility. Keep this bridge until the migration lands.
 const validate = makeLegacyValidator();
 let failed = false;
 const fail = (msg) => { console.error(`✖ ${msg}`); failed = true; };
@@ -33,14 +36,14 @@ for (const track of legacyListTracks()) {
   const trackDir = resolve(WORKSHOPS_DIR, track);
 
   const indexPath = resolve(trackDir, 'scenarios', 'INDEX.md');
-  if (!existsSync(indexPath) || readFileSync(indexPath, 'utf8') !== renderIndex(track, scenarios)) {
+  if (!existsSync(indexPath) || readFileSync(indexPath, 'utf8') !== legacyRenderIndex(track, scenarios)) {
     fail(`${track}: scenarios/INDEX.md is stale — run scripts/validate-scenarios.sh --write`);
   }
 
   const modulesDir = resolve(trackDir, 'infra', 'bicep', 'modules');
   if (existsSync(modulesDir)) {
     const aggPath = resolve(modulesDir, 'scenario-alerts.bicep');
-    if (!existsSync(aggPath) || readFileSync(aggPath, 'utf8') !== renderAggregator(track, scenarios)) {
+    if (!existsSync(aggPath) || readFileSync(aggPath, 'utf8') !== legacyRenderAggregator(track, scenarios)) {
       fail(`${track}: modules/scenario-alerts.bicep is stale — run scripts/validate-scenarios.sh --write`);
     }
   }
@@ -48,11 +51,24 @@ for (const track of legacyListTracks()) {
   const readmePath = resolve(trackDir, 'README.md');
   if (existsSync(readmePath)) {
     const src = readFileSync(readmePath, 'utf8');
-    const re = new RegExp(`${README_BEGIN}[\\s\\S]*?${README_END}`);
+    const re = new RegExp(`${LEGACY_README_BEGIN}[\\s\\S]*?${LEGACY_README_END}`);
     const m = src.match(re);
-    if (m && m[0] !== renderReadmeBlock(scenarios).trimEnd()) {
+    if (m && m[0] !== legacyRenderReadmeBlock(scenarios).trimEnd()) {
       fail(`${track}: README scenario table is stale — run scripts/validate-scenarios.sh --write`);
     }
+  }
+}
+
+const rootReadme = resolve(REPO_ROOT, 'README.md');
+if (existsSync(rootReadme)) {
+  const rootScenarios = loadAllScenarios();
+  const src = readFileSync(rootReadme, 'utf8');
+  const re = new RegExp(`${CATALOG_BEGIN}[\\s\\S]*?${CATALOG_END}`);
+  const m = src.match(re);
+  if (!m) {
+    fail(`root: README scenario catalog is missing — run scripts/validate-scenarios.sh --write`);
+  } else if (m[0] !== renderCatalog(rootScenarios).trimEnd()) {
+    fail(`root: README scenario catalog is stale — run scripts/validate-scenarios.sh --write`);
   }
 }
 

@@ -1,28 +1,18 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { WORKSHOPS_DIR } from '../lib/paths.js';
-import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib/scenarios.js';
-import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
+import { loadAllScenarios } from '../lib/scenarios.js';
+import { ROOT_README } from '../lib/paths.js';
+import { CATALOG_BEGIN, CATALOG_END, renderCatalog } from '../lib/generate.js';
 
-function writeReadmeBlock(readmePath, block) {
-  if (!existsSync(readmePath)) return;
-  const src = readFileSync(readmePath, 'utf8');
-  const re = new RegExp(`${README_BEGIN}[\\s\\S]*?${README_END}`);
-  if (!re.test(src)) return;
-  writeFileSync(readmePath, src.replace(re, block.trimEnd()));
-}
+const scenarios = loadAllScenarios();
+const block = renderCatalog(scenarios);
 
-for (const track of legacyListTracks()) {
-  const scenarios = legacyScenarioDirs(track).map((dir) => legacyLoadScenario(dir, track));
-  const trackDir = resolve(WORKSHOPS_DIR, track);
-
-  writeFileSync(resolve(trackDir, 'scenarios', 'INDEX.md'), renderIndex(track, scenarios));
-
-  const modulesDir = resolve(trackDir, 'infra', 'bicep', 'modules');
-  if (existsSync(modulesDir)) {
-    writeFileSync(resolve(modulesDir, 'scenario-alerts.bicep'), renderAggregator(track, scenarios));
+if (existsSync(ROOT_README)) {
+  const src = readFileSync(ROOT_README, 'utf8');
+  const re = new RegExp(`${CATALOG_BEGIN}[\\s\\S]*?${CATALOG_END}`);
+  if (!re.test(src)) {
+    throw new Error('Root README is missing scenario catalog markers');
   }
-
-  writeReadmeBlock(resolve(trackDir, 'README.md'), renderReadmeBlock(scenarios));
-  console.log(`generated ${track}: ${scenarios.length} scenario(s)`);
+  writeFileSync(ROOT_README, src.replace(re, block));
 }
+
+console.log(`generated root catalog: ${scenarios.length} scenario(s)`);
