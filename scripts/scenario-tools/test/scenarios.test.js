@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import yaml from 'js-yaml';
 
-import { scenarioDirs, loadScenario, loadAllScenarios, legacyScenarioDirs } from '../lib/scenarios.js';
+import { scenarioCandidateDirs, scenarioDirs, loadScenario, loadAllScenarios, legacyScenarioDirs } from '../lib/scenarios.js';
 
 function makeRepo(entries) {
   const repo = resolve(import.meta.dirname, `repo-${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -44,7 +44,7 @@ function makeLegacyRepo(rootEntries, legacyEntries) {
   return repo;
 }
 
-test('scenarioDirs discovers only direct scenario folders, skips hidden templates, and sorts results', (t) => {
+test('scenarioCandidateDirs discovers all direct folders and scenarioDirs filters to loadable scenarios', (t) => {
   const repo = makeRepo([
     ['z-last', { id: 'z-last', platform: 'Azure VM' }],
     ['a-first', { id: 'a-first', platform: 'Azure VM' }],
@@ -59,6 +59,9 @@ test('scenarioDirs discovers only direct scenario folders, skips hidden template
   mkdirSync(resolve(repo, 'scenarios', 'no-manifest'), { recursive: true });
 
   t.after(() => rmSync(repo, { recursive: true, force: true }));
+
+  const candidates = scenarioCandidateDirs(resolve(repo, 'scenarios'));
+  assert.deepEqual(candidates.map((dir) => basename(dir)), ['a-first', 'nested', 'no-manifest', 'z-last']);
 
   const dirs = scenarioDirs(resolve(repo, 'scenarios'));
   assert.deepEqual(dirs.map((dir) => basename(dir)), ['a-first', 'z-last']);

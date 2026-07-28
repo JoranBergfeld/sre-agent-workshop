@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { WORKSHOPS_DIR } from '../lib/paths.js';
 import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib/scenarios.js';
-import { makeLegacyValidator } from '../lib/validate.js';
+import { checkReferencedPath, makeLegacyValidator } from '../lib/validate.js';
 import { LEGACY_README_BEGIN, LEGACY_README_END, legacyRenderIndex, legacyRenderAggregator, legacyRenderReadmeBlock } from '../lib/legacy-generate.js';
 
 const fileExists = (p) => existsSync(p);
@@ -10,65 +10,54 @@ const isExecutable = (p) => {
   try { return (statSync(p).mode & 0o111) !== 0; } catch { return false; }
 };
 
-function pathError(label) {
-  return `${label} must stay inside the scenario directory`;
-}
-
-function checkLegacyPath(errors, dir, label, rawPath, { fileExists, isExecutable = () => true }) {
-  const requireExecutable = label.endsWith('.bash');
-
-  if (!rawPath) {
-    errors.push(`${label} is required`);
-    return;
-  }
-
-  if (isAbsolute(rawPath)) {
-    errors.push(pathError(label));
-    return;
-  }
-
-  const resolved = resolve(dir, rawPath);
-  const rel = relative(dir, resolved);
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
-    errors.push(pathError(label));
-    return;
-  }
-
-  if (!fileExists(resolved)) {
-    errors.push(`${label} references missing file ${rawPath}`);
-    return;
-  }
-
-  if (requireExecutable && !isExecutable(resolved)) {
-    errors.push(`${label} ${rawPath} must be executable (chmod +x)`);
-  }
-}
-
 function checkLegacyScenario({ track, id, manifest, dir }, io) {
   const errors = [];
 
   if (manifest.id !== id) errors.push(`id "${manifest.id}" must equal folder name "${id}"`);
   if (manifest.track !== track) errors.push(`track "${manifest.track}" must equal parent track "${track}"`);
 
-  checkLegacyPath(errors, dir, 'docPage', manifest.docPage, io);
+  checkReferencedPath(errors, dir, 'docPage', manifest.docPage, {
+    ...io,
+    realpath: realpathSync,
+  });
 
   for (const kind of ['inject', 'validate']) {
     const pair = manifest[kind] ?? {};
-    checkLegacyPath(errors, dir, `${kind}.bash`, pair.bash, io);
-    checkLegacyPath(errors, dir, `${kind}.powershell`, pair.powershell, io);
+    checkReferencedPath(errors, dir, `${kind}.bash`, pair.bash, {
+      ...io,
+      realpath: realpathSync,
+      requireExecutable: true,
+    });
+    checkReferencedPath(errors, dir, `${kind}.powershell`, pair.powershell, {
+      ...io,
+      realpath: realpathSync,
+    });
   }
 
   for (const action of manifest.remediate ?? []) {
-    checkLegacyPath(errors, dir, `remediate.${action.action}.bash`, action.bash, io);
-    checkLegacyPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, io);
+    checkReferencedPath(errors, dir, `remediate.${action.action}.bash`, action.bash, {
+      ...io,
+      realpath: realpathSync,
+      requireExecutable: true,
+    });
+    checkReferencedPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, {
+      ...io,
+      realpath: realpathSync,
+    });
   }
 
   if (manifest.signal) {
-    checkLegacyPath(errors, dir, 'signal.alertModule', manifest.signal.alertModule, io);
+    checkReferencedPath(errors, dir, 'signal.alertModule', manifest.signal.alertModule, {
+      ...io,
+      realpath: realpathSync,
+    });
   }
 
   if (manifest.investigation) {
-    checkLegacyPath(errors, dir, 'investigation.query', manifest.investigation.query, io);
+    checkReferencedPath(errors, dir, 'investigation.query', manifest.investigation.query, {
+      ...io,
+      realpath: realpathSync,
+    });
   }
 
   return errors;

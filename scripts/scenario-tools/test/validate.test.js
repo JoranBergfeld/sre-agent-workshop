@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 
 const baseManifest = {
@@ -48,6 +50,14 @@ const present = new Set([
 
 const fileExists = (p) => present.has(p.split('/').pop());
 
+function makeTempScenarioDir() {
+  const root = resolve(import.meta.dirname, `validate-temp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  mkdirSync(root, { recursive: true });
+  const dir = resolve(root, 'disk-full');
+  mkdirSync(dir, { recursive: true });
+  return { root, dir };
+}
+
 test('valid scenario yields no cross-field errors', () => {
   const validate = makeValidator();
   assert.ok(validate(baseManifest), JSON.stringify(validate.errors));
@@ -92,6 +102,42 @@ test('paths must remain inside the scenario directory', () => {
 
   assert.ok(errs.includes('guide must stay inside the scenario directory'));
   assert.ok(errs.includes('cleanup.bash must stay inside the scenario directory'));
+});
+
+test('symlinked references cannot escape the scenario directory', (t) => {
+  const { root, dir } = makeTempScenarioDir();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const outside = resolve(root, 'outside-guide.md');
+  writeFileSync(outside, '# outside\n');
+  symlinkSync(outside, resolve(dir, 'README.md'));
+  writeFileSync(resolve(dir, 'scenario.yaml'), 'id: disk-full\nplatform: Azure VM\n');
+
+  const manifest = { id: 'disk-full', guide: 'README.md' };
+
+  const errs = checkScenario(
+    { id: 'disk-full', manifest, dir },
+    { fileExists: existsSync, realpath: realpathSync }
+  );
+
+  assert.ok(errs.includes('guide must stay inside the scenario directory'));
+});
+
+test('broken symlinks are reported as missing files', (t) => {
+  const { root, dir } = makeTempScenarioDir();
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  symlinkSync(resolve(root, 'missing-guide.md'), resolve(dir, 'README.md'));
+  writeFileSync(resolve(dir, 'scenario.yaml'), 'id: disk-full\nplatform: Azure VM\n');
+
+  const manifest = { id: 'disk-full', guide: 'README.md' };
+
+  const errs = checkScenario(
+    { id: 'disk-full', manifest, dir },
+    { fileExists: existsSync, realpath: realpathSync }
+  );
+
+  assert.ok(errs.includes('guide references missing file README.md'));
 });
 
 test('optional remediate block may be omitted', () => {

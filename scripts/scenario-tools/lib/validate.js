@@ -25,12 +25,12 @@ function pathError(label) {
   return `${label} must stay inside the scenario directory`;
 }
 
-function checkReferencedPath(
+export function checkReferencedPath(
   errors,
   dir,
   label,
   rawPath,
-  { fileExists, isExecutable = () => true, requireExecutable = false }
+  { fileExists, isExecutable = () => true, realpath = (path) => path, requireExecutable = false }
 ) {
   if (!rawPath) {
     errors.push(`${label} is required`);
@@ -43,14 +43,24 @@ function checkReferencedPath(
   }
 
   const resolved = resolve(dir, rawPath);
-  const rel = relative(dir, resolved);
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
-    errors.push(pathError(label));
+  if (!fileExists(resolved)) {
+    errors.push(`${label} references missing file ${rawPath}`);
     return;
   }
 
-  if (!fileExists(resolved)) {
+  let canonicalDir;
+  let canonicalResolved;
+  try {
+    canonicalDir = realpath(dir);
+    canonicalResolved = realpath(resolved);
+  } catch {
     errors.push(`${label} references missing file ${rawPath}`);
+    return;
+  }
+
+  const rel = relative(canonicalDir, canonicalResolved);
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+    errors.push(pathError(label));
     return;
   }
 
@@ -62,7 +72,7 @@ function checkReferencedPath(
 // Pure cross-field validation. `fileExists` and `isExecutable` are injected so
 // the logic is testable without touching the filesystem. Executable checks
 // apply only to fields explicitly marked as Bash scripts.
-export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable = () => true }) {
+export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable = () => true, realpath = (path) => path }) {
   const errors = [];
 
   if (manifest.id !== id) errors.push(`id "${manifest.id}" must equal folder name "${id}"`);
@@ -71,41 +81,55 @@ export function checkScenario({ id, manifest, dir }, { fileExists, isExecutable 
     errors.push('missing required file scenario.yaml');
   }
 
-  checkReferencedPath(errors, dir, 'guide', manifest.guide, { fileExists, isExecutable });
+  checkReferencedPath(errors, dir, 'guide', manifest.guide, { fileExists, isExecutable, realpath });
 
   for (const kind of ['setup', 'inject', 'validate', 'cleanup']) {
     const pair = manifest[kind] ?? {};
     checkReferencedPath(errors, dir, `${kind}.bash`, pair.bash, {
       fileExists,
       isExecutable,
+      realpath,
       requireExecutable: true,
     });
-    checkReferencedPath(errors, dir, `${kind}.powershell`, pair.powershell, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `${kind}.powershell`, pair.powershell, { fileExists, isExecutable, realpath });
   }
 
   for (const action of manifest.remediate ?? []) {
     checkReferencedPath(errors, dir, `remediate.${action.action}.bash`, action.bash, {
       fileExists,
       isExecutable,
+      realpath,
       requireExecutable: true,
     });
-    checkReferencedPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, `remediate.${action.action}.powershell`, action.powershell, {
+      fileExists,
+      isExecutable,
+      realpath,
+    });
   }
 
   if (manifest.signal) {
-    checkReferencedPath(errors, dir, 'signal.alertModule', manifest.signal.alertModule, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, 'signal.alertModule', manifest.signal.alertModule, {
+      fileExists,
+      isExecutable,
+      realpath,
+    });
   }
 
   if (manifest.investigation) {
-    checkReferencedPath(errors, dir, 'investigation.query', manifest.investigation.query, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, 'investigation.query', manifest.investigation.query, {
+      fileExists,
+      isExecutable,
+      realpath,
+    });
   }
 
   if (manifest.source) {
-    checkReferencedPath(errors, dir, 'source', manifest.source, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, 'source', manifest.source, { fileExists, isExecutable, realpath });
   }
 
   if (manifest.tests) {
-    checkReferencedPath(errors, dir, 'tests', manifest.tests, { fileExists, isExecutable });
+    checkReferencedPath(errors, dir, 'tests', manifest.tests, { fileExists, isExecutable, realpath });
   }
 
   return errors;
