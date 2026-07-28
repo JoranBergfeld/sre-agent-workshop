@@ -1,0 +1,28 @@
+id: workload-identity-break
+title: Workload Identity Break
+track: aks
+summary: The workload's federated identity credential is deleted, so pods cannot acquire an AAD token and /items returns HTTP 500 with auth errors while /health stays green.
+severity: 3
+estimatedMinutes: 30
+difficulty: advanced
+learningObjectives:
+  - Distinguish authentication (token acquisition) failures from authorization (RBAC) failures.
+  - Trace AADSTS70021 / "No matching federated identity" errors in ContainerLog to a missing federated identity credential.
+  - Reconcile a missing federated identity credential by restoring the federatedCredential block in identity.bicep via a GitHub issue / @copilot PR (GitOps), with a manual fallback.
+signal:
+  alertModule: alert.bicep
+  alertName: workload-identity-auth-errors
+inject:
+  bash: inject.sh
+  powershell: inject.ps1
+validate:
+  bash: validate.sh
+  powershell: validate.ps1
+remediate:
+  - action: restore-federated-credential
+    bash: remediate.sh
+    powershell: remediate.ps1
+    description: Recreate the federated identity credential binding the workshop-app ServiceAccount to the UAMI, and restart pods.
+investigation:
+  query: query.kql
+docPage: README.md

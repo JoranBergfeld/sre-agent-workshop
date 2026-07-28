@@ -1,0 +1,9 @@
+let workshopContainers = KubePodInventory
+| where Namespace == "workshop"
+| where TimeGenerated > ago(1h)
+| distinct ContainerID;
+ContainerLog
+| where ContainerID in (workshopContainers)
+| where LogEntry has "Failed to read items from CosmosDB" or LogEntry has "RBAC" or LogEntry has "Forbidden" or LogEntry has "StatusCode: 500"
+| project TimeGenerated, LogEntry
+| top 50 by TimeGenerated desc

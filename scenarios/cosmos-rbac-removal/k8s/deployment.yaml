@@ -1,0 +1,61 @@
+# Deployment for the workshop web application.
+#
+# Placeholders (substituted at deploy time via envsubst or sed):
+#   ${COSMOSDB_ENDPOINT} — CosmosDB account endpoint from Bicep outputs
+#   OWNER in the image ref  — GitHub org/user that owns the container package
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: workshop
+  labels:
+    app: web-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+        # Required for the AKS workload identity mutating webhook
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: workshop-app
+      containers:
+        - name: web-app
+          # Container image publicly published to GitHub Packages.
+          # Attendees pull this public image — no build or auth required.
+          image: ghcr.io/OWNER/sre-agent-workshop/app:latest
+          ports:
+            - containerPort: 3000
+          env:
+            # CosmosDB endpoint — injected from Bicep deployment outputs
+            - name: COSMOSDB_ENDPOINT
+              value: "${COSMOSDB_ENDPOINT}"
+            - name: PORT
+              value: "3000"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"

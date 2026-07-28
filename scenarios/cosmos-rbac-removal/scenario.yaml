@@ -1,0 +1,28 @@
+id: cosmos-rbac-removal
+title: CosmosDB RBAC Removal
+track: aks
+summary: The app's managed-identity CosmosDB role assignment is deleted, so /items returns HTTP 500 while /health stays green.
+severity: 3
+estimatedMinutes: 25
+difficulty: intermediate
+learningObjectives:
+  - Distinguish liveness (healthy) from dependency failure (500 on /items).
+  - Trace 5xx errors in ContainerLog to a missing CosmosDB RBAC role assignment.
+  - Drive remediation through a GitHub issue / @copilot PR (GitOps), with a manual fallback.
+signal:
+  alertModule: alert.bicep
+  alertName: http-500-errors
+inject:
+  bash: inject.sh
+  powershell: inject.ps1
+validate:
+  bash: validate.sh
+  powershell: validate.ps1
+remediate:
+  - action: restore-cosmos-rbac
+    bash: remediate.sh
+    powershell: remediate.ps1
+    description: Recreate the Cosmos DB Built-in Data Contributor role assignment for the workload UAMI and restart pods.
+investigation:
+  query: query.kql
+docPage: README.md

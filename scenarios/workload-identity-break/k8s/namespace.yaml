@@ -1,0 +1,6 @@
+# Namespace for the workshop web application.
+# All workshop resources (ServiceAccount, Deployment, Service) live here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workshop
