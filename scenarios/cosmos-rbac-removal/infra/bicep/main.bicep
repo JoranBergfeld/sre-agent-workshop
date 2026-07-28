@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-// Azure SRE Agent Workshop — Main Orchestrator
+// Azure SRE Agent Scenario — CosmosDB RBAC Removal
 // Composes: Monitoring → AKS → CosmosDB → Identity → Alerts
 // ──────────────────────────────────────────────────────────────
 

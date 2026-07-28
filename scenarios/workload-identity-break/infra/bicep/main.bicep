@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────────────────────
-// Azure SRE Agent Workshop — Main Orchestrator
+// Azure SRE Agent Scenario — Workload Identity Break
 // Composes: Monitoring → AKS → CosmosDB → Identity → Alerts
 // ──────────────────────────────────────────────────────────────
 
