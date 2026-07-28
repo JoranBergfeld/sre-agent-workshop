@@ -2,12 +2,20 @@ name: Validate Scenarios
 
 on:
   push:
+    branches:
+      - main
     paths:
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scripts/validate-scenarios.sh'
+      - 'scenarios/**'
       - 'workshops/**/scenarios/**'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
   pull_request:
     paths:
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scripts/validate-scenarios.sh'
+      - 'scenarios/**'
       - 'workshops/**/scenarios/**'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
@@ -34,15 +42,45 @@ jobs:
         run: npm test
 
       - name: Validate scenarios (schema + drift)
-        run: node scripts/scenario-tools/bin/validate.js
+        run: scripts/validate-scenarios.sh
 
       - name: Set up Bicep
         run: az bicep install
 
       - name: Build all scenario + aggregator bicep
         run: |
-          shopt -s nullglob
-          for f in workshops/*/scenarios/*/alert.bicep workshops/*/infra/bicep/modules/scenario-alerts.bicep; do
-            echo "Building $f"
-            az bicep build --file "$f" --stdout > /dev/null
-          done
+          set -euo pipefail
+          declare -A built_mains=()
+
+          if [ -d scenarios ]; then
+            while IFS= read -r -d '' manifest; do
+              scenario_dir="$(dirname "$manifest")"
+              main_bicep="$scenario_dir/infra/bicep/main.bicep"
+              if [ ! -f "$main_bicep" ]; then
+                echo "::error file=$manifest::Missing Bicep entry point: $main_bicep"
+                exit 1
+              fi
+              if [[ -z "${built_mains["$main_bicep"]+x}" ]]; then
+                built_mains["$main_bicep"]=1
+                echo "Building $main_bicep"
+                az bicep build --file "$main_bicep" --stdout > /dev/null
+              fi
+            done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0)
+          fi
+
+          while IFS= read -r -d '' bicep_file; do
+            case "$bicep_file" in
+              */infra/bicep/modules/*|*/infra/bicep/main.bicep)
+                continue
+                ;;
+            esac
+            echo "Building $bicep_file"
+            az bicep build --file "$bicep_file" --stdout > /dev/null
+          done < <(find . -type f -name '*.bicep' -print0)
+
+          # Temporary migration support: keep the historical workshop targets visible
+          # until the old hierarchy is fully retired.
+          # while IFS= read -r -d '' bicep_file; do
+          #   echo "Building $bicep_file"
+          #   az bicep build --file "$bicep_file" --stdout > /dev/null
+          # done < <(find workshops -type f \( -name 'main.bicep' -o -name 'alert.bicep' -o -name 'scenario-alerts.bicep' \) -print0)
