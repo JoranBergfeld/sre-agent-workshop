@@ -35,7 +35,7 @@ Continue at [Review the Copilot pull request](#review-the-copilot-pull-request).
 Use this path only when Azure infrastructure or SRE Agent is unavailable.
 
 1. Open the scenario's
-   [`sample-issue.md`](../scenarios/cloud-agent-handover/sample-issue.md).
+   [`sample-issue.md`](../sample-issue.md).
 2. Review the sample as the explicit approval gate. It represents possible SRE
    Agent output; it is not evidence that Azure telemetry was collected.
 3. Open `https://github.com/<owner>/<repository>/issues/new`.
@@ -90,24 +90,24 @@ After the Path A deployment completes, run the scenario validator.
 Bash:
 
 ```bash
-./scripts/validate.sh
+scenarios/cloud-agent-handover/scripts/validate.sh
 ```
 
 PowerShell 7:
 
 ```powershell
-./scripts/validate.ps1
+scenarios/cloud-agent-handover/scripts/validate.ps1
 ```
 
 If you chose a custom workload, pass its resource group:
 
 ```bash
-./scripts/validate.sh \
+scenarios/cloud-agent-handover/scripts/validate.sh \
   --resource-group "rg-<workload>"
 ```
 
 ```powershell
-./scripts/validate.ps1 `
+scenarios/cloud-agent-handover/scripts/validate.ps1 `
   -ResourceGroup "rg-<workload>"
 ```
 

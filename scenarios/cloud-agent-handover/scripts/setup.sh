@@ -89,7 +89,6 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-SCENARIO_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 cd "$REPO_ROOT"
 
@@ -162,8 +161,7 @@ WEB_APP=$(jq -er '.webAppName.value' <<<"$OUTPUTS")
 WEB_HOST=$(jq -er '.webAppHostName.value' <<<"$OUTPUTS")
 CLIENT_ID=$(jq -er '.deploymentClientId.value' <<<"$OUTPUTS")
 
-PUBLISH_DIR="$SCENARIO_DIR/.cloud-agent-handover-publish.$$"
-mkdir -p "$PUBLISH_DIR"
+PUBLISH_DIR=$(mktemp -d)
 trap cleanup_temp EXIT
 
 dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj

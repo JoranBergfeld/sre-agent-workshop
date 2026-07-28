@@ -3,13 +3,13 @@ name: Validate App Service Application
 on:
   pull_request:
     paths:
-      - 'scenarios/cloud-agent-handover/src/**'
-      - 'scenarios/cloud-agent-handover/tests/**'
+      - 'workshops/appservice/src/**'
+      - 'workshops/appservice/tests/**'
       - '.github/workflows/validate-appservice-app.yml'
   push:
     branches: [main]
     paths:
-      - 'scenarios/cloud-agent-handover/tests/**'
+      - 'workshops/appservice/tests/**'
       - '.github/workflows/validate-appservice-app.yml'
 
 permissions:
@@ -46,15 +46,15 @@ jobs:
       - name: Test application with coverage
         shell: bash
         run: |
-          dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
+          dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
             --collect:"XPlat Code Coverage" \
-            --results-directory scenarios/cloud-agent-handover/TestResults \
+            --results-directory workshops/appservice/TestResults \
             -- \
             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
 
           coverage_file="$(
-            find scenarios/cloud-agent-handover/TestResults \
+            find workshops/appservice/TestResults \
               -name coverage.cobertura.xml \
               -print -quit
           )"

@@ -8,13 +8,13 @@ there is no infrastructure deployment workflow to trigger.
 Use the defaults (`eastus2`, workload `srelabapp`):
 
 ```bash
-./scripts/setup.sh
+scenarios/cloud-agent-handover/scripts/setup.sh
 ```
 
 Or choose supported values:
 
 ```bash
-./scripts/setup.sh \
+scenarios/cloud-agent-handover/scripts/setup.sh \
   --location swedencentral \
   --workload myhandover
 ```
@@ -24,13 +24,13 @@ Or choose supported values:
 Use the defaults:
 
 ```powershell
-./scripts/setup.ps1
+scenarios/cloud-agent-handover/scripts/setup.ps1
 ```
 
 Or choose supported values:
 
 ```powershell
-./scripts/setup.ps1 `
+scenarios/cloud-agent-handover/scripts/setup.ps1 `
   -Location swedencentral `
   -Workload myhandover
 ```

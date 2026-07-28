@@ -8,25 +8,25 @@ asynchronously because `--no-wait` is used.
 Bash:
 
 ```bash
-./scripts/cleanup.sh
+scenarios/cloud-agent-handover/scripts/cleanup.sh
 ```
 
 For a custom resource group:
 
 ```bash
-./scripts/cleanup.sh rg-myworkload
+scenarios/cloud-agent-handover/scripts/cleanup.sh rg-myworkload
 ```
 
 PowerShell 7:
 
 ```powershell
-./scripts/cleanup.ps1
+scenarios/cloud-agent-handover/scripts/cleanup.ps1
 ```
 
 For a custom resource group:
 
 ```powershell
-./scripts/cleanup.ps1 -ResourceGroup rg-myworkload
+scenarios/cloud-agent-handover/scripts/cleanup.ps1 -ResourceGroup rg-myworkload
 ```
 
 The scripts call `az group delete --yes --no-wait`. The resource group contains

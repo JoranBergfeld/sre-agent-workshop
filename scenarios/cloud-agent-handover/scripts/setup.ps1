@@ -60,7 +60,6 @@ catch {
     throw "GitHub CLI is not authenticated. Run 'gh auth login' and try again."
 }
 
-$scenarioRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 Push-Location $repoRoot
 
@@ -159,7 +158,7 @@ query($owner:String!, $name:String!) {
         }
     }
 
-    $publishRoot = Join-Path $scenarioRoot ".cloud-agent-handover-publish-$PID"
+    $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sre-handover-$([Guid]::NewGuid())"
     New-Item -ItemType Directory -Force -Path $publishRoot | Out-Null
 
     try {

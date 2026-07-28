@@ -8,7 +8,7 @@ reviewable, testable code change.
 | Safeguard | Benefit |
 | --- | --- |
 | Focused issue | Gives Copilot an explicit scope and acceptance criteria. |
-| Path-specific Copilot instructions | Applies App Service conventions automatically when Copilot edits this track. |
+| Path-specific Copilot instructions | Applies App Service conventions automatically when Copilot edits this scenario. |
 | Endpoint tests | Protects the public HTTP contracts learners review. |
 | Pull-request CI | Blocks merging when the application tests or quality gate fail. |
 | Changed-line coverage | Requires every changed executable application line to be exercised without demanding 100% legacy coverage. |
