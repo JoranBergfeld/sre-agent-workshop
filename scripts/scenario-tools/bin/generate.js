@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WORKSHOPS_DIR } from '../lib/paths.js';
-import { listTracks, scenarioDirs, loadScenario } from '../lib/scenarios.js';
+import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib/scenarios.js';
 import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
 
 function writeReadmeBlock(readmePath, block) {
@@ -12,8 +12,8 @@ function writeReadmeBlock(readmePath, block) {
   writeFileSync(readmePath, src.replace(re, block.trimEnd()));
 }
 
-for (const track of listTracks()) {
-  const scenarios = scenarioDirs(track).map(loadScenario);
+for (const track of legacyListTracks()) {
+  const scenarios = legacyScenarioDirs(track).map((dir) => legacyLoadScenario(dir, track));
   const trackDir = resolve(WORKSHOPS_DIR, track);
 
   writeFileSync(resolve(trackDir, 'scenarios', 'INDEX.md'), renderIndex(track, scenarios));

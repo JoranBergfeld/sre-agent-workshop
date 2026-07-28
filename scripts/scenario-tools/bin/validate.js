@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { WORKSHOPS_DIR } from '../lib/paths.js';
-import { listTracks, scenarioDirs, loadScenario } from '../lib/scenarios.js';
+import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib/scenarios.js';
 import { makeLegacyValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
 
@@ -15,8 +15,8 @@ const validate = makeLegacyValidator();
 let failed = false;
 const fail = (msg) => { console.error(`✖ ${msg}`); failed = true; };
 
-for (const track of listTracks()) {
-  const scenarios = scenarioDirs(track).map(loadScenario);
+for (const track of legacyListTracks()) {
+  const scenarios = legacyScenarioDirs(track).map((dir) => legacyLoadScenario(dir, track));
 
   for (const s of scenarios) {
     if (!validate(s.manifest)) {
