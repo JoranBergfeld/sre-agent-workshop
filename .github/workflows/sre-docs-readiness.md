@@ -37,12 +37,16 @@ accuracy — and you never change docs silently: you open a single draft PR for 
 - `docs/*.md` (the shared layer), **excluding** `docs/superpowers/**`
 - `scenarios/cloud-agent-handover/README.md`
 - `scenarios/cloud-agent-handover/docs/**.md`
+- `scenarios/cloud-agent-handover/knowledge/**.md`
 - `workshops/*/README.md`
 - `workshops/*/docs/**.md`
 - `workshops/*/scenarios/*/README.md`
 
 **In scope — upstream accuracy** (compare against upstream, fix drift):
 
+- `scenarios/cloud-agent-handover/README.md`
+- `scenarios/cloud-agent-handover/docs/**.md`
+- `scenarios/cloud-agent-handover/knowledge/**.md`
 - `workshops/*/docs/03-onboard-sre-agent.md`
 - `workshops/*/docs/0?-configure-incident-response.md`
 - `workshops/*/docs/90-watch*.md`
