@@ -56,16 +56,17 @@ manifest and regenerate.
 
 ### Scenario manifest (`scenario.yaml`)
 
-Required: `id` (== folder name), `title`, `platform`, `summary`, `severity` (0–4), `inject`,
-`validate`, and `guide`. Common optional: `estimatedMinutes`, `difficulty`
-(`beginner|intermediate|advanced`), `learningObjectives`, `signal` (`alertModule`/`alertName`),
-`remediate` (list of `{action, bash, powershell, description}`), `investigation` (`query`).
+Required: `id` (== folder name), `title`, `platform`, `incidentType`, `summary`, `severity`
+(`0–4`), `estimatedMinutes`, `difficulty` (`beginner|intermediate|advanced`), `costProfile`,
+`guide`, `setup`, `inject`, `validate`, `cleanup`. Common optional: `learningObjectives`,
+`signal` (`alertModule`/`alertName`), `remediate` (list of `{action, bash, powershell,
+description}`), `investigation` (`query`), `source`, `tests`.
 The authoritative contract is `schemas/scenario.schema.json`.
 
 ### Scenario conventions
 
-- **Always ship both shells:** `inject`, `validate`, and every `remediate` action need a `.sh`
-  *and* a `.ps1`. `.sh` scripts must be executable.
+- **Always ship both shells:** `setup`, `inject`, `validate`, `cleanup`, and every `remediate`
+  action need both Bash and PowerShell paths. Bash references must point to executable scripts.
 - **Remediation is optional.** A scenario without `remediate` still needs both
   shells for `inject` and `validate`; the App Service handover intentionally has no remediation scripts.
 - **`alert.bicep`** must declare exactly `location`, `workloadName`, `tags`, `scopeResourceId`,
