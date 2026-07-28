@@ -42,6 +42,7 @@ export function renderCatalog(scenarios) {
     '| Scenario | Platform | Incident | Severity | Est. | Difficulty | Cost | Summary |',
     '| --- | --- | --- | --- | --- | --- | --- | --- |',
     ...sortCatalogScenarios(scenarios).map(renderRow),
+    '',
     CATALOG_END,
   ].join('\n');
 }
