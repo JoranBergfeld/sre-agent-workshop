@@ -1,6 +1,0 @@
-// Investigation query for __SCENARIO_TITLE__.
-// The VM investigation tool replaces {{VM_NAME}} with the target VM name.
-AzureDiagnostics
-| where TimeGenerated > ago(1h)
-| where Resource contains "{{VM_NAME}}"
-| take 50

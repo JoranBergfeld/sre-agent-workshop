@@ -1,26 +1,22 @@
 id: __SCENARIO_ID__
 title: __SCENARIO_TITLE__
-track: __TRACK__
-summary: One-line description of the fault and its user-visible symptom.
-severity: 3
-estimatedMinutes: 20
+platform: __PLATFORM__
+incidentType: Application failure
+summary: A generic application failure blocks the happy path.
+severity: 2
+estimatedMinutes: 30
 difficulty: beginner
-learningObjectives:
-  - Describe what the attendee learns from this scenario.
-signal:
-  alertModule: alert.bicep
-  alertName: __SCENARIO_ID__-alert
+costProfile: low
+guide: README.md
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
 inject:
-  bash: inject.sh
-  powershell: inject.ps1
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
 validate:
-  bash: validate.sh
-  powershell: validate.ps1
-remediate:
-  - action: restore
-    bash: remediate.sh
-    powershell: remediate.ps1
-    description: Undo the injected fault.
-investigation:
-  query: query.kql
-docPage: README.md
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1

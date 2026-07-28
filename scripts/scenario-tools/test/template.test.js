@@ -1,33 +1,83 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
-import { makeLegacyValidator } from '../lib/validate.js';
+import { makeValidator, checkScenario } from '../lib/validate.js';
 
-function materialize(track, id) {
-  const tmp = mkdtempSync(resolve(tmpdir(), 'scn-'));
-  const dest = resolve(tmp, id);
+function materialize(id, title, platform) {
+  const root = mkdtempSync(resolve(import.meta.dirname, 'template-'));
+  const dest = resolve(root, id);
   cpSync(resolve(import.meta.dirname, '..', 'template'), dest, { recursive: true });
-  const tokens = { __SCENARIO_ID__: id, __TRACK__: track, __SCENARIO_TITLE__: 'Example' };
-  const walk = (d) => {
-    for (const n of readdirSync(d)) {
-      const p = resolve(d, n);
-      if (statSync(p).isDirectory()) { walk(p); continue; }
-      let t = readFileSync(p, 'utf8');
-      for (const [k, v] of Object.entries(tokens)) t = t.split(k).join(v);
-      writeFileSync(p, t);
+
+  const tokens = {
+    __SCENARIO_ID__: id,
+    __SCENARIO_TITLE__: title,
+    __PLATFORM__: platform,
+  };
+
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      const path = resolve(dir, name);
+      if (statSync(path).isDirectory()) {
+        walk(path);
+        continue;
+      }
+
+      let text = readFileSync(path, 'utf8');
+      for (const [token, value] of Object.entries(tokens)) {
+        text = text.split(token).join(value);
+      }
+      writeFileSync(path, text);
     }
   };
+
   walk(dest);
-  return dest;
+  return { root, dest };
 }
 
-test('template passes schema after substitution', () => {
-  const dir = materialize('vm', 'example');
-  const manifest = yaml.load(readFileSync(resolve(dir, 'scenario.yaml'), 'utf8'));
-  // Framework Task 5 migrates the template to the capsule schema.
-  const validate = makeLegacyValidator();
+function isExecutable(path) {
+  return (statSync(path).mode & 0o111) !== 0;
+}
+
+test('template materializes a valid standalone scenario capsule', (t) => {
+  const { root, dest } = materialize('disk-full', 'Disk Full', 'Azure App Service');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  const required = [
+    'README.md',
+    'infra/bicep/main.bicep',
+    'scenario.yaml',
+    'scripts/setup.sh',
+    'scripts/setup.ps1',
+    'scripts/inject.sh',
+    'scripts/inject.ps1',
+    'scripts/validate.sh',
+    'scripts/validate.ps1',
+    'scripts/cleanup.sh',
+    'scripts/cleanup.ps1',
+  ];
+
+  for (const rel of required) {
+    assert.ok(existsSync(resolve(dest, rel)), `${rel} should exist`);
+  }
+
+  for (const rel of required.filter((rel) => rel.endsWith('.sh'))) {
+    assert.ok(isExecutable(resolve(dest, rel)), `${rel} should be executable`);
+  }
+
+  const manifest = yaml.load(readFileSync(resolve(dest, 'scenario.yaml'), 'utf8'));
+  const validate = makeValidator();
   assert.ok(validate(manifest), JSON.stringify(validate.errors));
+
+  const errors = checkScenario(
+    { id: 'disk-full', manifest, dir: dest },
+    { fileExists: existsSync, isExecutable, realpath: (path) => path }
+  );
+
+  assert.deepEqual(errors, []);
+
+  assert.match(readFileSync(resolve(dest, 'README.md'), 'utf8'), /# Scenario: Disk Full/);
+  assert.doesNotMatch(readFileSync(resolve(dest, 'README.md'), 'utf8'), /\b(?:TODO|TBD)\b/);
+  assert.match(readFileSync(resolve(dest, 'infra/bicep/main.bicep'), 'utf8'), /targetScope\s*=\s*'resourceGroup'/);
 });
