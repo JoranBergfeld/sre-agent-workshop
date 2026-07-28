@@ -54,6 +54,7 @@ Select one incident and follow its complete setup, exercise, recovery, and clean
 
 | Scenario | Platform | Incident | Severity | Est. | Difficulty | Cost | Summary |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| [SRE Agent to Copilot Handover](scenarios/cloud-agent-handover/) | Azure App Service | Application HTTP 500 | 2 | 20m | beginner | low | Blazor app ships one unfinished endpoint; button burst 500 alerts SRE Agent; after learner approval issue assigned to Copilot. |
 
 <!-- END SCENARIO CATALOG -->
 

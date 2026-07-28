@@ -53,13 +53,13 @@ module appservice 'modules/appservice.bicep' = {
   }
 }
 
-module scenarioAlerts 'modules/scenario-alerts.bicep' = {
-  name: 'scenario-alerts'
+module scenarioAlert 'modules/alert.bicep' = {
+  name: 'cloud-agent-handover-alert'
   params: {
     location: location
     workloadName: workloadName
     tags: tags
-    logAnalyticsResourceId: monitoring.outputs.logAnalyticsId
+    scopeResourceId: monitoring.outputs.logAnalyticsId
   }
 }
 
