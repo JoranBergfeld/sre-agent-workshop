@@ -127,11 +127,11 @@ The authoritative contract is `schemas/scenario.schema.json`.
   `workshops/aks/src/**`; GHCR, lowercased owner), `validate-aks-infra.yml` (push/PR on
   `workshops/aks/infra/**`; syntax + what-if).
 - **VM:** `deploy-vm-infra.yml`, `validate-vm-infra.yml`.
-- **App Service:** `validate-appservice-infra.yml` (**Validate App Service
-  Infrastructure**), `validate-appservice-app.yml` (**Validate App Service
-  Application**), and `deploy-appservice-app.yml` (**Deploy App Service
-  Application**). The deployment runs automatically for app/test changes pushed
-  to `main` and also supports manual dispatch.
+- **App Service:** `validate-appservice-infra.yml` (**Validate Cloud Agent
+  Handover Infrastructure**), `validate-appservice-app.yml` (**Validate Cloud
+  Agent Handover Application**), and `deploy-appservice-app.yml` (**Deploy
+  Cloud Agent Handover Application**). The deployment runs automatically for
+  app/test changes pushed to `main` and also supports manual dispatch.
 - **Framework:** `validate-scenarios.yml` — schema check, unit tests, drift check, and `az bicep build`
   on every `alert.bicep` + aggregator.
 - **Docs freshness:** `sre-docs-freshness.md` is the gh-aw **source**; `sre-docs-freshness.lock.yml`
@@ -155,7 +155,7 @@ The authoritative contract is `schemas/scenario.schema.json`.
   `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`: the SRE Agent asks
   for approval before creating one issue assigned to `copilot-swe-agent`, a
   human reviews and merges the Copilot pull request, and the merge triggers the
-  automatic OIDC-based **Deploy App Service Application** workflow.
+  automatic OIDC-based **Deploy Cloud Agent Handover Application** workflow.
 
 ## Contributing
 

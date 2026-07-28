@@ -31,7 +31,7 @@ path from investigation to remediation.
    ./workshops/appservice/scripts/setup.ps1
    ```
 
-4. Follow the [App Service: SRE Agent to Copilot Handover](workshops/appservice/README.md).
+4. Follow the [Cloud Agent Handover scenario](scenarios/cloud-agent-handover/README.md).
 
 The App Service prerequisites include Azure and GitHub access, authenticated
 `az` and `gh` CLIs, .NET 10, and permission to create role assignments. The
@@ -62,10 +62,11 @@ Select one incident and follow its complete setup, exercise, recovery, and clean
 
 You can run a generated repository in a preconfigured
 [GitHub Codespace](https://docs.github.com/codespaces) instead of installing the
-toolchain locally. Each track has a dev container under `.devcontainer/<track>/`
-with Azure CLI + Bicep, PowerShell, GitHub CLI, Node.js, and its track-specific
-tools. The recommended Cloud Agent Handover configuration also includes .NET 10, `jq`,
-and `zip`; the AKS configuration adds Kubernetes tooling.
+toolchain locally. The Cloud Agent Handover quickstart uses
+`.devcontainer/cloud-agent-handover/` with Azure CLI + Bicep, PowerShell,
+GitHub CLI, Node.js, and its track-specific tools. The recommended Cloud Agent
+Handover configuration also includes .NET 10, `jq`, and `zip`; the AKS
+configuration adds Kubernetes tooling.
 
 1. In the repository created from the template, select **Code → Codespaces →
    New with options…**
@@ -206,4 +207,4 @@ MIT License.
 ---
 
 **Ready to begin?** [Create a repository from the template](https://github.com/JoranBergfeld/sre-agent-workshop/generate)
-and follow the [App Service handover track](workshops/appservice/README.md).
+and follow the [Cloud Agent Handover scenario](scenarios/cloud-agent-handover/README.md).

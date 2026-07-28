@@ -92,8 +92,8 @@ repository.
 - **App Service:** requires the code repository and GitHub connector. After
   explicit approval, the SRE Agent creates one issue assigned to
   `copilot-swe-agent`. Copilot creates the fix pull request; the operator
-  reviews and merges it; the OIDC-based **Deploy App Service Application**
-  workflow deploys the merged code.
+  reviews and merges it; the OIDC-based **Deploy Cloud Agent Handover
+  Application** workflow deploys the merged code.
 - **AKS:** requires the code repository and GitHub connector. The SRE Agent
   files the remediation issue and assigns the Copilot coding agent. Copilot
   opens the pull request; after merge, an operator manually runs the

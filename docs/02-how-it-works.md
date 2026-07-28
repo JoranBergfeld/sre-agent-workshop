@@ -20,7 +20,7 @@
 
 - The agent never makes silent direct changes → see the AKS track's [`operational-guidelines.md`](../workshops/aks/knowledge/operational-guidelines.md)
 - Per-track approval gates (e.g. VM `invoke-approved-remediation`)
-- App Service issue approval and handover → [`operational-guidelines.md`](../workshops/appservice/knowledge/operational-guidelines.md)
+- Cloud Agent Handover issue approval and handover → [`operational-guidelines.md`](../scenarios/cloud-agent-handover/knowledge/operational-guidelines.md)
 
 ## Where each track plugs in
 
