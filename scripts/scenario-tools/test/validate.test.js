@@ -36,6 +36,14 @@ test('valid scenario yields no cross-field errors', () => {
   assert.deepEqual(errs, []);
 });
 
+test('localPath rejects absolute and rooted paths', () => {
+  const validate = makeValidator();
+  for (const guide of ['/etc/passwd', 'C:\\Windows\\System32', '\\rooted', '\\\\server\\share']) {
+    const manifest = { ...baseManifest, guide };
+    assert.equal(validate(manifest), false, `expected ${guide} to fail schema validation`);
+  }
+});
+
 test('appservice scenario without remediate yields no cross-field errors', () => {
   const manifest = {
     ...baseManifest,
