@@ -33,7 +33,7 @@ a *single* break scenario and never generalized as scenarios multiplied:
     link solely to `../scenarios/cosmos-rbac-removal/README.md`. `workload-identity-break` is invisible in
     the module flow.
 
-- **App Service `workshops/appservice/docs/04-configure-incident-response.md`**
+- **App Service `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`**
   - "Verify Alert Rules" states the app has *"alert rules for HTTP 500 errors and App Service restarts,
     wired to query `AppServiceConsoleLogs` and `AppServiceHTTPLogs`."* This is inaccurate. `main.bicep`
     defines **no** base alerts at all — every alert comes from the scenario aggregator and queries
@@ -84,7 +84,7 @@ that would re-drift.
   catalog," linking the track README `## Scenarios` table. Ensure `workload-identity-break` is reachable
   (via the catalog link), not just cosmos. Each scenario README is its own self-contained Module 5.
 
-### 2. `workshops/appservice/docs/04-configure-incident-response.md`
+### 2. `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`
 
 - **Verify Alert Rules section:** Fix the inaccurate description:
   - App Service has **no base alerts**; all alerts come from scenarios and query Application Insights

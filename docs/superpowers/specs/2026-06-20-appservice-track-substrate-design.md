@@ -40,7 +40,7 @@ This work was deliberately decomposed. This spec covers piece (1); piece (2) is 
 
 ## Architecture — resource topology
 
-`workshops/appservice/infra/bicep/main.bicep` (resourceGroup scope), mirroring AKS conventions.
+`scenarios/cloud-agent-handover/infra/bicep/main.bicep` (resourceGroup scope), mirroring AKS conventions.
 
 **Params:** `location` (`@allowed` `eastus2`/`swedencentral`/`australiaeast`, default `eastus2`),
 `workloadName` (default `srelab`), `tags`, `sqlAadAdminObjectId` (principal set as SQL AAD admin —
@@ -66,7 +66,7 @@ future alert seam.
 
 ## The .NET 10 shop app
 
-`workshops/appservice/src/` — a thin .NET 10 minimal API, mirroring the AKS app's `/`, `/health`,
+`scenarios/cloud-agent-handover/src/` — a thin .NET 10 minimal API, mirroring the AKS app's `/`, `/health`,
 `/items` shape:
 
 - `GET /health` → `200` always, **no DB call** (liveness; also the App Service health-check path).
@@ -124,7 +124,7 @@ commit-visible context for the SRE agent. The grant is a clean fault target for 
 ## Framework registration (substrate-owned)
 
 These register the track and are harmless with zero scenarios — `listTracks()` filters by the
-existence of `workshops/appservice/scenarios/`, so the generator/validator skip the track until the
+existence of `scenarios/cloud-agent-handover/scenarios/`, so the generator/validator skip the track until the
 first scenario lands, keeping `validate-scenarios.sh` green and drift-free:
 
 - `schemas/scenario.schema.json` — add `"appservice"` to `properties.track.enum`.
@@ -136,24 +136,24 @@ first scenario lands, keeping `validate-scenarios.sh` green and drift-free:
 In `.github/workflows/`, mirroring AKS naming and the manual-dispatch-infra convention; all use the
 `AZURE_CREDENTIALS` secret:
 
-- `validate-appservice-infra.yml` — push/PR on `workshops/appservice/infra/**` → `bicep build` +
+- `validate-appservice-infra.yml` — push/PR on `scenarios/cloud-agent-handover/infra/**` → `bicep build` +
   `az deployment group what-if`.
 - `deploy-appservice-infra.yml` — **manual `workflow_dispatch` only** (inputs: `region`,
   `workloadName`). Derives `sqlAadAdminObjectId` from the deploying SP, then
   `az deployment group create`.
-- `deploy-appservice-app.yml` — push on `workshops/appservice/src/**` and `workshops/appservice/db/**`
+- `deploy-appservice-app.yml` — push on `scenarios/cloud-agent-handover/src/**` and `scenarios/cloud-agent-handover/db/**`
   (+ manual): pinned .NET 10 SDK → `dotnet publish -c Release` → zip →
   `az webapp deploy --type zip` → `sqlcmd -G` runs `db/schema.sql` + `db/grant.sql`.
 - `validate-scenarios.yml` is generic — unchanged.
 
 ## Docs, knowledge & READMEs
 
-- `workshops/appservice/docs/` — mirror the AKS module set: `00-prerequisites`,
+- `scenarios/cloud-agent-handover/docs/` — mirror the AKS module set: `00-prerequisites`,
   `01-deploy-infrastructure`, `02-deploy-application`, `03-onboard-sre-agent`,
   `04-configure-incident-response`, `90-watch-sre-agent`, `99-cleanup`.
-- `workshops/appservice/knowledge/operational-guidelines.md` — adapted from AKS (never make direct
+- `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md` — adapted from AKS (never make direct
   Azure changes; always create GitHub issues for @copilot; GitOps).
-- `workshops/appservice/README.md` — modules list, `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->`
+- `scenarios/cloud-agent-handover/README.md` — modules list, `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->`
   markers (generator fills the table once scenarios exist), and a track cost note.
 - Root `README.md` — add an App Service track entry to the track overview. The full root cost-table
   redo is deferred to issue #7 (per-scenario cost); the substrate adds only a track-level cost note.
@@ -161,7 +161,7 @@ In `.github/workflows/`, mirroring AKS naming and the manual-dispatch-infra conv
 ## Deliverable file tree
 
 ```
-workshops/appservice/
+scenarios/cloud-agent-handover/
   README.md
   infra/bicep/
     main.bicep
@@ -204,9 +204,9 @@ Remember to run **Cleanup** (module 99); idle resources still bill.
 
 ## Testing & acceptance
 
-- `az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout` → exit 0, no `ERROR`
+- `az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout` → exit 0, no `ERROR`
   lines.
-- `dotnet publish -c Release` (in `workshops/appservice/src/`) → succeeds with .NET 10 SDK.
+- `dotnet publish -c Release` (in `scenarios/cloud-agent-handover/src/`) → succeeds with .NET 10 SDK.
 - `db/schema.sql` and `db/grant.sql` present and parseable.
 - `scripts/validate-scenarios.sh` → `Scenario validation passed`; `--write` leaves no drift
   (`git status --porcelain` empty) — track registered, zero scenarios.

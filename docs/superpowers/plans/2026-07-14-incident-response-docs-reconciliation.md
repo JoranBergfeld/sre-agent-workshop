@@ -38,7 +38,7 @@ Work on branch `docs/incident-response-catalog-reconciliation` (already checked 
   (canary-bad-release) and `srelabapp-redbutton-5xx` (red-button-500).
 - **File structure** (all edits are in-place; no files created/deleted):
   - Modify: `workshops/aks/docs/04-configure-incident-response.md`
-  - Modify: `workshops/appservice/docs/04-configure-incident-response.md`
+  - Modify: `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`
   - Modify: `workshops/vm/docs/02-configure-incident-response.md`
 
 ---
@@ -150,7 +150,7 @@ git commit \
 ### Task 2: App Service incident-response doc
 
 **Files:**
-- Modify: `workshops/appservice/docs/04-configure-incident-response.md`
+- Modify: `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`
 
 - [ ] **Step 1: Fix the "Verify Alert Rules Exist" intro sentence**
 
@@ -189,13 +189,13 @@ You'll see **one alert per scenario**, each querying the Application Insights `A
 Replace this exact line:
 
 ```markdown
-If the list is empty, re-run the **Deploy App Service Infrastructure** workflow from Module 1 — the alerts are defined in `workshops/appservice/infra/bicep/main.bicep`.
+If the list is empty, re-run the **Deploy Cloud Agent Handover Infrastructure** workflow from Module 1 — the alerts are defined in `scenarios/cloud-agent-handover/infra/bicep/main.bicep`.
 ```
 
 with:
 
 ```markdown
-If the list is empty, re-run the **Deploy App Service Infrastructure** workflow from Module 1 — scenario alerts are generated into `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep` and deployed with the infrastructure.
+If the list is empty, re-run the **Deploy Cloud Agent Handover Infrastructure** workflow from Module 1 — scenario alerts are generated into `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep` and deployed with the infrastructure.
 ```
 
 - [ ] **Step 4: Replace the stale SQL narrative in "How It All Connects"**
@@ -250,7 +250,7 @@ Replace this exact block:
 ## Next Step
 
 → **Module 5: Break It** — the break scenario for this track is published separately under
-`workshops/appservice/scenarios/`. Once a scenario is available, follow its README to inject the
+`scenarios/cloud-agent-handover/scenarios/`. Once a scenario is available, follow its README to inject the
 fault, then return here. In the meantime, preview what the agent does in
 [Module 6: Watch the SRE Agent](./90-watch-sre-agent.md).
 ```
@@ -271,9 +271,9 @@ Run:
 
 ```bash
 cd /home/jbergfeld/vcs/sre-agent-workshop
-grep -niE "SQL|AppServiceConsoleLogs|AppServiceHTTPLogs|App Service restarts|published separately|once a scenario is available" workshops/appservice/docs/04-configure-incident-response.md || echo "OK: no stale narrative"
+grep -niE "SQL|AppServiceConsoleLogs|AppServiceHTTPLogs|App Service restarts|published separately|once a scenario is available" scenarios/cloud-agent-handover/docs/04-configure-incident-response.md || echo "OK: no stale narrative"
 for p in README.md scenarios/red-button-500/README.md scenarios/canary-bad-release/README.md; do
-  test -f "workshops/appservice/$p" && echo "OK: $p" || echo "MISSING: $p"
+  test -f "scenarios/cloud-agent-handover/$p" && echo "OK: $p" || echo "MISSING: $p"
 done
 ```
 
@@ -282,7 +282,7 @@ Expected: `OK: no stale narrative`, then three `OK:` lines.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add workshops/appservice/docs/04-configure-incident-response.md
+git add scenarios/cloud-agent-handover/docs/04-configure-incident-response.md
 git commit \
   --trailer "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>" \
   --trailer "Copilot-Session: efa82c06-a2b1-4dd5-9849-e3e1adc38238" \
@@ -366,7 +366,7 @@ git --no-pager diff --stat main -- workshops/
 
 Expected: exactly three files, all under `workshops/*/docs/`:
 - `workshops/aks/docs/04-configure-incident-response.md`
-- `workshops/appservice/docs/04-configure-incident-response.md`
+- `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`
 - `workshops/vm/docs/02-configure-incident-response.md`
 
 No Bicep, scenario.yaml, INDEX.md, README, or tooling files may appear.
@@ -380,12 +380,12 @@ cd /home/jbergfeld/vcs/sre-agent-workshop
 echo "== hardcoded counts / stale labels =="
 grep -rniE "two alert rules|AppServiceConsoleLogs|AppServiceHTTPLogs|removed SQL grant|Azure SQL|published separately" \
   workshops/aks/docs/04-configure-incident-response.md \
-  workshops/appservice/docs/04-configure-incident-response.md \
+  scenarios/cloud-agent-handover/docs/04-configure-incident-response.md \
   workshops/vm/docs/02-configure-incident-response.md || echo "OK: none found"
 echo "== each edited doc links the catalog =="
 grep -lE "\.\./README\.md#scenarios" \
   workshops/aks/docs/04-configure-incident-response.md \
-  workshops/appservice/docs/04-configure-incident-response.md \
+  scenarios/cloud-agent-handover/docs/04-configure-incident-response.md \
   workshops/vm/docs/02-configure-incident-response.md
 ```
 

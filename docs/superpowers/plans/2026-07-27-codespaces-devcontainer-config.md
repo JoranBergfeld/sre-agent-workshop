@@ -143,13 +143,13 @@ Copilot-Session: 7db6f26c-4ec9-43c6-b2d8-48f3f065fd8e"
 Baseline + .NET SDK 10 (`Shop.csproj` targets `net10.0`, `global.json` pins `10.0.100`) + `dotnet restore` + port 5000 (Kestrel default).
 
 **Files:**
-- Create: `.devcontainer/appservice/devcontainer.json`
+- Create: `.devcontainer/cloud-agent-handover/devcontainer.json`
 
 - [ ] **Step 1: Create the directory**
 
-Run: `mkdir -p .devcontainer/appservice`
+Run: `mkdir -p .devcontainer/cloud-agent-handover`
 
-- [ ] **Step 2: Create `.devcontainer/appservice/devcontainer.json`**
+- [ ] **Step 2: Create `.devcontainer/cloud-agent-handover/devcontainer.json`**
 
 ```json
 {
@@ -163,7 +163,7 @@ Run: `mkdir -p .devcontainer/appservice`
     "ghcr.io/devcontainers/features/dotnet:2": { "version": "10.0" }
   },
   "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq",
-  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore workshops/appservice/src/Shop.csproj",
+  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore scenarios/cloud-agent-handover/src/Shop.csproj",
   "forwardPorts": [5000],
   "hostRequirements": { "cpus": 4 },
   "customizations": {
@@ -185,13 +185,13 @@ Run: `mkdir -p .devcontainer/appservice`
 
 - [ ] **Step 3: Validate the JSON parses**
 
-Run: `node -e "JSON.parse(require('fs').readFileSync('.devcontainer/appservice/devcontainer.json','utf8')); console.log('valid')"`
+Run: `node -e "JSON.parse(require('fs').readFileSync('.devcontainer/cloud-agent-handover/devcontainer.json','utf8')); console.log('valid')"`
 Expected: `valid`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .devcontainer/appservice/devcontainer.json
+git add .devcontainer/cloud-agent-handover/devcontainer.json
 git commit -m "feat(codespaces): add App Service track dev container
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
@@ -302,7 +302,7 @@ Run:
 grep -l "kubectl-helm-minikube" .devcontainer/*/devcontainer.json
 grep -l "features/dotnet:" .devcontainer/*/devcontainer.json
 ```
-Expected: kubectl only in `.devcontainer/aks/devcontainer.json`; dotnet only in `.devcontainer/appservice/devcontainer.json`.
+Expected: kubectl only in `.devcontainer/aks/devcontainer.json`; dotnet only in `.devcontainer/cloud-agent-handover/devcontainer.json`.
 
 - [ ] **Step 4: Confirm a clean working tree**
 

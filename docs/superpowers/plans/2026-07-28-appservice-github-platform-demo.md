@@ -12,20 +12,20 @@
 
 ## File structure
 
-- Create `workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md`
+- Create `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md`
   as the copy-ready issue that represents a possible SRE Agent handoff.
 - Create `.github/instructions/appservice.instructions.md` as path-specific
-  instructions for changes under `workshops/appservice/**`.
-- Create `workshops/appservice/CODE_QUALITY.md` as the learner-facing
+  instructions for changes under `scenarios/cloud-agent-handover/**`.
+- Create `scenarios/cloud-agent-handover/CODE_QUALITY.md` as the learner-facing
   explanation of issue quality, tests, CI, and changed-line coverage.
 - Modify `.gitignore` so local App Service coverage results are not committed.
 - Modify `.github/workflows/validate-appservice-app.yml` so its existing test
   job also generates coverage and enforces 100% changed-line coverage on pull
   requests.
 - Modify
-  `workshops/appservice/scenarios/cloud-agent-handover/README.md` to expose the
+  `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md` to expose the
   GitHub-only fallback from the scenario.
-- Modify `workshops/appservice/docs/90-watch-sre-agent.md` to document the
+- Modify `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md` to document the
   Azure and fallback entry paths, their common pull-request flow, and their
   different stopping points.
 
@@ -38,14 +38,14 @@ fix it during the workshop.
 
 **Files:**
 - Create:
-  `workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md`
+  `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md`
 
 - [ ] **Step 1: Verify that the fallback artifact does not exist**
 
 Run:
 
 ```bash
-test ! -e workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
+test ! -e scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
 ```
 
 Expected: exit status 0.
@@ -53,7 +53,7 @@ Expected: exit status 0.
 - [ ] **Step 2: Create the sample issue**
 
 Create
-`workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md` with:
+`scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md` with:
 
 ````markdown
 # Implement the unfinished App Service feature endpoint
@@ -77,12 +77,12 @@ healthy. The failure is consistent with the endpoint's
 
 ## Required changes
 
-- Implement the endpoint in `workshops/appservice/src/**`.
+- Implement the endpoint in `scenarios/cloud-agent-handover/src/**`.
 - Replace the test that documents the initial HTTP 500 response with a test
   for the exact HTTP 200 success contract.
 - Preserve the existing health and home-page behavior.
-- Keep changes limited to `workshops/appservice/src/**` and
-  `workshops/appservice/tests/**`.
+- Keep changes limited to `scenarios/cloud-agent-handover/src/**` and
+  `scenarios/cloud-agent-handover/tests/**`.
 - Do not modify Bicep or GitHub Actions workflows.
 
 ## Acceptance criteria
@@ -99,10 +99,10 @@ healthy. The failure is consistent with the endpoint's
 Run:
 
 ```bash
-grep -F 'POST /api/feature' workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
-grep -F '{"status":"completed","message":"The unfinished feature is now implemented."}' workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
-grep -F 'GET /health' workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
-grep -F 'Do not modify Bicep or GitHub Actions workflows.' workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
+grep -F 'POST /api/feature' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
+grep -F '{"status":"completed","message":"The unfinished feature is now implemented."}' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
+grep -F 'GET /health' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
+grep -F 'Do not modify Bicep or GitHub Actions workflows.' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
 ```
 
 Expected: all four commands print their matching line and exit 0.
@@ -110,7 +110,7 @@ Expected: all four commands print their matching line and exit 0.
 - [ ] **Step 4: Commit the sample issue**
 
 ```bash
-git add workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
+git add scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
 git commit -m "docs(appservice): add fallback SRE issue"
 ```
 
@@ -118,7 +118,7 @@ git commit -m "docs(appservice): add fallback SRE issue"
 
 **Files:**
 - Create: `.github/instructions/appservice.instructions.md`
-- Create: `workshops/appservice/CODE_QUALITY.md`
+- Create: `scenarios/cloud-agent-handover/CODE_QUALITY.md`
 - Modify: `.gitignore:12-15`
 
 - [ ] **Step 1: Verify that the guidance files do not exist**
@@ -127,7 +127,7 @@ Run:
 
 ```bash
 test ! -e .github/instructions/appservice.instructions.md
-test ! -e workshops/appservice/CODE_QUALITY.md
+test ! -e scenarios/cloud-agent-handover/CODE_QUALITY.md
 ```
 
 Expected: both commands exit 0.
@@ -138,7 +138,7 @@ Create `.github/instructions/appservice.instructions.md` with:
 
 ```markdown
 ---
-applyTo: "workshops/appservice/**"
+applyTo: "scenarios/cloud-agent-handover/**"
 ---
 
 # App Service coding instructions
@@ -153,13 +153,13 @@ applyTo: "workshops/appservice/**"
 - Do not weaken, delete, skip, or bypass assertions merely to make CI pass.
 - Do not change App Service Bicep or GitHub Actions unless the issue explicitly
   requires it.
-- Run the commands in `workshops/appservice/CODE_QUALITY.md` before completing
+- Run the commands in `scenarios/cloud-agent-handover/CODE_QUALITY.md` before completing
   the pull request.
 ```
 
 - [ ] **Step 3: Create the learner-facing quality guide**
 
-Create `workshops/appservice/CODE_QUALITY.md` with:
+Create `scenarios/cloud-agent-handover/CODE_QUALITY.md` with:
 
 ````markdown
 # App Service code quality
@@ -178,7 +178,7 @@ reviewable, testable code change.
 | Changed-line coverage | Requires every changed executable application line to be exercised without demanding 100% legacy coverage. |
 
 The coverage gate applies to changed C# application lines under
-`workshops/appservice/src`. Generated Razor code, test code, documentation, and
+`scenarios/cloud-agent-handover/src`. Generated Razor code, test code, documentation, and
 unchanged application lines are not part of the 100% threshold.
 
 ## Run the tests
@@ -186,7 +186,7 @@ unchanged application lines are not part of the 100% threshold.
 From the repository root:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 The starting workshop intentionally expects `POST /api/feature` to fail.
@@ -202,15 +202,15 @@ coverage, and run the gate:
 
 ```bash
 git fetch origin main
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
-  --results-directory workshops/appservice/TestResults \
+  --results-directory scenarios/cloud-agent-handover/TestResults \
   -- \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
 
 coverage_file="$(
-  find workshops/appservice/TestResults \
+  find scenarios/cloud-agent-handover/TestResults \
     -name coverage.cobertura.xml \
     -print -quit
 )"
@@ -237,7 +237,7 @@ Append this directly after the existing App Service `bin/` and `obj/` entries
 in `.gitignore`:
 
 ```gitignore
-workshops/appservice/TestResults/
+scenarios/cloud-agent-handover/TestResults/
 ```
 
 - [ ] **Step 5: Validate the instruction scope and quality commands**
@@ -245,10 +245,10 @@ workshops/appservice/TestResults/
 Run:
 
 ```bash
-grep -F 'applyTo: "workshops/appservice/**"' .github/instructions/appservice.instructions.md
-grep -F 'diff-cover==10.4.1' workshops/appservice/CODE_QUALITY.md
-grep -F -- '--fail-under=100' workshops/appservice/CODE_QUALITY.md
-grep -F 'workshops/appservice/TestResults/' .gitignore
+grep -F 'applyTo: "scenarios/cloud-agent-handover/**"' .github/instructions/appservice.instructions.md
+grep -F 'diff-cover==10.4.1' scenarios/cloud-agent-handover/CODE_QUALITY.md
+grep -F -- '--fail-under=100' scenarios/cloud-agent-handover/CODE_QUALITY.md
+grep -F 'scenarios/cloud-agent-handover/TestResults/' .gitignore
 git diff --check
 ```
 
@@ -260,7 +260,7 @@ output.
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 Expected: 3 tests pass.
@@ -269,7 +269,7 @@ Expected: 3 tests pass.
 
 ```bash
 git add .github/instructions/appservice.instructions.md \
-  workshops/appservice/CODE_QUALITY.md \
+  scenarios/cloud-agent-handover/CODE_QUALITY.md \
   .gitignore
 git commit -m "docs(appservice): add code quality guidance"
 ```
@@ -284,7 +284,7 @@ git commit -m "docs(appservice): add code quality guidance"
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 Expected: 3 tests pass, including the test that documents the intentionally
@@ -322,15 +322,15 @@ runner unchanged. Replace `jobs.validate.steps` with:
       - name: Test application with coverage
         shell: bash
         run: |
-          dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
+          dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
             --collect:"XPlat Code Coverage" \
-            --results-directory workshops/appservice/TestResults \
+            --results-directory scenarios/cloud-agent-handover/TestResults \
             -- \
             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
             DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
 
           coverage_file="$(
-            find workshops/appservice/TestResults \
+            find scenarios/cloud-agent-handover/TestResults \
               -name coverage.cobertura.xml \
               -print -quit
           )"
@@ -365,9 +365,9 @@ conditional.
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
-  --results-directory workshops/appservice/TestResults \
+  --results-directory scenarios/cloud-agent-handover/TestResults \
   -- \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
@@ -382,7 +382,7 @@ Run:
 
 ```bash
 coverage_file="$(
-  find workshops/appservice/TestResults \
+  find scenarios/cloud-agent-handover/TestResults \
     -name coverage.cobertura.xml \
     -print -quit
 )"
@@ -403,7 +403,7 @@ Run:
 
 ```bash
 coverage_file="$(
-  find workshops/appservice/TestResults \
+  find scenarios/cloud-agent-handover/TestResults \
     -name coverage.cobertura.xml \
     -print -quit
 )"
@@ -443,18 +443,18 @@ git commit -m "ci(appservice): enforce changed-line coverage"
 
 **Files:**
 - Modify:
-  `workshops/appservice/scenarios/cloud-agent-handover/README.md:11-46`
-- Modify: `workshops/appservice/docs/90-watch-sre-agent.md:1-80`
+  `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md:11-46`
+- Modify: `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md:1-80`
 
 - [ ] **Step 1: Verify that neither walkthrough exposes the fallback**
 
 Run:
 
 ```bash
-if grep -Fq 'sample-issue.md' workshops/appservice/scenarios/cloud-agent-handover/README.md; then
+if grep -Fq 'sample-issue.md' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md; then
   exit 1
 fi
-if grep -Fq 'sample-issue.md' workshops/appservice/docs/90-watch-sre-agent.md; then
+if grep -Fq 'sample-issue.md' scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md; then
   exit 1
 fi
 ```
@@ -494,11 +494,11 @@ Replace the existing **Watch the handoff** numbered list with:
 The Azure and GitHub-only paths converge when Copilot is assigned:
 
 1. The Copilot coding agent creates the fix pull request.
-2. **Validate App Service Application** runs the endpoint tests and enforces
+2. **Validate Cloud Agent Handover Application** runs the endpoint tests and enforces
    100% coverage for changed executable application lines.
 3. The operator reviews the source, tests, and CI result.
 4. The operator merges the pull request.
-5. If infrastructure exists, the OIDC-based **Deploy App Service
+5. If infrastructure exists, the OIDC-based **Deploy Cloud Agent Handover
    Application** workflow deploys the merged code.
 
 There is no manual kill switch or remediation script. The pull request is the
@@ -508,7 +508,7 @@ request approval, and create the issue before this common flow begins.
 
 - [ ] **Step 3: Restructure Module 90 around the two entry paths**
 
-Replace `workshops/appservice/docs/90-watch-sre-agent.md` with:
+Replace `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md` with:
 
 ````markdown
 # Module 90: Watch the handover
@@ -567,7 +567,7 @@ the handoff or substitute a human assignee.
 
 1. Wait for the GitHub Copilot coding agent to open a pull request.
 2. Confirm that changes stay within App Service source and tests.
-3. Open **Validate App Service Application** and confirm that endpoint tests
+3. Open **Validate Cloud Agent Handover Application** and confirm that endpoint tests
    pass and changed-line coverage is 100%.
 4. If coverage fails, review the uncovered lines printed by `diff-cover` and
    request behavior-focused tests. Do not weaken assertions or exclude
@@ -584,7 +584,7 @@ Complete this section only for Path A.
 
 Open
 `https://github.com/<owner>/<repository>/actions/workflows/deploy-appservice-app.yml`.
-Confirm that **Deploy App Service Application** started automatically for the
+Confirm that **Deploy Cloud Agent Handover Application** started automatically for the
 merge and completed successfully.
 
 You can also inspect the latest run from the repository root:
@@ -603,24 +603,24 @@ After the Path A deployment completes, run the scenario validator.
 Bash:
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/validate.sh
+scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh
 ```
 
 PowerShell 7:
 
 ```powershell
-./workshops/appservice/scenarios/cloud-agent-handover/validate.ps1
+./scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.ps1
 ```
 
 If you chose a custom workload, pass its resource group:
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/validate.sh \
+scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh \
   --resource-group "rg-<workload>"
 ```
 
 ```powershell
-./workshops/appservice/scenarios/cloud-agent-handover/validate.ps1 `
+./scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.ps1 `
   -ResourceGroup "rg-<workload>"
 ```
 
@@ -643,10 +643,10 @@ Next: [Clean up](./99-cleanup.md).
 Run:
 
 ```bash
-grep -F 'sample-issue.md' workshops/appservice/scenarios/cloud-agent-handover/README.md
-grep -F 'Path A: Run the Azure scenario' workshops/appservice/docs/90-watch-sre-agent.md
-grep -F 'Path B: Run the GitHub-only fallback' workshops/appservice/docs/90-watch-sre-agent.md
-grep -F 'Do not run the endpoint validator or claim that the incident recovered in Azure.' workshops/appservice/docs/90-watch-sre-agent.md
+grep -F 'sample-issue.md' scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md
+grep -F 'Path A: Run the Azure scenario' scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md
+grep -F 'Path B: Run the GitHub-only fallback' scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md
+grep -F 'Do not run the endpoint validator or claim that the incident recovered in Azure.' scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md
 git diff --check
 ```
 
@@ -656,8 +656,8 @@ output.
 - [ ] **Step 5: Commit the workshop flow**
 
 ```bash
-git add workshops/appservice/scenarios/cloud-agent-handover/README.md \
-  workshops/appservice/docs/90-watch-sre-agent.md
+git add scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md \
+  scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md
 git commit -m "docs(appservice): add GitHub-only handoff path"
 ```
 
@@ -671,9 +671,9 @@ git commit -m "docs(appservice): add GitHub-only handoff path"
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
-  --results-directory workshops/appservice/TestResults \
+  --results-directory scenarios/cloud-agent-handover/TestResults \
   -- \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
   DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.ExcludeByFile=**/*.razor
@@ -688,7 +688,7 @@ Run:
 ```bash
 git fetch origin main
 coverage_file="$(
-  find workshops/appservice/TestResults \
+  find scenarios/cloud-agent-handover/TestResults \
     -name coverage.cobertura.xml \
     -print -quit
 )"
@@ -718,8 +718,8 @@ Run:
 
 ```bash
 grep -F '{"status":"completed","message":"The unfinished feature is now implemented."}' \
-  workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md
-grep -F 'applyTo: "workshops/appservice/**"' \
+  scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md
+grep -F 'applyTo: "scenarios/cloud-agent-handover/**"' \
   .github/instructions/appservice.instructions.md
 grep -F 'diff-cover==10.4.1' \
   .github/workflows/validate-appservice-app.yml

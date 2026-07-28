@@ -379,7 +379,7 @@ only their display names.
 - [ ] **Step 2: Remove superseded devcontainers**
 
 ```bash
-git rm -r .devcontainer/appservice .devcontainer/aks .devcontainer/vm
+git rm -r .devcontainer/cloud-agent-handover .devcontainer/aks .devcontainer/vm
 ```
 
 - [ ] **Step 3: Remove the workshop hierarchy**

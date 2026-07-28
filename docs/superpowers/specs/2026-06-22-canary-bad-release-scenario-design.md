@@ -17,7 +17,7 @@ The `appservice` track substrate ships a working, observable .NET 10 shop on Azu
 backed by Azure SQL — but **zero scenarios**. We want the first fault, and it should exercise the
 feature that makes App Service distinct from the AKS and VM tracks: **deployment slots**.
 
-**Goal:** author a self-contained scenario, `workshops/appservice/scenarios/canary-bad-release/`, that
+**Goal:** author a self-contained scenario, `scenarios/cloud-agent-handover/scenarios/canary-bad-release/`, that
 injects a *partial* outage via a bad canary release, is detected by an App Insights alert, validated by
 a health probe, and remediated both operationally (traffic rollback) and durably (a Code-visible
 `@copilot` PR). Wire it into the framework (generated aggregator, INDEX, README table) and the
@@ -73,7 +73,7 @@ Resolved from the substrate (`workloadName` default **`srelabapp`**, resource gr
 
 ## Infrastructure changes
 
-### `workshops/appservice/infra/bicep/modules/appservice.bicep`
+### `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`
 
 1. **Plan tier:** bump the App Service Plan SKU `B1`/`Basic` → **`S1`/`Standard`** (deployment slots
    require Standard or higher).
@@ -89,7 +89,7 @@ Resolved from the substrate (`workloadName` default **`srelabapp`**, resource gr
 3. **Outputs:** optionally expose the slot's host name; not required by the scripts (they resolve via
    `az`).
 
-### `workshops/appservice/infra/bicep/main.bicep` (alert seam — hand-wired once)
+### `scenarios/cloud-agent-handover/infra/bicep/main.bicep` (alert seam — hand-wired once)
 
 The substrate left a commented seam (lines 88–102). Now that the first scenario exists, **uncomment**
 the `scenarioAlerts` module call, passing the track's scope:
@@ -139,7 +139,7 @@ shop and the **red v2** shop — the red one visibly broken — while `/health` 
 
 ## The fault artifact — `Program.regression.cs`
 
-A committed copy of `workshops/appservice/src/Program.cs` representing the **v2 release**, differing in
+A committed copy of `scenarios/cloud-agent-handover/src/Program.cs` representing the **v2 release**, differing in
 **two intentional ways**: a cosmetic *reskin* (the visible A/B marker) and one *functional* regression.
 
 ```diff
@@ -171,7 +171,7 @@ Synchronous; assumes the substrate infra is deployed (slot present). Defaults `r
 
 1. Resolve the web app:
    `WEB=$(az webapp list -g "$RG" --query "[?starts_with(name,'${WORKLOAD}-web-')].name | [0]" -o tsv)`.
-2. Build the bad release: copy `workshops/appservice/src` to a temp dir, overwrite `Program.cs` with
+2. Build the bad release: copy `scenarios/cloud-agent-handover/src` to a temp dir, overwrite `Program.cs` with
    `Program.regression.cs`, `dotnet publish -c Release -o <pub>`, then `zip` the publish output.
 3. Deploy to the slot:
    `az webapp deploy -g "$RG" --name "$WEB" --slot staging --type zip --src-path <zip>`.
@@ -303,22 +303,22 @@ docPage: README.md
 
 ## Generated artifacts (via `scripts/validate-scenarios.sh --write` — never hand-edited)
 
-- `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep` — **new** aggregator (first
+- `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep` — **new** aggregator (first
   appservice scenario), with param `logAnalyticsResourceId`, wiring `canary-bad-release/alert.bicep`
   and passing it as `scopeResourceId`.
-- `workshops/appservice/scenarios/INDEX.md` — new.
-- The scenario table in `workshops/appservice/README.md`, between
+- `scenarios/cloud-agent-handover/scenarios/INDEX.md` — new.
+- The scenario table in `scenarios/cloud-agent-handover/README.md`, between
   `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->`.
 
 ## Docs
 
-`workshops/appservice/scenarios/canary-bad-release/README.md` (the `docPage`) — a walkthrough mirroring
+`scenarios/cloud-agent-handover/scenarios/canary-bad-release/README.md` (the `docPage`) — a walkthrough mirroring
 the AKS scenario README: overview, prerequisites (`az`, .NET 10 SDK), the inject command, what to
 observe (intermittent `/products` 500s while `/health` is green and the production slot is fine — and
 visually, refreshing the site flips between the **green v1** and **red v2** shop), the
 alert, the investigation query, the SRE Agent flow (detect → GitHub issue → `@copilot` revert PR +
 `restore-traffic` rollback), the validate command, and cleanup. The cost note in
-`workshops/appservice/README.md` is updated for the S1 plan.
+`scenarios/cloud-agent-handover/README.md` is updated for the S1 plan.
 
 ## Testing & acceptance (offline; no live Azure required)
 
@@ -328,7 +328,7 @@ alert, the investigation query, the SRE Agent flow (detect → GitHub issue → 
   `Scenario validation passed`, and `git status --porcelain` is empty (no drift).
 - `cd scripts/scenario-tools && npm test` → all tests pass (the new scenario must not regress tooling
   tests).
-- `az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout` → exit 0 (validates the
+- `az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout` → exit 0 (validates the
   S1 plan, the `staging` slot, and the wired `scenarioAlerts` module).
 - `az bicep build` on `scenarios/canary-bad-release/alert.bicep` → exit 0 (also run by
   `validate-scenarios.yml` CI).
@@ -342,7 +342,7 @@ alert, the investigation query, the SRE Agent flow (detect → GitHub issue → 
 ## New / changed file tree
 
 ```
-workshops/appservice/scenarios/canary-bad-release/
+scenarios/cloud-agent-handover/scenarios/canary-bad-release/
   scenario.yaml
   Program.regression.cs
   alert.bicep
@@ -351,12 +351,12 @@ workshops/appservice/scenarios/canary-bad-release/
   inject.sh        inject.ps1
   validate.sh      validate.ps1
   remediate.sh     remediate.ps1
-workshops/appservice/scenarios/INDEX.md                         (generated)
-workshops/appservice/infra/bicep/modules/scenario-alerts.bicep  (generated)
-workshops/appservice/infra/bicep/main.bicep                     (wire scenarioAlerts seam)
-workshops/appservice/infra/bicep/modules/appservice.bicep       (S1 + staging slot)
-workshops/appservice/src/Program.cs                             (themed v1 landing page; shared ProductsQuery; graceful catalog)
-workshops/appservice/README.md                                  (scenario table + cost note)
+scenarios/cloud-agent-handover/scenarios/INDEX.md                         (generated)
+scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep  (generated)
+scenarios/cloud-agent-handover/infra/bicep/main.bicep                     (wire scenarioAlerts seam)
+scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep       (S1 + staging slot)
+scenarios/cloud-agent-handover/src/Program.cs                             (themed v1 landing page; shared ProductsQuery; graceful catalog)
+scenarios/cloud-agent-handover/README.md                                  (scenario table + cost note)
 .github/workflows/deploy-appservice-app.yml                     (seed good build to staging slot)
 ```
 

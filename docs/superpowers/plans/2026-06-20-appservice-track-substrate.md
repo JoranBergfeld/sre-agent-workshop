@@ -31,7 +31,7 @@
 
 ## Task 1: Register the `appservice` track in the framework
 
-Adds the track to the schema enum and the tooling's `TRACKS` map. Harmless with zero scenarios — `listTracks()` filters by the existence of `workshops/appservice/scenarios/`, which we do **not** create, so the generator/validator skip the track and stay drift-free.
+Adds the track to the schema enum and the tooling's `TRACKS` map. Harmless with zero scenarios — `listTracks()` filters by the existence of `scenarios/cloud-agent-handover/scenarios/`, which we do **not** create, so the generator/validator skip the track and stay drift-free.
 
 **Files:**
 - Modify: `schemas/scenario.schema.json` (line 11)
@@ -96,8 +96,8 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 `monitoring.bicep` is reused verbatim from AKS (Log Analytics `${workloadName}-law` + workspace-based App Insights `${workloadName}-ai`; outputs `logAnalyticsId` and `appInsightsConnectionString`). `identity.bicep` is a simplified UAMI-only module (no federated credential, no Cosmos role — those are AKS-specific).
 
 **Files:**
-- Create: `workshops/appservice/infra/bicep/modules/monitoring.bicep`
-- Create: `workshops/appservice/infra/bicep/modules/identity.bicep`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/modules/monitoring.bicep`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep`
 
 - [ ] **Step 1: Create `monitoring.bicep`**
 
@@ -191,15 +191,15 @@ output uamiId string = uami.id
 Run:
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-az bicep build --file workshops/appservice/infra/bicep/modules/monitoring.bicep --stdout > /dev/null && echo "monitoring OK"
-az bicep build --file workshops/appservice/infra/bicep/modules/identity.bicep --stdout > /dev/null && echo "identity OK"
+az bicep build --file scenarios/cloud-agent-handover/infra/bicep/modules/monitoring.bicep --stdout > /dev/null && echo "monitoring OK"
+az bicep build --file scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep --stdout > /dev/null && echo "identity OK"
 ```
 Expected: `monitoring OK` and `identity OK`, no `ERROR` lines.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add workshops/appservice/infra/bicep/modules/monitoring.bicep workshops/appservice/infra/bicep/modules/identity.bicep
+git add scenarios/cloud-agent-handover/infra/bicep/modules/monitoring.bicep scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep
 git commit -m "feat(appservice): add monitoring and identity bicep modules
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -212,7 +212,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 Azure SQL logical server (AAD-only auth, AAD admin = the deploying principal) + a Basic database + the "Allow Azure services" firewall rule.
 
 **Files:**
-- Create: `workshops/appservice/infra/bicep/modules/sql.bicep`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep`
 
 - [ ] **Step 1: Create `sql.bicep`**
 
@@ -301,13 +301,13 @@ output sqlDatabaseName string = sqlDatabase.name
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file workshops/appservice/infra/bicep/modules/sql.bicep --stdout > /dev/null && echo "sql OK"`
+Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep --stdout > /dev/null && echo "sql OK"`
 Expected: `sql OK`, no `ERROR` lines.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add workshops/appservice/infra/bicep/modules/sql.bicep
+git add scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep
 git commit -m "feat(appservice): add azure sql bicep module
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -322,7 +322,7 @@ App Service Plan (B1 Linux) + Web App (assigned the UAMI, `DOTNETCORE|10.0`, HTT
 > Runtime note: the `linuxFxVersion` value `DOTNETCORE|10.0` is correct for .NET 10. `az bicep build` does not validate the string; confirm against `az webapp list-runtimes --os linux` before a live deploy.
 
 **Files:**
-- Create: `workshops/appservice/infra/bicep/modules/appservice.bicep`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`
 
 - [ ] **Step 1: Create `appservice.bicep`**
 
@@ -458,13 +458,13 @@ output webAppHostName string = webApp.properties.defaultHostName
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file workshops/appservice/infra/bicep/modules/appservice.bicep --stdout > /dev/null && echo "appservice OK"`
+Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep --stdout > /dev/null && echo "appservice OK"`
 Expected: `appservice OK`, no `ERROR` lines.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add workshops/appservice/infra/bicep/modules/appservice.bicep
+git add scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep
 git commit -m "feat(appservice): add app service plan and web app bicep module
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -477,8 +477,8 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 Composes the four modules, leaves the scenario-alert seam, and exposes outputs the workflows consume.
 
 **Files:**
-- Create: `workshops/appservice/infra/bicep/main.bicep`
-- Create: `workshops/appservice/infra/bicep/main.bicepparam`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/main.bicep`
+- Create: `scenarios/cloud-agent-handover/infra/bicep/main.bicepparam`
 
 - [ ] **Step 1: Create `main.bicep`**
 
@@ -626,13 +626,13 @@ param sqlAadAdminObjectId = ''
 
 - [ ] **Step 3: Verify the full graph compiles**
 
-Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null && echo "main OK"`
+Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null && echo "main OK"`
 Expected: `main OK`, no `ERROR` lines. (A single WARNING about a newer Bicep CLI is acceptable.)
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add workshops/appservice/infra/bicep/main.bicep workshops/appservice/infra/bicep/main.bicepparam
+git add scenarios/cloud-agent-handover/infra/bicep/main.bicep scenarios/cloud-agent-handover/infra/bicep/main.bicepparam
 git commit -m "feat(appservice): add main orchestrator and bicepparam
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -645,11 +645,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 A thin minimal API mirroring the AKS app's `/`, `/health`, `/products` shape. `/health` never touches the DB; `/products` reads the catalog via passwordless SQL and returns 500 (logged) on failure.
 
 **Files:**
-- Create: `workshops/appservice/src/Shop.csproj`
-- Create: `workshops/appservice/src/Program.cs`
-- Create: `workshops/appservice/src/Models/Product.cs`
-- Create: `workshops/appservice/src/appsettings.json`
-- Create: `workshops/appservice/src/global.json`
+- Create: `scenarios/cloud-agent-handover/src/Shop.csproj`
+- Create: `scenarios/cloud-agent-handover/src/Program.cs`
+- Create: `scenarios/cloud-agent-handover/src/Models/Product.cs`
+- Create: `scenarios/cloud-agent-handover/src/appsettings.json`
+- Create: `scenarios/cloud-agent-handover/src/global.json`
 
 - [ ] **Step 1: Create `Shop.csproj`**
 
@@ -792,7 +792,7 @@ app.Run();
 
 Ensure the .NET 10 SDK is available (see "Environment prerequisites"). Then run:
 ```bash
-cd "$(git rev-parse --show-toplevel)/workshops/appservice/src"
+cd "$(git rev-parse --show-toplevel)/scenarios/cloud-agent-handover/src"
 dotnet publish -c Release -o /tmp/shop-publish
 ```
 Expected: `Build succeeded`, ends with `Shop -> /tmp/shop-publish/` and no errors. (NuGet restore runs automatically; requires network for the first restore.)
@@ -801,7 +801,7 @@ Expected: `Build succeeded`, ends with `Shop -> /tmp/shop-publish/` and no error
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add workshops/appservice/src/
+git add scenarios/cloud-agent-handover/src/
 git commit -m "feat(appservice): add .NET 10 shop minimal API
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -814,8 +814,8 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 Idempotent scripts the app-deploy workflow runs via `sqlcmd`. `schema.sql` creates/seeds the catalog; `grant.sql` creates the least-privilege contained user for the UAMI using its client-id SID (`TYPE = E`, no MS-Graph dependency).
 
 **Files:**
-- Create: `workshops/appservice/db/schema.sql`
-- Create: `workshops/appservice/db/grant.sql`
+- Create: `scenarios/cloud-agent-handover/db/schema.sql`
+- Create: `scenarios/cloud-agent-handover/db/grant.sql`
 
 - [ ] **Step 1: Create `schema.sql`**
 
@@ -862,9 +862,9 @@ GO
 Run:
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-test -s workshops/appservice/db/schema.sql && test -s workshops/appservice/db/grant.sql && \
-  grep -q "CREATE TABLE dbo.Products" workshops/appservice/db/schema.sql && \
-  grep -q "WITH SID = \$(uamiSid), TYPE = E" workshops/appservice/db/grant.sql && \
+test -s scenarios/cloud-agent-handover/db/schema.sql && test -s scenarios/cloud-agent-handover/db/grant.sql && \
+  grep -q "CREATE TABLE dbo.Products" scenarios/cloud-agent-handover/db/schema.sql && \
+  grep -q "WITH SID = \$(uamiSid), TYPE = E" scenarios/cloud-agent-handover/db/grant.sql && \
   echo "db scripts OK"
 ```
 Expected: `db scripts OK`.
@@ -872,7 +872,7 @@ Expected: `db scripts OK`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add workshops/appservice/db/
+git add scenarios/cloud-agent-handover/db/
 git commit -m "feat(appservice): add sql schema and managed-identity grant scripts
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -894,14 +894,14 @@ Three workflows mirroring the AKS naming and the manual-dispatch-infra conventio
 ```yaml
 # Validates App Service Bicep on push and pull requests.
 # Syntax validation (no creds) + optional what-if when AZURE_CREDENTIALS is set.
-name: Validate App Service Infrastructure
+name: Validate Cloud Agent Handover Infrastructure
 
 on:
   push:
     branches: [main]
-    paths: ['workshops/appservice/infra/**']
+    paths: ['scenarios/cloud-agent-handover/infra/**']
   pull_request:
-    paths: ['workshops/appservice/infra/**']
+    paths: ['scenarios/cloud-agent-handover/infra/**']
 
 permissions:
   id-token: write
@@ -918,7 +918,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Bicep syntax
-        run: az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null
+        run: az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null
 
       - name: Azure Login
         id: azure-login
@@ -933,8 +933,8 @@ jobs:
           ADMIN_OID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || az account show --query user.name -o tsv)
           az deployment group what-if \
             --resource-group "rg-${{ env.WORKLOAD }}" \
-            --template-file workshops/appservice/infra/bicep/main.bicep \
-            --parameters workshops/appservice/infra/bicep/main.bicepparam \
+            --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
+            --parameters scenarios/cloud-agent-handover/infra/bicep/main.bicepparam \
               location="${{ env.LOCATION }}" \
               workloadName="${{ env.WORKLOAD }}" \
               sqlAadAdminObjectId="$ADMIN_OID"
@@ -951,7 +951,7 @@ jobs:
 # Deploys App Service Bicep infrastructure to Azure.
 # Manual dispatch only — participants choose their region and workload name.
 # Push-based validation is handled by validate-appservice-infra.yml.
-name: Deploy App Service Infrastructure
+name: Deploy Cloud Agent Handover Infrastructure
 
 on:
   workflow_dispatch:
@@ -1008,8 +1008,8 @@ jobs:
         run: |
           az deployment group create \
             --resource-group "rg-${{ env.WORKLOAD }}" \
-            --template-file workshops/appservice/infra/bicep/main.bicep \
-            --parameters workshops/appservice/infra/bicep/main.bicepparam \
+            --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
+            --parameters scenarios/cloud-agent-handover/infra/bicep/main.bicepparam \
               location="${{ env.LOCATION }}" \
               workloadName="${{ env.WORKLOAD }}" \
               sqlAadAdminObjectId="${{ steps.principal.outputs.admin_oid }}" \
@@ -1034,7 +1034,7 @@ jobs:
           echo "SQL Server:      ${{ steps.deploy.outputs.sql_server }}"
           echo "============================================"
           echo ""
-          echo "Next: Run the 'Deploy App Service Application' workflow."
+          echo "Next: Run the 'Deploy Cloud Agent Handover Application' workflow."
 ```
 
 - [ ] **Step 3: Create `deploy-appservice-app.yml`**
@@ -1042,14 +1042,14 @@ jobs:
 ```yaml
 # Builds and deploys the .NET 10 shop to App Service, then runs the DB
 # schema + managed-identity grant via sqlcmd (AAD auth as the SQL admin SP).
-name: Deploy App Service Application
+name: Deploy Cloud Agent Handover Application
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/src/**'
-      - 'workshops/appservice/db/**'
+      - 'scenarios/cloud-agent-handover/src/**'
+      - 'scenarios/cloud-agent-handover/db/**'
   workflow_dispatch:
     inputs:
       workloadName:
@@ -1077,7 +1077,7 @@ jobs:
 
       - name: Publish app
         run: |
-          dotnet publish workshops/appservice/src/Shop.csproj -c Release -o ./publish
+          dotnet publish scenarios/cloud-agent-handover/src/Shop.csproj -c Release -o ./publish
           cd publish && zip -r ../app.zip . && cd ..
 
       - name: Azure Login
@@ -1122,12 +1122,12 @@ jobs:
           # AAD auth as the logged-in SP (the SQL admin) via ActiveDirectoryDefault.
           sqlcmd --authentication-method ActiveDirectoryDefault \
             -S "${SQL_FQDN}" -d "${{ env.WORKLOAD }}-db" \
-            -i workshops/appservice/db/schema.sql
+            -i scenarios/cloud-agent-handover/db/schema.sql
 
           sqlcmd --authentication-method ActiveDirectoryDefault \
             -S "${SQL_FQDN}" -d "${{ env.WORKLOAD }}-db" \
             -v uamiName="${{ env.WORKLOAD }}-id" uamiSid="${UAMI_SID}" \
-            -i workshops/appservice/db/grant.sql
+            -i scenarios/cloud-agent-handover/db/grant.sql
 
       - name: Print app URL
         run: |
@@ -1166,11 +1166,11 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ## Task 9: Knowledge file + track README + root README entry
 
 **Files:**
-- Create: `workshops/appservice/knowledge/operational-guidelines.md`
-- Create: `workshops/appservice/README.md`
+- Create: `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`
+- Create: `scenarios/cloud-agent-handover/README.md`
 - Modify: `README.md` (root — add the App Service track to the track overview)
 
-- [ ] **Step 1: Create `workshops/appservice/knowledge/operational-guidelines.md`**
+- [ ] **Step 1: Create `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`**
 
 ```markdown
 # Operational Guidelines
@@ -1183,7 +1183,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 1. **Create a GitHub issue** describing the root cause, affected resources, and the required Bicep change
 2. **Assign the issue to `@copilot`** (the Copilot coding agent) — it will pick up the issue, create a branch, make the fix, and open a PR automatically
-3. After the PR is merged, an operator manually triggers the **Deploy App Service Infrastructure** workflow to apply the change (deployment is intentionally manual via `workflow_dispatch`, not automatic on merge)
+3. After the PR is merged, an operator manually triggers the **Deploy Cloud Agent Handover Infrastructure** workflow to apply the change (deployment is intentionally manual via `workflow_dispatch`, not automatic on merge)
 
 **Do NOT:**
 - Run `az` CLI commands to directly create, modify, or delete Azure resources
@@ -1191,7 +1191,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 - Apply temporary fixes outside of version control
 - Create branches or PRs yourself — delegate to `@copilot` via GitHub issues
 
-**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `workshops/appservice/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
+**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `scenarios/cloud-agent-handover/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
 
 ## Architecture Overview
 
@@ -1207,7 +1207,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 - The shop logs failures to stdout (`AppServiceConsoleLogs`) and they surface as `AppExceptions` in App Insights
 ```
 
-- [ ] **Step 2: Create `workshops/appservice/README.md`**
+- [ ] **Step 2: Create `scenarios/cloud-agent-handover/README.md`**
 
 ```markdown
 # App Service / PaaS SRE Workshop
@@ -1255,7 +1255,7 @@ to:
 ```markdown
 | **AKS / Cloud-Native** | Kubernetes workload identity, CosmosDB RBAC fault injection | [workshops/aks/](workshops/aks/README.md) |
 | **VM / Enterprise Migration** | Windows Server + IIS, Bastion access, approval-gated remediation | [workshops/vm/](workshops/vm/README.md) |
-| **App Service / PaaS** | .NET 10 shop on App Service (Linux) + Azure SQL, passwordless managed identity | [workshops/appservice/](workshops/appservice/README.md) |
+| **App Service / PaaS** | .NET 10 shop on App Service (Linux) + Azure SQL, passwordless managed identity | [scenarios/cloud-agent-handover/](scenarios/cloud-agent-handover/README.md) |
 ```
 
 Do **NOT**:
@@ -1274,7 +1274,7 @@ Expected: `Scenario validation passed`; `git status --porcelain` lists ONLY your
 - [ ] **Step 5: Commit**
 
 ```bash
-git add workshops/appservice/knowledge/operational-guidelines.md workshops/appservice/README.md README.md
+git add scenarios/cloud-agent-handover/knowledge/operational-guidelines.md scenarios/cloud-agent-handover/README.md README.md
 git commit -m "docs(appservice): add operational guidelines, track README, root track entry
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -1284,31 +1284,31 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 ## Task 10: Attendee documentation (7 module pages)
 
-Create the 7 module docs under `workshops/appservice/docs/` by adapting the corresponding AKS docs (`workshops/aks/docs/<same-name>.md`). For each file: copy the AKS version, then apply the substitutions below. Keep the document structure, tone, headings, and any "Next Step" links (which are relative and identical across tracks).
+Create the 7 module docs under `scenarios/cloud-agent-handover/docs/` by adapting the corresponding AKS docs (`workshops/aks/docs/<same-name>.md`). For each file: copy the AKS version, then apply the substitutions below. Keep the document structure, tone, headings, and any "Next Step" links (which are relative and identical across tracks).
 
 **Global substitutions (apply to every file):**
 - "AKS / Cloud-Native" → "App Service / PaaS"; "AKS cluster"/"the cluster" → "the App Service"; "Kubernetes"/"K8s" → "App Service"
 - `kubectl ...` commands → the `az webapp` / browser equivalent (see per-file notes)
 - "CosmosDB" → "Azure SQL"; `/items` → `/products`; "Node.js" → ".NET 10"
-- `workshops/aks/` paths → `workshops/appservice/`
-- Workflow names: "Deploy AKS Infrastructure" → "Deploy App Service Infrastructure"; "Deploy AKS Application" → "Deploy App Service Application"
+- `workshops/aks/` paths → `scenarios/cloud-agent-handover/`
+- Workflow names: "Deploy AKS Infrastructure" → "Deploy Cloud Agent Handover Infrastructure"; "Deploy AKS Application" → "Deploy Cloud Agent Handover Application"
 - Resource names: `srelab-aks` → `srelab-web-{suffix}`; `srelab-cosmos-{suffix}` → `srelab-sql-{suffix}` / `srelab-db`
 
 **Files & per-file notes:**
-- Create: `workshops/appservice/docs/00-prerequisites.md` — from AKS 00. Replace any `kubectl` prerequisite with ".NET 10 SDK" and keep `az`, `git`, a GitHub account, an Azure subscription. Remove AKS-specific tooling notes.
-- Create: `workshops/appservice/docs/01-deploy-infrastructure.md` — from AKS 01. The deploy flow is the **Deploy App Service Infrastructure** workflow (manual `workflow_dispatch`, region + workloadName inputs). It provisions Log Analytics + App Insights, the UAMI, Azure SQL (server + `srelab-db` + firewall), and the App Service plan + web app. Remove AKS/CosmosDB specifics. Note the SQL AAD admin is set to the deploying service principal automatically.
-- Create: `workshops/appservice/docs/02-deploy-application.md` — from AKS 02. Replace the `kubectl apply` flow with: the **Deploy App Service Application** workflow builds the .NET 10 app (`dotnet publish`), zip-deploys it (`az webapp deploy --type zip`), then runs `db/schema.sql` (seed catalog) and `db/grant.sql` (grant the UAMI `db_datareader`) via `sqlcmd`. Verify with `https://<web-host>/health` (200) and `https://<web-host>/products` (catalog JSON).
-- Create: `workshops/appservice/docs/03-onboard-sre-agent.md` — from AKS 03. Replace the knowledge-file path reference with `workshops/appservice/knowledge/operational-guidelines.md`; otherwise the SRE Agent onboarding steps are track-agnostic.
-- Create: `workshops/appservice/docs/04-configure-incident-response.md` — from AKS 04. Keep the GitOps/@copilot incident-response configuration; update any `workshops/aks/...` paths to `workshops/appservice/...`.
-- Create: `workshops/appservice/docs/90-watch-sre-agent.md` — from AKS 90. Track-agnostic narrative; apply the global substitutions only (e.g. `/items` → `/products`).
-- Create: `workshops/appservice/docs/99-cleanup.md` — from AKS 99. Replace the cleanup command target with `az group delete --name rg-srelab --yes --no-wait` (same RG convention) and drop AKS/CosmosDB-specific notes; the resource-group delete removes App Service + SQL together.
+- Create: `scenarios/cloud-agent-handover/docs/00-prerequisites.md` — from AKS 00. Replace any `kubectl` prerequisite with ".NET 10 SDK" and keep `az`, `git`, a GitHub account, an Azure subscription. Remove AKS-specific tooling notes.
+- Create: `scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md` — from AKS 01. The deploy flow is the **Deploy Cloud Agent Handover Infrastructure** workflow (manual `workflow_dispatch`, region + workloadName inputs). It provisions Log Analytics + App Insights, the UAMI, Azure SQL (server + `srelab-db` + firewall), and the App Service plan + web app. Remove AKS/CosmosDB specifics. Note the SQL AAD admin is set to the deploying service principal automatically.
+- Create: `scenarios/cloud-agent-handover/docs/02-deploy-application.md` — from AKS 02. Replace the `kubectl apply` flow with: the **Deploy Cloud Agent Handover Application** workflow builds the .NET 10 app (`dotnet publish`), zip-deploys it (`az webapp deploy --type zip`), then runs `db/schema.sql` (seed catalog) and `db/grant.sql` (grant the UAMI `db_datareader`) via `sqlcmd`. Verify with `https://<web-host>/health` (200) and `https://<web-host>/products` (catalog JSON).
+- Create: `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md` — from AKS 03. Replace the knowledge-file path reference with `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`; otherwise the SRE Agent onboarding steps are track-agnostic.
+- Create: `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md` — from AKS 04. Keep the GitOps/@copilot incident-response configuration; update any `workshops/aks/...` paths to `scenarios/cloud-agent-handover/...`.
+- Create: `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md` — from AKS 90. Track-agnostic narrative; apply the global substitutions only (e.g. `/items` → `/products`).
+- Create: `scenarios/cloud-agent-handover/docs/99-cleanup.md` — from AKS 99. Replace the cleanup command target with `az group delete --name rg-srelab --yes --no-wait` (same RG convention) and drop AKS/CosmosDB-specific notes; the resource-group delete removes App Service + SQL together.
 
 - [ ] **Step 1: Create all 7 docs per the notes above**
 
 After writing, sanity-check there are no leftover AKS-only references:
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-! grep -rniE "kubectl|cosmos|\.k8s|kubernetes|/items\b" workshops/appservice/docs/ && echo "no AKS leftovers"
+! grep -rniE "kubectl|cosmos|\.k8s|kubernetes|/items\b" scenarios/cloud-agent-handover/docs/ && echo "no AKS leftovers"
 ```
 Expected: `no AKS leftovers`. (If it prints matches, fix those files. The `\b` after items avoids matching unrelated words.)
 
@@ -1316,7 +1316,7 @@ Expected: `no AKS leftovers`. (If it prints matches, fix those files. The `\b` a
 
 Run:
 ```bash
-cd "$(git rev-parse --show-toplevel)/workshops/appservice"
+cd "$(git rev-parse --show-toplevel)/scenarios/cloud-agent-handover"
 for f in docs/*.md; do
   grep -oE '\]\(\.\/[0-9A-Za-z._-]+\.md\)' "$f" | sed -E 's/\]\(\.\///;s/\)//' | while read -r link; do
     test -f "docs/$link" || echo "BROKEN: $f -> $link"
@@ -1330,7 +1330,7 @@ Expected: `link check done` with no `BROKEN:` lines.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git add workshops/appservice/docs/
+git add scenarios/cloud-agent-handover/docs/
 git commit -m "docs(appservice): add attendee walkthrough module pages
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -1344,12 +1344,12 @@ Run the complete offline acceptance gate from the spec, then hand off for branch
 
 - [ ] **Step 1: Bicep builds**
 
-Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null && echo "BICEP OK"`
+Run: `cd "$(git rev-parse --show-toplevel)" && az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null && echo "BICEP OK"`
 Expected: `BICEP OK` (no `ERROR` lines).
 
 - [ ] **Step 2: App publishes**
 
-Run: `cd "$(git rev-parse --show-toplevel)/workshops/appservice/src" && dotnet publish -c Release -o /tmp/shop-publish2 > /dev/null && echo "PUBLISH OK"`
+Run: `cd "$(git rev-parse --show-toplevel)/scenarios/cloud-agent-handover/src" && dotnet publish -c Release -o /tmp/shop-publish2 > /dev/null && echo "PUBLISH OK"`
 Expected: `PUBLISH OK`.
 
 - [ ] **Step 3: Scenario validation green + no drift**

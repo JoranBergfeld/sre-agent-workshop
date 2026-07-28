@@ -4,7 +4,7 @@
 
 **Goal:** Replace the current App Service shop/SQL/canary workshop with a minimal Blazor incident that the Azure SRE Agent diagnoses and hands to GitHub Copilot coding agent for a code-only fix.
 
-**Architecture:** Keep the shared multi-track scenario framework, AKS track, and VM track unchanged. Refactor `workshops/appservice/` into a Blazor Web App on a B1 Linux App Service with workspace-based Application Insights, one route-specific 5xx alert, local setup scripts, and a push-to-`main` OIDC deployment workflow. The intentionally unfinished `POST /api/feature` endpoint ships as HTTP 500; the approved SRE Agent issue asks Copilot to implement a fixed HTTP 200 JSON contract.
+**Architecture:** Keep the shared multi-track scenario framework, AKS track, and VM track unchanged. Refactor `scenarios/cloud-agent-handover/` into a Blazor Web App on a B1 Linux App Service with workspace-based Application Insights, one route-specific 5xx alert, local setup scripts, and a push-to-`main` OIDC deployment workflow. The intentionally unfinished `POST /api/feature` endpoint ships as HTTP 500; the approved SRE Agent issue asks Copilot to implement a fixed HTTP 200 JSON contract.
 
 **Tech Stack:** .NET 10 Blazor Web App, ASP.NET Core minimal APIs, xUnit, `Microsoft.AspNetCore.Mvc.Testing`, Application Insights, Azure Bicep, Azure CLI, GitHub CLI, GitHub Actions OIDC, Bash, PowerShell 7, Node-based scenario tooling.
 
@@ -14,38 +14,38 @@
 
 ### Application
 
-- Replace `workshops/appservice/src/Shop.csproj` with `workshops/appservice/src/HandoverApp.csproj`.
-- Replace `workshops/appservice/src/Program.cs` with the Blazor host, health endpoint, and intentionally unfinished feature endpoint.
-- Delete `workshops/appservice/src/Models/Product.cs`.
-- Create focused Blazor files under `workshops/appservice/src/Components/`.
-- Create `workshops/appservice/src/wwwroot/feature-demo.js` for the browser-side request burst.
-- Create `workshops/appservice/tests/HandoverApp.Tests.csproj`.
-- Create `workshops/appservice/tests/HandoverAppFactory.cs`.
-- Create `workshops/appservice/tests/EndpointTests.cs`.
+- Replace `scenarios/cloud-agent-handover/src/Shop.csproj` with `scenarios/cloud-agent-handover/src/HandoverApp.csproj`.
+- Replace `scenarios/cloud-agent-handover/src/Program.cs` with the Blazor host, health endpoint, and intentionally unfinished feature endpoint.
+- Delete `scenarios/cloud-agent-handover/src/Models/Product.cs`.
+- Create focused Blazor files under `scenarios/cloud-agent-handover/src/Components/`.
+- Create `scenarios/cloud-agent-handover/src/wwwroot/feature-demo.js` for the browser-side request burst.
+- Create `scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj`.
+- Create `scenarios/cloud-agent-handover/tests/HandoverAppFactory.cs`.
+- Create `scenarios/cloud-agent-handover/tests/EndpointTests.cs`.
 
 ### Azure infrastructure
 
-- Simplify `workshops/appservice/infra/bicep/main.bicep`.
-- Simplify `workshops/appservice/infra/bicep/main.bicepparam`.
-- Simplify `workshops/appservice/infra/bicep/modules/appservice.bicep`.
-- Rework `workshops/appservice/infra/bicep/modules/identity.bicep` into the GitHub Actions deployment identity, federated credential, and Website Contributor assignment.
-- Keep `workshops/appservice/infra/bicep/modules/monitoring.bicep`.
-- Delete `workshops/appservice/infra/bicep/modules/sql.bicep`.
-- Delete `workshops/appservice/db/`.
+- Simplify `scenarios/cloud-agent-handover/infra/bicep/main.bicep`.
+- Simplify `scenarios/cloud-agent-handover/infra/bicep/main.bicepparam`.
+- Simplify `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`.
+- Rework `scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep` into the GitHub Actions deployment identity, federated credential, and Website Contributor assignment.
+- Keep `scenarios/cloud-agent-handover/infra/bicep/modules/monitoring.bicep`.
+- Delete `scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep`.
+- Delete `scenarios/cloud-agent-handover/db/`.
 
 ### Local automation
 
-- Create `workshops/appservice/scripts/setup.sh` and `setup.ps1`.
-- Create `workshops/appservice/scripts/cleanup.sh` and `cleanup.ps1`.
+- Create `scenarios/cloud-agent-handover/scripts/setup.sh` and `setup.ps1`.
+- Create `scenarios/cloud-agent-handover/scripts/cleanup.sh` and `cleanup.ps1`.
 
 ### Scenario
 
-- Delete `workshops/appservice/scenarios/red-button-500/`.
-- Delete `workshops/appservice/scenarios/canary-bad-release/`.
-- Create `workshops/appservice/scenarios/cloud-agent-handover/` with manifest, alert, investigation query, Bash/PowerShell injection and validation scripts, and attendee README.
-- Regenerate `workshops/appservice/scenarios/INDEX.md`.
-- Regenerate `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep`.
-- Regenerate the scenario table in `workshops/appservice/README.md`.
+- Delete `scenarios/cloud-agent-handover/scenarios/red-button-500/`.
+- Delete `scenarios/cloud-agent-handover/scenarios/canary-bad-release/`.
+- Create `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/` with manifest, alert, investigation query, Bash/PowerShell injection and validation scripts, and attendee README.
+- Regenerate `scenarios/cloud-agent-handover/scenarios/INDEX.md`.
+- Regenerate `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep`.
+- Regenerate the scenario table in `scenarios/cloud-agent-handover/README.md`.
 
 ### GitHub workflows and repository setup
 
@@ -53,50 +53,50 @@
 - Delete `.github/workflows/deploy-appservice-infra.yml`.
 - Simplify `.github/workflows/validate-appservice-infra.yml`.
 - Create `.github/workflows/validate-appservice-app.yml`.
-- Update `.devcontainer/appservice/devcontainer.json`.
+- Update `.devcontainer/cloud-agent-handover/devcontainer.json`.
 
 ### Documentation
 
-- Rewrite `workshops/appservice/README.md`.
-- Rewrite `workshops/appservice/docs/00-prerequisites.md`.
-- Rewrite `workshops/appservice/docs/01-deploy-infrastructure.md`.
-- Rewrite `workshops/appservice/docs/02-deploy-application.md`.
-- Rewrite `workshops/appservice/docs/03-onboard-sre-agent.md`.
-- Rewrite `workshops/appservice/docs/04-configure-incident-response.md`.
-- Rewrite `workshops/appservice/docs/90-watch-sre-agent.md`.
-- Rewrite `workshops/appservice/docs/99-cleanup.md`.
-- Rewrite `workshops/appservice/knowledge/operational-guidelines.md`.
+- Rewrite `scenarios/cloud-agent-handover/README.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/00-prerequisites.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/02-deploy-application.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md`.
+- Rewrite `scenarios/cloud-agent-handover/docs/99-cleanup.md`.
+- Rewrite `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`.
 - Update `README.md`, `CONTRIBUTING.md`, and `docs/connect-github-to-sre-agent.md`.
 
 ## Task 1: Scaffold the Blazor application and endpoint tests
 
 **Files:**
-- Delete: `workshops/appservice/src/Models/Product.cs`
-- Delete: `workshops/appservice/src/Shop.csproj`
-- Replace: `workshops/appservice/src/Program.cs`
-- Create: `workshops/appservice/src/HandoverApp.csproj`
-- Create: `workshops/appservice/src/Components/App.razor`
-- Create: `workshops/appservice/src/Components/Routes.razor`
-- Create: `workshops/appservice/src/Components/_Imports.razor`
-- Create: `workshops/appservice/src/Components/Layout/MainLayout.razor`
-- Create: `workshops/appservice/src/Components/Pages/Error.razor`
-- Create: `workshops/appservice/src/Components/Pages/Home.razor`
-- Create: `workshops/appservice/src/wwwroot/app.css`
-- Create: `workshops/appservice/src/wwwroot/feature-demo.js`
-- Create: `workshops/appservice/tests/HandoverApp.Tests.csproj`
-- Create: `workshops/appservice/tests/HandoverAppFactory.cs`
-- Create: `workshops/appservice/tests/EndpointTests.cs`
+- Delete: `scenarios/cloud-agent-handover/src/Models/Product.cs`
+- Delete: `scenarios/cloud-agent-handover/src/Shop.csproj`
+- Replace: `scenarios/cloud-agent-handover/src/Program.cs`
+- Create: `scenarios/cloud-agent-handover/src/HandoverApp.csproj`
+- Create: `scenarios/cloud-agent-handover/src/Components/App.razor`
+- Create: `scenarios/cloud-agent-handover/src/Components/Routes.razor`
+- Create: `scenarios/cloud-agent-handover/src/Components/_Imports.razor`
+- Create: `scenarios/cloud-agent-handover/src/Components/Layout/MainLayout.razor`
+- Create: `scenarios/cloud-agent-handover/src/Components/Pages/Error.razor`
+- Create: `scenarios/cloud-agent-handover/src/Components/Pages/Home.razor`
+- Create: `scenarios/cloud-agent-handover/src/wwwroot/app.css`
+- Create: `scenarios/cloud-agent-handover/src/wwwroot/feature-demo.js`
+- Create: `scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj`
+- Create: `scenarios/cloud-agent-handover/tests/HandoverAppFactory.cs`
+- Create: `scenarios/cloud-agent-handover/tests/EndpointTests.cs`
 
 - [ ] **Step 1: Remove the shop-specific source and scaffold an empty interactive Blazor app**
 
 Run:
 
 ```bash
-git rm workshops/appservice/src/Models/Product.cs workshops/appservice/src/Shop.csproj
-rm -rf workshops/appservice/src/Components workshops/appservice/src/Properties workshops/appservice/src/wwwroot
+git rm scenarios/cloud-agent-handover/src/Models/Product.cs scenarios/cloud-agent-handover/src/Shop.csproj
+rm -rf scenarios/cloud-agent-handover/src/Components scenarios/cloud-agent-handover/src/Properties scenarios/cloud-agent-handover/src/wwwroot
 dotnet new blazor \
   --name HandoverApp \
-  --output workshops/appservice/src \
+  --output scenarios/cloud-agent-handover/src \
   --framework net10.0 \
   --interactivity Server \
   --all-interactive \
@@ -105,23 +105,23 @@ dotnet new blazor \
   --no-restore
 ```
 
-Expected: `workshops/appservice/src/HandoverApp.csproj` and the empty Blazor component structure exist; `Models/Product.cs` is gone.
+Expected: `scenarios/cloud-agent-handover/src/HandoverApp.csproj` and the empty Blazor component structure exist; `Models/Product.cs` is gone.
 
 - [ ] **Step 2: Add Application Insights and the test project**
 
 Run:
 
 ```bash
-dotnet add workshops/appservice/src/HandoverApp.csproj \
+dotnet add scenarios/cloud-agent-handover/src/HandoverApp.csproj \
   package Microsoft.ApplicationInsights.AspNetCore --version 2.22.0
 dotnet new xunit \
   --name HandoverApp.Tests \
-  --output workshops/appservice/tests \
+  --output scenarios/cloud-agent-handover/tests \
   --framework net10.0 \
   --no-restore
-dotnet add workshops/appservice/tests/HandoverApp.Tests.csproj \
-  reference workshops/appservice/src/HandoverApp.csproj
-dotnet add workshops/appservice/tests/HandoverApp.Tests.csproj \
+dotnet add scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
+  reference scenarios/cloud-agent-handover/src/HandoverApp.csproj
+dotnet add scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
   package Microsoft.AspNetCore.Mvc.Testing --version 10.0.0
 ```
 
@@ -129,7 +129,7 @@ Expected: the application references Application Insights and the test project r
 
 - [ ] **Step 3: Write the failing endpoint tests**
 
-Create `workshops/appservice/tests/HandoverAppFactory.cs`:
+Create `scenarios/cloud-agent-handover/tests/HandoverAppFactory.cs`:
 
 ```csharp
 using Microsoft.AspNetCore.Hosting;
@@ -146,7 +146,7 @@ public sealed class HandoverAppFactory : WebApplicationFactory<Program>
 }
 ```
 
-Replace `workshops/appservice/tests/UnitTest1.cs` with `workshops/appservice/tests/EndpointTests.cs`:
+Replace `scenarios/cloud-agent-handover/tests/UnitTest1.cs` with `scenarios/cloud-agent-handover/tests/EndpointTests.cs`:
 
 ```csharp
 using System.Net;
@@ -195,14 +195,14 @@ public sealed class EndpointTests(HandoverAppFactory factory)
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 Expected: FAIL because `/health`, `/api/feature`, and the required page content are not implemented.
 
 - [ ] **Step 5: Implement the minimal host and intentional failure**
 
-Replace `workshops/appservice/src/Program.cs`:
+Replace `scenarios/cloud-agent-handover/src/Program.cs`:
 
 ```csharp
 using HandoverApp.Components;
@@ -253,7 +253,7 @@ public partial class Program;
 
 - [ ] **Step 6: Implement the Blazor page and browser-side request burst**
 
-Replace `workshops/appservice/src/Components/Pages/Home.razor`:
+Replace `scenarios/cloud-agent-handover/src/Components/Pages/Home.razor`:
 
 ```razor
 @page "/"
@@ -307,7 +307,7 @@ Replace `workshops/appservice/src/Components/Pages/Home.razor`:
 }
 ```
 
-Create `workshops/appservice/src/wwwroot/feature-demo.js`:
+Create `scenarios/cloud-agent-handover/src/wwwroot/feature-demo.js`:
 
 ```javascript
 window.featureDemo = {
@@ -337,7 +337,7 @@ window.featureDemo = {
 };
 ```
 
-Ensure `workshops/appservice/src/Components/App.razor` loads the script immediately before Blazor:
+Ensure `scenarios/cloud-agent-handover/src/Components/App.razor` loads the script immediately before Blazor:
 
 ```razor
 <!DOCTYPE html>
@@ -363,7 +363,7 @@ Ensure `workshops/appservice/src/Components/App.razor` loads the script immediat
 
 - [ ] **Step 7: Add focused styling**
 
-Replace `workshops/appservice/src/wwwroot/app.css`:
+Replace `scenarios/cloud-agent-handover/src/wwwroot/app.css`:
 
 ```css
 :root {
@@ -474,7 +474,7 @@ h1 {
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 Expected: PASS with three tests.
@@ -484,33 +484,33 @@ Expected: PASS with three tests.
 Run:
 
 ```bash
-git add workshops/appservice/src workshops/appservice/tests
+git add scenarios/cloud-agent-handover/src scenarios/cloud-agent-handover/tests
 git commit -m "feat(appservice): add minimal Blazor handover app"
 ```
 
 ## Task 2: Simplify the Azure substrate and add repository-bound OIDC
 
 **Files:**
-- Delete: `workshops/appservice/db/grant.sql`
-- Delete: `workshops/appservice/db/schema.sql`
-- Delete: `workshops/appservice/infra/bicep/modules/sql.bicep`
-- Modify: `workshops/appservice/infra/bicep/main.bicep`
-- Modify: `workshops/appservice/infra/bicep/main.bicepparam`
-- Modify: `workshops/appservice/infra/bicep/modules/appservice.bicep`
-- Modify: `workshops/appservice/infra/bicep/modules/identity.bicep`
+- Delete: `scenarios/cloud-agent-handover/db/grant.sql`
+- Delete: `scenarios/cloud-agent-handover/db/schema.sql`
+- Delete: `scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep`
+- Modify: `scenarios/cloud-agent-handover/infra/bicep/main.bicep`
+- Modify: `scenarios/cloud-agent-handover/infra/bicep/main.bicepparam`
+- Modify: `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`
+- Modify: `scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep`
 
 - [ ] **Step 1: Delete SQL and canary-only infrastructure**
 
 Run:
 
 ```bash
-git rm -r workshops/appservice/db
-git rm workshops/appservice/infra/bicep/modules/sql.bicep
+git rm -r scenarios/cloud-agent-handover/db
+git rm scenarios/cloud-agent-handover/infra/bicep/modules/sql.bicep
 ```
 
 - [ ] **Step 2: Rework the deployment identity module**
 
-Replace `workshops/appservice/infra/bicep/modules/identity.bicep`:
+Replace `scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep`:
 
 ```bicep
 @description('Azure region for identity resources')
@@ -564,7 +564,7 @@ output resourceId string = deploymentIdentity.id
 
 - [ ] **Step 3: Simplify the App Service module**
 
-Replace `workshops/appservice/infra/bicep/modules/appservice.bicep`:
+Replace `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`:
 
 ```bicep
 @description('Azure region for the App Service resources')
@@ -661,7 +661,7 @@ output webAppHostName string = webApp.properties.defaultHostName
 
 - [ ] **Step 4: Simplify the main template**
 
-Replace `workshops/appservice/infra/bicep/main.bicep`:
+Replace `scenarios/cloud-agent-handover/infra/bicep/main.bicep`:
 
 ```bicep
 targetScope = 'resourceGroup'
@@ -730,7 +730,7 @@ output logAnalyticsId string = monitoring.outputs.logAnalyticsId
 output deploymentClientId string = deploymentIdentity.outputs.clientId
 ```
 
-Replace `workshops/appservice/infra/bicep/main.bicepparam`:
+Replace `scenarios/cloud-agent-handover/infra/bicep/main.bicepparam`:
 
 ```bicep
 using './main.bicep'
@@ -749,7 +749,7 @@ param tags = {
 Run:
 
 ```bash
-az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout >/dev/null
+az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout >/dev/null
 ```
 
 Expected: exit 0 with no unresolved SQL, slot, or app-identity references.
@@ -759,23 +759,23 @@ Expected: exit 0 with no unresolved SQL, slot, or app-identity references.
 Run:
 
 ```bash
-git add -A workshops/appservice
+git add -A scenarios/cloud-agent-handover
 git commit -m "refactor(appservice): reduce infrastructure to handover essentials"
 ```
 
 ## Task 3: Replace the scenarios with `cloud-agent-handover`
 
 **Files:**
-- Delete: `workshops/appservice/scenarios/canary-bad-release/`
-- Delete: `workshops/appservice/scenarios/red-button-500/`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/scenario.yaml`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/alert.bicep`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/query.kql`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/inject.sh`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/inject.ps1`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/validate.sh`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/validate.ps1`
-- Create: `workshops/appservice/scenarios/cloud-agent-handover/README.md`
+- Delete: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/`
+- Delete: `scenarios/cloud-agent-handover/scenarios/red-button-500/`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/scenario.yaml`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/alert.bicep`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/query.kql`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.ps1`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.ps1`
+- Create: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md`
 
 - [ ] **Step 1: Remove the SQL/canary and red-button scenarios**
 
@@ -783,8 +783,8 @@ Run:
 
 ```bash
 git rm -r \
-  workshops/appservice/scenarios/canary-bad-release \
-  workshops/appservice/scenarios/red-button-500
+  scenarios/cloud-agent-handover/scenarios/canary-bad-release \
+  scenarios/cloud-agent-handover/scenarios/red-button-500
 ```
 
 - [ ] **Step 2: Scaffold the replacement scenario**
@@ -794,15 +794,15 @@ Run:
 ```bash
 scripts/new-scenario.sh appservice cloud-agent-handover "SRE Agent to Copilot Handover"
 rm -f \
-  workshops/appservice/scenarios/cloud-agent-handover/remediate.sh \
-  workshops/appservice/scenarios/cloud-agent-handover/remediate.ps1
+  scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/remediate.sh \
+  scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/remediate.ps1
 ```
 
 Expected: the scenario directory contains the canonical manifest, scripts, alert, query, and README files.
 
 - [ ] **Step 3: Define the manifest without a remediation action**
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/scenario.yaml`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/scenario.yaml`:
 
 ```yaml
 id: cloud-agent-handover
@@ -832,7 +832,7 @@ docPage: README.md
 
 - [ ] **Step 4: Add the route-specific alert**
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/alert.bicep`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/alert.bicep`:
 
 ```bicep
 param location string
@@ -882,7 +882,7 @@ resource unfinishedFeatureAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-
 
 - [ ] **Step 5: Add the investigation query**
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/query.kql`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/query.kql`:
 
 ```kusto
 // Failed feature requests and their operation identifiers.
@@ -903,7 +903,7 @@ AppRequests
 
 - [ ] **Step 6: Implement Bash injection and validation**
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/inject.sh`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -941,7 +941,7 @@ done
 echo "Generated $ATTEMPTS unfinished-feature requests. The initial application should return HTTP 500."
 ```
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/validate.sh`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -982,7 +982,7 @@ echo "Healthy: POST /api/feature returned the implemented HTTP 200 contract."
 
 - [ ] **Step 7: Implement equivalent PowerShell injection and validation**
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/inject.ps1`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.ps1`:
 
 ```powershell
 #!/usr/bin/env pwsh
@@ -1014,7 +1014,7 @@ $hostName = az webapp show --resource-group $ResourceGroup --name $AppName --que
 Write-Host "Generated $Attempts unfinished-feature requests. The initial application should return HTTP 500."
 ```
 
-Replace `workshops/appservice/scenarios/cloud-agent-handover/validate.ps1`:
+Replace `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.ps1`:
 
 ```powershell
 #!/usr/bin/env pwsh
@@ -1059,8 +1059,8 @@ Run:
 
 ```bash
 chmod +x \
-  workshops/appservice/scenarios/cloud-agent-handover/inject.sh \
-  workshops/appservice/scenarios/cloud-agent-handover/validate.sh
+  scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh \
+  scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh
 scripts/validate-scenarios.sh --write
 scripts/validate-scenarios.sh
 ```
@@ -1072,21 +1072,21 @@ Expected: `Scenario validation passed`.
 Run:
 
 ```bash
-git add workshops/appservice/scenarios workshops/appservice/infra/bicep/modules/scenario-alerts.bicep workshops/appservice/README.md
+git add scenarios/cloud-agent-handover/scenarios scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep scenarios/cloud-agent-handover/README.md
 git commit -m "feat(appservice): add cloud agent handover scenario"
 ```
 
 ## Task 4: Add idempotent local setup and cleanup
 
 **Files:**
-- Create: `workshops/appservice/scripts/setup.sh`
-- Create: `workshops/appservice/scripts/setup.ps1`
-- Create: `workshops/appservice/scripts/cleanup.sh`
-- Create: `workshops/appservice/scripts/cleanup.ps1`
+- Create: `scenarios/cloud-agent-handover/scripts/setup.sh`
+- Create: `scenarios/cloud-agent-handover/scripts/setup.ps1`
+- Create: `scenarios/cloud-agent-handover/scripts/cleanup.sh`
+- Create: `scenarios/cloud-agent-handover/scripts/cleanup.ps1`
 
 - [ ] **Step 1: Implement Bash setup**
 
-Create `workshops/appservice/scripts/setup.sh` with these concrete behaviors:
+Create `scenarios/cloud-agent-handover/scripts/setup.sh` with these concrete behaviors:
 
 ```bash
 #!/usr/bin/env bash
@@ -1159,7 +1159,7 @@ az group create \
 
 OUTPUTS=$(az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
-  --template-file workshops/appservice/infra/bicep/main.bicep \
+  --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
   --parameters \
     location="$LOCATION" \
     workloadName="$WORKLOAD" \
@@ -1173,8 +1173,8 @@ CLIENT_ID=$(jq -r '.deploymentClientId.value' <<<"$OUTPUTS")
 
 PUBLISH_DIR=$(mktemp -d)
 trap 'rm -rf "$PUBLISH_DIR"' EXIT
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
-dotnet publish workshops/appservice/src/HandoverApp.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
   --configuration Release \
   --output "$PUBLISH_DIR/publish"
 (cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)
@@ -1201,7 +1201,7 @@ echo "Repository:  $REPOSITORY"
 
 - [ ] **Step 2: Implement PowerShell setup with the same contract**
 
-Create `workshops/appservice/scripts/setup.ps1` using:
+Create `scenarios/cloud-agent-handover/scripts/setup.ps1` using:
 
 ```powershell
 #!/usr/bin/env pwsh
@@ -1268,7 +1268,7 @@ az group create `
 
 $outputsJson = az deployment group create `
     --resource-group $resourceGroup `
-    --template-file workshops/appservice/infra/bicep/main.bicep `
+    --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep `
     --parameters location=$Location workloadName=$Workload githubRepository=$repository `
     --query properties.outputs `
     --output json
@@ -1280,8 +1280,8 @@ $clientId = $outputs.deploymentClientId.value
 $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sre-handover-$([Guid]::NewGuid())"
 
 try {
-    dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
-    dotnet publish workshops/appservice/src/HandoverApp.csproj `
+    dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+    dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj `
         --configuration Release `
         --output "$publishRoot/publish"
     Compress-Archive -Path "$publishRoot/publish/*" -DestinationPath "$publishRoot/app.zip"
@@ -1312,7 +1312,7 @@ Write-Host "Repository:  $repository"
 
 - [ ] **Step 3: Implement cleanup scripts**
 
-Create `workshops/appservice/scripts/cleanup.sh`:
+Create `scenarios/cloud-agent-handover/scripts/cleanup.sh`:
 
 ```bash
 #!/usr/bin/env bash
@@ -1323,7 +1323,7 @@ az group delete --name "$RESOURCE_GROUP" --yes --no-wait
 echo "Deletion started for $RESOURCE_GROUP."
 ```
 
-Create `workshops/appservice/scripts/cleanup.ps1`:
+Create `scenarios/cloud-agent-handover/scripts/cleanup.ps1`:
 
 ```powershell
 #!/usr/bin/env pwsh
@@ -1341,13 +1341,13 @@ Write-Host "Deletion started for $ResourceGroup."
 Run:
 
 ```bash
-chmod +x workshops/appservice/scripts/setup.sh workshops/appservice/scripts/cleanup.sh
-bash -n workshops/appservice/scripts/setup.sh
-bash -n workshops/appservice/scripts/cleanup.sh
+chmod +x scenarios/cloud-agent-handover/scripts/setup.sh scenarios/cloud-agent-handover/scripts/cleanup.sh
+bash -n scenarios/cloud-agent-handover/scripts/setup.sh
+bash -n scenarios/cloud-agent-handover/scripts/cleanup.sh
 pwsh -NoProfile -Command \
-  '[System.Management.Automation.Language.Parser]::ParseFile("workshops/appservice/scripts/setup.ps1",[ref]$null,[ref]$null) | Out-Null'
+  '[System.Management.Automation.Language.Parser]::ParseFile("scenarios/cloud-agent-handover/scripts/setup.ps1",[ref]$null,[ref]$null) | Out-Null'
 pwsh -NoProfile -Command \
-  '[System.Management.Automation.Language.Parser]::ParseFile("workshops/appservice/scripts/cleanup.ps1",[ref]$null,[ref]$null) | Out-Null'
+  '[System.Management.Automation.Language.Parser]::ParseFile("scenarios/cloud-agent-handover/scripts/cleanup.ps1",[ref]$null,[ref]$null) | Out-Null'
 ```
 
 Expected: all commands exit 0.
@@ -1357,7 +1357,7 @@ Expected: all commands exit 0.
 Run:
 
 ```bash
-git add workshops/appservice/scripts
+git add scenarios/cloud-agent-handover/scripts
 git commit -m "feat(appservice): automate local setup and OIDC"
 ```
 
@@ -1382,18 +1382,18 @@ git rm .github/workflows/deploy-appservice-infra.yml
 Create `.github/workflows/validate-appservice-app.yml`:
 
 ```yaml
-name: Validate App Service Application
+name: Validate Cloud Agent Handover Application
 
 on:
   pull_request:
     paths:
-      - 'workshops/appservice/src/**'
-      - 'workshops/appservice/tests/**'
+      - 'scenarios/cloud-agent-handover/src/**'
+      - 'scenarios/cloud-agent-handover/tests/**'
       - '.github/workflows/validate-appservice-app.yml'
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/tests/**'
+      - 'scenarios/cloud-agent-handover/tests/**'
       - '.github/workflows/validate-appservice-app.yml'
 
 permissions:
@@ -1407,7 +1407,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+      - run: dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 ```
 
 - [ ] **Step 3: Replace the post-merge application deployment workflow**
@@ -1415,14 +1415,14 @@ jobs:
 Replace `.github/workflows/deploy-appservice-app.yml`:
 
 ```yaml
-name: Deploy App Service Application
+name: Deploy Cloud Agent Handover Application
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/src/**'
-      - 'workshops/appservice/tests/**'
+      - 'scenarios/cloud-agent-handover/src/**'
+      - 'scenarios/cloud-agent-handover/tests/**'
   workflow_dispatch:
 
 permissions:
@@ -1440,11 +1440,11 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Test
-        run: dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+        run: dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 
       - name: Publish
         run: |
-          dotnet publish workshops/appservice/src/HandoverApp.csproj \
+          dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
             --configuration Release \
             --output publish
           cd publish
@@ -1472,17 +1472,17 @@ jobs:
 Replace `.github/workflows/validate-appservice-infra.yml`:
 
 ```yaml
-name: Validate App Service Infrastructure
+name: Validate Cloud Agent Handover Infrastructure
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
   pull_request:
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
 
 permissions:
@@ -1493,7 +1493,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout >/dev/null
+      - run: az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout >/dev/null
 ```
 
 - [ ] **Step 5: Commit workflow changes**
@@ -1508,13 +1508,13 @@ git commit -m "ci(appservice): deploy merged fixes with OIDC"
 ## Task 6: Rewrite the SRE Agent guidance and scenario walkthrough
 
 **Files:**
-- Modify: `workshops/appservice/knowledge/operational-guidelines.md`
-- Modify: `workshops/appservice/scenarios/cloud-agent-handover/README.md`
+- Modify: `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`
+- Modify: `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md`
 - Modify: `docs/connect-github-to-sre-agent.md`
 
 - [ ] **Step 1: Replace the operational guidance**
 
-Write `workshops/appservice/knowledge/operational-guidelines.md` with these exact rules:
+Write `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md` with these exact rules:
 
 ```markdown
 # App Service Handover Operational Guidelines
@@ -1552,12 +1552,12 @@ This workshop demonstrates an approval-gated handoff from the Azure SRE Agent to
 
 ## Recovery
 
-The operator reviews and merges the Copilot pull request. The `Deploy App Service Application` workflow deploys the merged application through GitHub OIDC. Confirm recovery with the scenario validation script and close the incident only after `POST /api/feature` returns the documented HTTP 200 response.
+The operator reviews and merges the Copilot pull request. The `Deploy Cloud Agent Handover Application` workflow deploys the merged application through GitHub OIDC. Confirm recovery with the scenario validation script and close the incident only after `POST /api/feature` returns the documented HTTP 200 response.
 ```
 
 - [ ] **Step 2: Write the attendee scenario README**
 
-Use this structure in `workshops/appservice/scenarios/cloud-agent-handover/README.md`:
+Use this structure in `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md`:
 
 ```markdown
 # Scenario: SRE Agent to Copilot Handover
@@ -1568,12 +1568,12 @@ The Blazor page is healthy, but `POST /api/feature` throws `NotImplementedExcept
 
 ## Trigger the incident
 
-Open the application URL printed by `workshops/appservice/scripts/setup.sh` or `setup.ps1`, then click **Run unfinished feature** once.
+Open the application URL printed by `scenarios/cloud-agent-handover/scripts/setup.sh` or `setup.ps1`, then click **Run unfinished feature** once.
 
 For a facilitator-driven run:
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/inject.sh
+scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh
 ```
 
 ## Watch the handoff
@@ -1585,12 +1585,12 @@ workshops/appservice/scenarios/cloud-agent-handover/inject.sh
 5. Wait for the Copilot pull request.
 6. Review the code and test changes.
 7. Merge the pull request.
-8. Watch **Deploy App Service Application** complete.
+8. Watch **Deploy Cloud Agent Handover Application** complete.
 
 ## Validate recovery
 
 ```bash
-workshops/appservice/scenarios/cloud-agent-handover/validate.sh
+scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh
 ```
 
 Expected: `Healthy: POST /api/feature returned the implemented HTTP 200 contract.`
@@ -1611,25 +1611,25 @@ In `docs/connect-github-to-sre-agent.md`:
 Run:
 
 ```bash
-git add workshops/appservice/knowledge workshops/appservice/scenarios/cloud-agent-handover/README.md docs/connect-github-to-sre-agent.md
+git add scenarios/cloud-agent-handover/knowledge scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md docs/connect-github-to-sre-agent.md
 git commit -m "docs(appservice): define approval-gated copilot handoff"
 ```
 
 ## Task 7: Rewrite the App Service learner path
 
 **Files:**
-- Modify: `workshops/appservice/README.md`
-- Modify: `workshops/appservice/docs/00-prerequisites.md`
-- Modify: `workshops/appservice/docs/01-deploy-infrastructure.md`
-- Modify: `workshops/appservice/docs/02-deploy-application.md`
-- Modify: `workshops/appservice/docs/03-onboard-sre-agent.md`
-- Modify: `workshops/appservice/docs/04-configure-incident-response.md`
-- Modify: `workshops/appservice/docs/90-watch-sre-agent.md`
-- Modify: `workshops/appservice/docs/99-cleanup.md`
+- Modify: `scenarios/cloud-agent-handover/README.md`
+- Modify: `scenarios/cloud-agent-handover/docs/00-prerequisites.md`
+- Modify: `scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md`
+- Modify: `scenarios/cloud-agent-handover/docs/02-deploy-application.md`
+- Modify: `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`
+- Modify: `scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`
+- Modify: `scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md`
+- Modify: `scenarios/cloud-agent-handover/docs/99-cleanup.md`
 
 - [ ] **Step 1: Make the track README a short linear quickstart**
 
-Rewrite `workshops/appservice/README.md` so it contains:
+Rewrite `scenarios/cloud-agent-handover/README.md` so it contains:
 
 - Title: `App Service: SRE Agent to Copilot Handover`.
 - A one-paragraph explanation of the demo.
@@ -1655,13 +1655,13 @@ Rewrite `workshops/appservice/README.md` so it contains:
 `01-deploy-infrastructure.md` must run:
 
 ```bash
-workshops/appservice/scripts/setup.sh
+scenarios/cloud-agent-handover/scripts/setup.sh
 ```
 
 and:
 
 ```powershell
-./workshops/appservice/scripts/setup.ps1
+./scenarios/cloud-agent-handover/scripts/setup.ps1
 ```
 
 Explain that the same command deploys infrastructure, configures repository-bound OIDC, writes GitHub variables, tests the app, and deploys the initial build.
@@ -1671,14 +1671,14 @@ Explain that the same command deploys infrastructure, configures repository-boun
 - Open the printed application URL.
 - Verify `/health`.
 - Explain that the initial unfinished endpoint intentionally returns 500.
-- Explain that later merges to `main` trigger `Deploy App Service Application`.
+- Explain that later merges to `main` trigger `Deploy Cloud Agent Handover Application`.
 
 - [ ] **Step 3: Rewrite onboarding and incident-response modules**
 
 `03-onboard-sre-agent.md` must:
 
 - Connect the generated repository through the Code card.
-- Upload `workshops/appservice/knowledge/operational-guidelines.md`.
+- Upload `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`.
 - Connect the Azure resource group and monitoring resources.
 
 `04-configure-incident-response.md` must:
@@ -1704,13 +1704,13 @@ Explain that the same command deploys infrastructure, configures repository-boun
 `99-cleanup.md` must run:
 
 ```bash
-workshops/appservice/scripts/cleanup.sh
+scenarios/cloud-agent-handover/scripts/cleanup.sh
 ```
 
 and:
 
 ```powershell
-./workshops/appservice/scripts/cleanup.ps1
+./scenarios/cloud-agent-handover/scripts/cleanup.ps1
 ```
 
 Explain that the resource group contains the web app, monitoring, deployment identity, and federated credential. Remove all service-principal-secret and fork cleanup language.
@@ -1728,7 +1728,7 @@ scripts/validate-scenarios.sh --write
 Run:
 
 ```bash
-git add workshops/appservice
+git add scenarios/cloud-agent-handover
 git commit -m "docs(appservice): streamline the handover workshop"
 ```
 
@@ -1737,7 +1737,7 @@ git commit -m "docs(appservice): streamline the handover workshop"
 **Files:**
 - Modify: `README.md`
 - Modify: `CONTRIBUTING.md`
-- Modify: `.devcontainer/appservice/devcontainer.json`
+- Modify: `.devcontainer/cloud-agent-handover/devcontainer.json`
 
 - [ ] **Step 1: Update the root README**
 
@@ -1749,15 +1749,15 @@ Change `README.md` so:
   ```markdown
   1. Click **Use this template** on GitHub.
   2. Create and clone your repository.
-  3. Run `workshops/appservice/scripts/setup.sh` or `setup.ps1`.
-  4. Follow [App Service: SRE Agent to Copilot Handover](workshops/appservice/README.md).
+  3. Run `scenarios/cloud-agent-handover/scripts/setup.sh` or `setup.ps1`.
+  4. Follow [App Service: SRE Agent to Copilot Handover](scenarios/cloud-agent-handover/README.md).
   ```
 
 - The track table lists App Service first and labels it `Beginner / recommended`.
 - AKS and VM remain available as advanced tracks.
 - “Fork” language is removed from the quickstart.
 - The App Service scenario index is added to “Scenarios at a glance”.
-- The repository structure includes `workshops/appservice/`.
+- The repository structure includes `scenarios/cloud-agent-handover/`.
 
 - [ ] **Step 2: Correct contribution guidance**
 
@@ -1770,11 +1770,11 @@ In `CONTRIBUTING.md`:
 
 - [ ] **Step 3: Update the App Service dev container**
 
-Replace the restore command in `.devcontainer/appservice/devcontainer.json`:
+Replace the restore command in `.devcontainer/cloud-agent-handover/devcontainer.json`:
 
 ```json
 "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq zip",
-"postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore workshops/appservice/tests/HandoverApp.Tests.csproj"
+"postCreateCommand": "npm --prefix scripts/scenario-tools ci && dotnet restore scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
 ```
 
 Retain Azure CLI/Bicep, PowerShell, GitHub CLI, Node, jq, and .NET 10.
@@ -1784,7 +1784,7 @@ Retain Azure CLI/Bicep, PowerShell, GitHub CLI, Node, jq, and .NET 10.
 Run:
 
 ```bash
-git add README.md CONTRIBUTING.md .devcontainer/appservice/devcontainer.json
+git add README.md CONTRIBUTING.md .devcontainer/cloud-agent-handover/devcontainer.json
 git commit -m "docs: make app service the template quickstart"
 ```
 
@@ -1851,9 +1851,9 @@ git commit -m "test(scenarios): cover remediation-free handoffs"
 ## Task 10: Run complete repository validation
 
 **Files:**
-- Generated: `workshops/appservice/scenarios/INDEX.md`
-- Generated: `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep`
-- Generated section: `workshops/appservice/README.md`
+- Generated: `scenarios/cloud-agent-handover/scenarios/INDEX.md`
+- Generated: `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep`
+- Generated section: `scenarios/cloud-agent-handover/README.md`
 
 - [ ] **Step 1: Regenerate and validate scenario artifacts**
 
@@ -1881,9 +1881,9 @@ Expected: all Node tests pass.
 Run:
 
 ```bash
-az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout >/dev/null
-az bicep build --file workshops/appservice/scenarios/cloud-agent-handover/alert.bicep --stdout >/dev/null
-az bicep build --file workshops/appservice/infra/bicep/modules/scenario-alerts.bicep --stdout >/dev/null
+az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout >/dev/null
+az bicep build --file scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/alert.bicep --stdout >/dev/null
+az bicep build --file scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep --stdout >/dev/null
 ```
 
 Expected: all three commands exit 0.
@@ -1893,8 +1893,8 @@ Expected: all three commands exit 0.
 Run:
 
 ```bash
-dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
-dotnet publish workshops/appservice/src/HandoverApp.csproj \
+dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
   --configuration Release \
   --output /tmp/sre-handover-publish
 rm -rf /tmp/sre-handover-publish
@@ -1907,14 +1907,14 @@ Expected: tests and publish pass.
 Run:
 
 ```bash
-bash -n workshops/appservice/scripts/setup.sh
-bash -n workshops/appservice/scripts/cleanup.sh
-bash -n workshops/appservice/scenarios/cloud-agent-handover/inject.sh
-bash -n workshops/appservice/scenarios/cloud-agent-handover/validate.sh
+bash -n scenarios/cloud-agent-handover/scripts/setup.sh
+bash -n scenarios/cloud-agent-handover/scripts/cleanup.sh
+bash -n scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh
+bash -n scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh
 pwsh -NoProfile -Command \
-  'Get-ChildItem workshops/appservice -Recurse -Filter *.ps1 | ForEach-Object { [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$null) | Out-Null }'
-rg -n 'Azure SQL|canary-bad-release|red-button-500|AZURE_CREDENTIALS|Deploy App Service Infrastructure|fork your|your fork' \
-  README.md CONTRIBUTING.md docs/connect-github-to-sre-agent.md workshops/appservice .github/workflows .devcontainer/appservice
+  'Get-ChildItem scenarios/cloud-agent-handover -Recurse -Filter *.ps1 | ForEach-Object { [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$null) | Out-Null }'
+rg -n 'Azure SQL|canary-bad-release|red-button-500|AZURE_CREDENTIALS|Deploy Cloud Agent Handover Infrastructure|fork your|your fork' \
+  README.md CONTRIBUTING.md docs/connect-github-to-sre-agent.md scenarios/cloud-agent-handover .github/workflows .devcontainer/cloud-agent-handover
 ```
 
 Expected: parser commands pass and `rg` returns no stale App Service guidance. Review any legitimate historical design documents separately rather than editing them.
@@ -1956,7 +1956,7 @@ Use a private disposable repository owned by the implementer. Confirm it is not 
 Run from the disposable repository:
 
 ```bash
-workshops/appservice/scripts/setup.sh --location eastus2 --workload srehandoff
+scenarios/cloud-agent-handover/scripts/setup.sh --location eastus2 --workload srehandoff
 ```
 
 Expected:
@@ -1998,8 +1998,8 @@ and change the endpoint test to assert HTTP 200 plus the exact JSON response.
 
 Merge the pull request. Confirm:
 
-- `Validate App Service Application` passed on the pull request.
-- `Deploy App Service Application` authenticated without `AZURE_CREDENTIALS`.
+- `Validate Cloud Agent Handover Application` passed on the pull request.
+- `Deploy Cloud Agent Handover Application` authenticated without `AZURE_CREDENTIALS`.
 - The deployment completed.
 - `validate.sh` passes.
 - The Azure Monitor alert auto-mitigates.
@@ -2009,7 +2009,7 @@ Merge the pull request. Confirm:
 Run:
 
 ```bash
-workshops/appservice/scripts/cleanup.sh rg-srehandoff
+scenarios/cloud-agent-handover/scripts/cleanup.sh rg-srehandoff
 ```
 
 Delete the disposable GitHub repository after preserving any defect notes.

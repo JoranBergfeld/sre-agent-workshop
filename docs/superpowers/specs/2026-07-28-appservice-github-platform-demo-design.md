@@ -29,7 +29,7 @@ When the infrastructure or SRE Agent is unavailable, the learner uses a
 documented fallback:
 
 1. Open the checked-in sample issue at
-   `workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md`.
+   `scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md`.
 2. Review the proposed issue as the explicit approval gate.
 3. Open a blank issue in the workshop repository and copy the sample Markdown.
 4. Submit the issue without an assignee.
@@ -48,7 +48,7 @@ scenario, not a separate scenario.
 ### Sample SRE Agent issue
 
 Add
-`workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md`.
+`scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md`.
 It represents the issue content an SRE Agent could produce after an
 investigation, without claiming that an investigation actually ran.
 
@@ -61,8 +61,8 @@ The sample must contain:
 - A requirement to preserve `GET /health`.
 - A requirement to replace the test documenting the broken state with tests
   for the successful contract.
-- Scope limited to `workshops/appservice/src/**` and
-  `workshops/appservice/tests/**`.
+- Scope limited to `scenarios/cloud-agent-handover/src/**` and
+  `scenarios/cloud-agent-handover/tests/**`.
 - An explicit prohibition on Bicep and GitHub Actions changes.
 - Acceptance criteria that a learner can use during pull-request review.
 
@@ -72,7 +72,7 @@ This keeps the approval and issue-creation steps visible to the learner.
 ### App Service Copilot instructions
 
 Add `.github/instructions/appservice.instructions.md` with path targeting for
-`workshops/appservice/**`. The instructions must complement, not duplicate or
+`scenarios/cloud-agent-handover/**`. The instructions must complement, not duplicate or
 contradict, the repository-wide `.github/copilot-instructions.md`.
 
 They will direct Copilot to:
@@ -87,7 +87,7 @@ They will direct Copilot to:
 
 ### Human-readable code-quality guide
 
-Add `workshops/appservice/CODE_QUALITY.md`. It will explain the same quality
+Add `scenarios/cloud-agent-handover/CODE_QUALITY.md`. It will explain the same quality
 expectations to learners and connect each expectation to a GitHub platform
 benefit:
 
@@ -112,12 +112,12 @@ The workflow will:
 
 1. Check out the pull request with enough history to compare against its base.
 2. Set up .NET 10.
-3. Restore and test `workshops/appservice/tests/HandoverApp.Tests.csproj`.
+3. Restore and test `scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj`.
 4. Use the existing Coverlet collector to emit Cobertura coverage.
 5. Install a pinned `diff-cover` version.
 6. Compare coverage against the pull request base branch.
 7. Require 100% coverage for changed executable C# lines in
-   `workshops/appservice/src`.
+   `scenarios/cloud-agent-handover/src`.
 
 The workflow's current path filters remain the boundary for app CI. App source,
 tests, and the validation workflow itself trigger the check; unrelated
@@ -131,14 +131,14 @@ distinct approval moments. After assignment, GitHub Copilot reads the issue,
 repository-wide instructions, and App Service path-specific instructions before
 producing a pull request.
 
-The pull request triggers **Validate App Service Application**. Functional
+The pull request triggers **Validate Cloud Agent Handover Application**. Functional
 tests first establish the endpoint behavior. Coverlet then produces coverage
 data, and `diff-cover` intersects that data with executable C# lines changed
 relative to the pull request base. The check succeeds only when tests pass and
 every changed executable application line is covered.
 
 Merging retains the existing behavior: qualifying App Service source or test
-changes on `main` trigger **Deploy App Service Application**. A learner using
+changes on `main` trigger **Deploy Cloud Agent Handover Application**. A learner using
 the no-infrastructure fallback observes the GitHub workflow but does not
 perform Azure deployment or recovery validation.
 
@@ -173,7 +173,7 @@ The implementation is complete when:
 - The sample issue can be copied directly into a blank GitHub issue and
   contains the exact endpoint contract and file scope.
 - App Service path-specific instructions apply only to
-  `workshops/appservice/**`.
+  `scenarios/cloud-agent-handover/**`.
 - `CODE_QUALITY.md` explains the local test and coverage workflow.
 - The existing App Service validation workflow runs functional tests on pull
   requests.

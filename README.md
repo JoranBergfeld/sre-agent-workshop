@@ -24,11 +24,11 @@ path from investigation to remediation.
 3. Run the App Service setup with Bash or PowerShell:
 
    ```bash
-   workshops/appservice/scripts/setup.sh
+   scenarios/cloud-agent-handover/scripts/setup.sh
    ```
 
    ```powershell
-   ./workshops/appservice/scripts/setup.ps1
+   ./scenarios/cloud-agent-handover/scripts/setup.ps1
    ```
 
 4. Follow the [Cloud Agent Handover scenario](scenarios/cloud-agent-handover/README.md).
@@ -112,16 +112,16 @@ sre-agent-workshop/
 │   ├── 00-what-is-sre-agent.md
 │   ├── 01-why-sre-agent.md
 │   └── 02-how-it-works.md
+├── scenarios/
+│   └── cloud-agent-handover/     # Beginner SRE Agent → Copilot handover
+│       ├── README.md
+│       ├── docs/                # Scenario walkthroughs
+│       ├── infra/bicep/         # App Service, monitoring, identity, and alerts
+│       ├── knowledge/           # SRE Agent operational guidance
+│       ├── scripts/             # Bash and PowerShell setup / cleanup
+│       ├── src/                 # .NET 10 Blazor application
+│       └── tests/               # Application integration tests
 ├── workshops/
-│   ├── appservice/               # Beginner SRE Agent → Copilot handover
-│   │   ├── README.md
-│   │   ├── docs/                 # App Service module walkthroughs
-│   │   ├── infra/bicep/          # App Service, monitoring, identity, and alerts
-│   │   ├── knowledge/            # SRE Agent operational guidance
-│   │   ├── scenarios/            # Handover fault scenario (+ INDEX.md)
-│   │   ├── scripts/              # Bash and PowerShell setup / cleanup
-│   │   ├── src/                  # .NET 10 Blazor application
-│   │   └── tests/                # Application integration tests
 │   ├── aks/                      # Advanced cloud-native track
 │   │   ├── docs/
 │   │   ├── infra/bicep/
