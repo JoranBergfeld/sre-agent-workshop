@@ -1,25 +1,61 @@
-name: Validate App Service Infrastructure
+name: Validate Cloud Agent Handover Infrastructure
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
   pull_request:
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      LOCATION: ${{ vars.AZURE_LOCATION || 'eastus2' }}
+      WORKLOAD: ${{ vars.WORKLOAD_NAME || 'srelabapp' }}
+      RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate Bicep syntax
-        run: az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout >/dev/null
+        run: az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout >/dev/null
+
+      - name: Azure Login
+        id: azure-login
+        uses: azure/login@v2
+        continue-on-error: true
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: What-If deployment preview
+        if: steps.azure-login.outcome == 'success'
+        run: |
+          RESOURCE_GROUP="${RESOURCE_GROUP:-rg-$WORKLOAD}"
+
+          echo "============================================"
+          echo "  What-If Preview"
+          echo "  Resource Group: $RESOURCE_GROUP"
+          echo "  Location:       $LOCATION"
+          echo "============================================"
+
+          az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
+            --parameters scenarios/cloud-agent-handover/infra/bicep/main.bicepparam \
+              location="$LOCATION" \
+              workloadName="$WORKLOAD" \
+              githubRepository="${{ github.repository }}"
+
+      - name: Skip notice
+        if: steps.azure-login.outcome != 'success'
+        run: |
+          echo "::notice::Azure credentials not configured — skipped what-if preview. Bicep syntax validation passed."

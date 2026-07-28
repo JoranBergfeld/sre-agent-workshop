@@ -54,7 +54,7 @@ the handoff or substitute a human assignee.
 
 1. Wait for the GitHub Copilot coding agent to open a pull request.
 2. Confirm that changes stay within App Service source and tests.
-3. Open **Validate App Service Application** and confirm that endpoint tests
+3. Open **Validate Cloud Agent Handover Application** and confirm that endpoint tests
    pass and changed-line coverage is 100%.
 4. If coverage fails, review the uncovered lines printed by `diff-cover` and
    request behavior-focused tests. Do not weaken assertions or exclude
@@ -71,7 +71,7 @@ Complete this section only for Path A.
 
 Open
 `https://github.com/<owner>/<repository>/actions/workflows/deploy-appservice-app.yml`.
-Confirm that **Deploy App Service Application** started automatically for the
+Confirm that **Deploy Cloud Agent Handover Application** started automatically for the
 merge and completed successfully.
 
 You can also inspect the latest run from the repository root:

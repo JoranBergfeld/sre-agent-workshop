@@ -37,7 +37,7 @@ The issue must state:
 ## Recovery and closure
 
 1. The operator reviews and merges the Copilot pull request.
-2. The merge triggers the OIDC-based **Deploy App Service Application**
+2. The merge triggers the OIDC-based **Deploy Cloud Agent Handover Application**
    workflow.
 3. Validate the endpoint and health check after deployment. Close the issue and
    incident only after recovery is confirmed.

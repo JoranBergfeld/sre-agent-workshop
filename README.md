@@ -64,12 +64,12 @@ You can run a generated repository in a preconfigured
 [GitHub Codespace](https://docs.github.com/codespaces) instead of installing the
 toolchain locally. Each track has a dev container under `.devcontainer/<track>/`
 with Azure CLI + Bicep, PowerShell, GitHub CLI, Node.js, and its track-specific
-tools. The recommended App Service configuration also includes .NET 10, `jq`,
+tools. The recommended Cloud Agent Handover configuration also includes .NET 10, `jq`,
 and `zip`; the AKS configuration adds Kubernetes tooling.
 
 1. In the repository created from the template, select **Code → Codespaces →
    New with options…**
-2. Under **Dev container configuration**, select **SRE Workshop — App Service**
+2. Under **Dev container configuration**, select **SRE Scenario — Cloud Agent Handover**
    for the quickstart, or choose **SRE Workshop — AKS** / **SRE Workshop — VM**
    for an advanced track.
 3. Create the Codespace and wait for its setup commands to finish.

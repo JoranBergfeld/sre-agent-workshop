@@ -48,11 +48,11 @@ pull request and CI steps below. Without deployed infrastructure, stop after the
 The Azure and GitHub-only paths converge when Copilot is assigned:
 
 1. The Copilot coding agent creates the fix pull request.
-2. **Validate App Service Application** runs the endpoint tests and enforces
+2. **Validate Cloud Agent Handover Application** runs the endpoint tests and enforces
    100% coverage for changed executable application lines.
 3. The operator reviews the source, tests, and CI result.
 4. The operator merges the pull request.
-5. If infrastructure exists, the OIDC-based **Deploy App Service
+5. If infrastructure exists, the OIDC-based **Deploy Cloud Agent Handover
    Application** workflow deploys the merged code.
 
 There is no manual kill switch or remediation script. The pull request is the
