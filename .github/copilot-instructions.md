@@ -8,11 +8,13 @@ A hands-on workshop that teaches **Azure SRE Agent** incident response through a
 injects, then watches the SRE Agent detect, diagnose, and drive to remediation via a GitHub
 issue → Copilot PR → deploy (GitOps).
 
-Three tracks ship today:
+Two transitional workshop tracks ship today:
 
 - **`workshops/aks/`** — AKS + CosmosDB + a Node.js app (the original tutorial).
 - **`workshops/vm/`** — a VM / enterprise-migration track with an approval-gated remediation model.
-- **`scenarios/cloud-agent-handover/`** — the minimal .NET 10 Blazor handover scenario for the Cloud Agent.
+
+The top-level **`scenarios/cloud-agent-handover/`** capsule is the minimal .NET 10 Blazor handover
+scenario for the Cloud Agent.
 
 The framework is meant to be **extended by contributors** — `CONTRIBUTING.md` is the contract.
 When adding or changing anything, prefer the scenario tooling and keep the per-track structure intact.
@@ -20,50 +22,42 @@ When adding or changing anything, prefer the scenario tooling and keep the per-t
 ## Repository structure
 
 ```
+README.md                     # Root scenario catalog / quickstart
 docs/                         # Shared, track-agnostic concept layer (00-what / 01-why / 02-how)
-workshops/<track>/
-  README.md                   # Track landing (+ generated scenario table between markers)
-  docs/                       # Module walkthroughs
-  infra/bicep/                # Bicep; main.bicep calls generated modules/scenario-alerts.bicep
-  scenarios/<id>/             # Self-contained fault scenarios (+ generated INDEX.md)
-  knowledge/                  # SRE Agent knowledge files
-  ...                         # Track-specific: aks has k8s/ + src/app/; vm has tools/;
-                              # appservice has scripts/, src/, and tests/
+scenarios/<id>/               # Canonical scenario capsules for new and migrated work
+workshops/<track>/            # Legacy platform-specific paths kept operational during migration
 schemas/scenario.schema.json  # The scenario manifest contract (JSON Schema draft 2020-12)
 scripts/
-  new-scenario.sh             # Scaffold a scenario from the canonical template
-  validate-scenarios.sh       # Validate + (--write) regenerate indexes/aggregators
+  new-scenario.sh             # Scaffold a scenario capsule
+  validate-scenarios.sh       # Validate + (--write) regenerate the catalog and derived artifacts
   scenario-tools/             # Node ESM tooling behind the wrappers
-.github/workflows/            # Per-track deploy/validate + scenario CI + docs-freshness
+.github/workflows/            # Scenario CI, docs readiness, and migration-era track workflows
 ```
 
 ## The scenario framework (read before touching scenarios)
 
-A scenario lives in `workshops/<track>/scenarios/<id>/` and is driven by a `scenario.yaml`
-manifest. Tooling under `scripts/scenario-tools/` (Node ESM; `bin/{validate,generate,new-scenario}.js`,
-`lib/{validate,generate,paths}.js`) validates manifests and **generates** derived artifacts.
-Never hand-edit a generated artifact — change the manifest and regenerate.
+A scenario lives in `scenarios/<id>/` and is driven by a `scenario.yaml` manifest. Tooling under
+`scripts/scenario-tools/` (Node ESM; `bin/{validate,generate,new-scenario}.js`,
+`lib/{validate,generate,paths}.js`) validates manifests and **generates** the catalog and any
+compatibility artifacts for migrated scenarios. Never hand-edit a generated artifact — change the
+manifest and regenerate.
 
-- **Scaffold:** `scripts/new-scenario.sh <track> <id> "Title"` (`<track>` ∈
-  `aks|vm|appservice`, `<id>` kebab-case).
+- **Scaffold:** `scripts/new-scenario.sh <id> "Title" --platform <platform>` (`<id>` kebab-case).
 - **Validate / regenerate:** `scripts/validate-scenarios.sh --write` then `scripts/validate-scenarios.sh`
   (must print `Scenario validation passed`).
 - **Unit tests:** `cd scripts/scenario-tools && npm test` (Node `--test`).
 - **Generated (do not edit by hand):**
-  - `workshops/<track>/infra/bicep/modules/scenario-alerts.bicep` — aggregator that wires every
-    scenario's `alert.bicep`, passing the track's scope resource id.
-  - `workshops/<track>/scenarios/INDEX.md`.
-  - The scenario table in each track `README.md`, between `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->`.
-- **Tracks are a closed set** in `scripts/scenario-tools/lib/paths.js` (`TRACKS`):
-  `aks → scopeParam clusterId`, `vm → scopeParam logAnalyticsResourceId`, and
-  `appservice → scopeParam logAnalyticsResourceId`. Adding a track edits this
-  **and** the schema `track` enum **and** adds a `validate-<track>-infra.yml`
-  workflow (see `CONTRIBUTING.md` → "Add a track").
+  - The root `README.md` scenario catalog.
+  - Any generated scenario indexes or compatibility aggregators.
+  - The scenario table between `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->` in any
+    migration-era track README.
+- **Legacy tracks remain operational until migrated:** keep the existing `workshops/aks/` and
+  `workshops/vm/` paths working while their assets move into top-level scenario capsules.
 
 ### Scenario manifest (`scenario.yaml`)
 
-Required: `id` (== folder name), `title`, `track` (== parent dir), `summary`, `severity` (0–4),
-`inject`, `validate`, `docPage`. Common optional: `estimatedMinutes`, `difficulty`
+Required: `id` (== folder name), `title`, `platform`, `summary`, `severity` (0–4), `inject`,
+`validate`, and `guide`. Common optional: `estimatedMinutes`, `difficulty`
 (`beginner|intermediate|advanced`), `learningObjectives`, `signal` (`alertModule`/`alertName`),
 `remediate` (list of `{action, bash, powershell, description}`), `investigation` (`query`).
 The authoritative contract is `schemas/scenario.schema.json`.

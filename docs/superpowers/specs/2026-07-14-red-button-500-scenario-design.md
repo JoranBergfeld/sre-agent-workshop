@@ -18,7 +18,7 @@ the VM set) are all **intermediate/advanced** — dependency RBAC, federated ide
 exhaustion. There is no *dead-simple* "click a button, get a 500, watch the agent notice" scenario for a
 first-five-minutes demo or a time-boxed session.
 
-**Goal:** author a self-contained scenario, `scenarios/cloud-agent-handover/scenarios/red-button-500/`, whose fault
+**Goal:** author a self-contained scenario, `workshops/appservice/scenarios/red-button-500/`, whose fault
 is a single broken endpoint behind a red button, is detected by an App Insights `AppRequests` 5xx alert,
 validated by a health probe, and remediated both operationally (a feature kill-switch) and durably (a
 Code-visible `@copilot` PR). Wire it into the framework (generated aggregator, INDEX, README table) using
@@ -92,7 +92,7 @@ Resolved from the substrate (`workloadName` default **`srelabapp`**, resource gr
 | Green endpoint | `GET /api/green` → 200 |
 | Red endpoint | `GET /api/red` → 500 (armed) / 200 (killed or fixed) |
 
-## Application changes — `scenarios/cloud-agent-handover/src/Program.cs`
+## Application changes — `workshops/appservice/src/Program.cs`
 
 Add three route handlers (after the existing `/health`, before `app.Run()`), plus a per-request read of the
 fault-control setting. No changes to `/`, `/products`, or the SQL/identity wiring.
@@ -226,10 +226,10 @@ Mirrors the canary README structure: **What breaks** (red button → 500; green 
 
 Produced/updated by `scripts/validate-scenarios.sh --write`:
 
-- `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep` — now also wires this scenario's
+- `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep` — now also wires this scenario's
   `alert.bicep`, passing `logAnalyticsResourceId`.
-- `scenarios/cloud-agent-handover/scenarios/INDEX.md` — adds the `Red Button 500` row.
-- `scenarios/cloud-agent-handover/README.md` — scenario table between the `<!-- BEGIN SCENARIOS -->` / `<!-- END
+- `workshops/appservice/scenarios/INDEX.md` — adds the `Red Button 500` row.
+- `workshops/appservice/README.md` — scenario table between the `<!-- BEGIN SCENARIOS -->` / `<!-- END
   SCENARIOS -->` markers gains the row.
 
 ## Reused, unchanged infrastructure & tooling
@@ -238,7 +238,7 @@ No edits required to: `paths.js` (the `appservice` track already exists → `log
 schema (`appservice` already in the `track` enum), `main.bicep` (the `scenarioAlerts` seam is live),
 `monitoring.bicep`/`appservice.bicep` (App Insights + Log Analytics already wired; the app is
 auto-instrumented), and `.github/workflows/deploy-appservice-app.yml` (already builds and deploys
-`scenarios/cloud-agent-handover/src/**` on push and on manual dispatch).
+`workshops/appservice/src/**` on push and on manual dispatch).
 
 ## Testing / validation plan
 
@@ -247,7 +247,7 @@ auto-instrumented), and `.github/workflows/deploy-appservice-app.yml` (already b
 2. `cd scripts/scenario-tools && npm test` passes (Node `--test`).
 3. `az bicep build` on the new `alert.bicep` and the regenerated aggregator (as CI's
    `validate-scenarios.yml` does).
-4. `dotnet build scenarios/cloud-agent-handover/src/Shop.csproj` compiles with the added handlers.
+4. `dotnet build workshops/appservice/src/Shop.csproj` compiles with the added handlers.
 5. `chmod +x` on the three new `.sh` scripts; confirm both shells exist for `inject`/`validate`/`remediate`.
 6. Manual dry logic check: unset ⇒ `/api/red` 500; `RED_BUTTON_MODE=ok` ⇒ 200; `/api/green` always 200.
 

@@ -13,7 +13,7 @@
 ### Task 1: Move tracked App Service assets into the capsule
 
 **Files:**
-- Move: `scenarios/cloud-agent-handover/**`
+- Move: `workshops/appservice/**`
 - Create: `scenarios/cloud-agent-handover/**`
 
 - [ ] **Step 1: Create the target directories**
@@ -25,32 +25,32 @@ mkdir -p scenarios/cloud-agent-handover/{infra/bicep/modules,investigation,scrip
 - [ ] **Step 2: Move platform assets**
 
 ```bash
-git mv scenarios/cloud-agent-handover/CODE_QUALITY.md scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/docs scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/infra/bicep/main.bicep scenarios/cloud-agent-handover/infra/bicep/
-git mv scenarios/cloud-agent-handover/infra/bicep/main.bicepparam scenarios/cloud-agent-handover/infra/bicep/
-git mv scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
-git mv scenarios/cloud-agent-handover/infra/bicep/modules/identity.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
-git mv scenarios/cloud-agent-handover/infra/bicep/modules/monitoring.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
-git mv scenarios/cloud-agent-handover/knowledge scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/scripts/* scenarios/cloud-agent-handover/scripts/
-git mv scenarios/cloud-agent-handover/src scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/tests scenarios/cloud-agent-handover/
+git mv workshops/appservice/CODE_QUALITY.md scenarios/cloud-agent-handover/
+git mv workshops/appservice/docs scenarios/cloud-agent-handover/
+git mv workshops/appservice/infra/bicep/main.bicep scenarios/cloud-agent-handover/infra/bicep/
+git mv workshops/appservice/infra/bicep/main.bicepparam scenarios/cloud-agent-handover/infra/bicep/
+git mv workshops/appservice/infra/bicep/modules/appservice.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
+git mv workshops/appservice/infra/bicep/modules/identity.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
+git mv workshops/appservice/infra/bicep/modules/monitoring.bicep scenarios/cloud-agent-handover/infra/bicep/modules/
+git mv workshops/appservice/knowledge scenarios/cloud-agent-handover/
+git mv workshops/appservice/scripts/* scenarios/cloud-agent-handover/scripts/
+git mv workshops/appservice/src scenarios/cloud-agent-handover/
+git mv workshops/appservice/tests scenarios/cloud-agent-handover/
 ```
 
 - [ ] **Step 3: Move scenario-owned assets into their final locations**
 
 ```bash
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/README.md scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/scenario.yaml scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/sample-issue.md scenarios/cloud-agent-handover/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/query.kql scenarios/cloud-agent-handover/investigation/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/alert.bicep scenarios/cloud-agent-handover/infra/bicep/modules/alert.bicep
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.sh scenarios/cloud-agent-handover/scripts/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/inject.ps1 scenarios/cloud-agent-handover/scripts/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.sh scenarios/cloud-agent-handover/scripts/
-git mv scenarios/cloud-agent-handover/scenarios/cloud-agent-handover/validate.ps1 scenarios/cloud-agent-handover/scripts/
-git rm scenarios/cloud-agent-handover/README.md scenarios/cloud-agent-handover/scenarios/INDEX.md scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep
+git mv workshops/appservice/scenarios/cloud-agent-handover/README.md scenarios/cloud-agent-handover/
+git mv workshops/appservice/scenarios/cloud-agent-handover/scenario.yaml scenarios/cloud-agent-handover/
+git mv workshops/appservice/scenarios/cloud-agent-handover/sample-issue.md scenarios/cloud-agent-handover/
+git mv workshops/appservice/scenarios/cloud-agent-handover/query.kql scenarios/cloud-agent-handover/investigation/
+git mv workshops/appservice/scenarios/cloud-agent-handover/alert.bicep scenarios/cloud-agent-handover/infra/bicep/modules/alert.bicep
+git mv workshops/appservice/scenarios/cloud-agent-handover/inject.sh scenarios/cloud-agent-handover/scripts/
+git mv workshops/appservice/scenarios/cloud-agent-handover/inject.ps1 scenarios/cloud-agent-handover/scripts/
+git mv workshops/appservice/scenarios/cloud-agent-handover/validate.sh scenarios/cloud-agent-handover/scripts/
+git mv workshops/appservice/scenarios/cloud-agent-handover/validate.ps1 scenarios/cloud-agent-handover/scripts/
+git rm workshops/appservice/README.md workshops/appservice/scenarios/INDEX.md workshops/appservice/infra/bicep/modules/scenario-alerts.bicep
 ```
 
 - [ ] **Step 4: Confirm the capsule contains only tracked source assets**
@@ -156,7 +156,7 @@ git commit -m "feat: make app service scenario independently deployable"
 - [ ] **Step 1: Find stale paths**
 
 ```bash
-rg -n 'scenarios/cloud-agent-handover|App Service track|workshop track' \
+rg -n 'workshops/appservice|App Service track|workshop track' \
   scenarios/cloud-agent-handover .github/instructions/appservice.instructions.md .github/copilot-instructions.md
 ```
 
@@ -165,12 +165,12 @@ rg -n 'scenarios/cloud-agent-handover|App Service track|workshop track' \
 Use:
 
 ```text
-scenarios/cloud-agent-handover/src        -> scenarios/cloud-agent-handover/src
-scenarios/cloud-agent-handover/tests      -> scenarios/cloud-agent-handover/tests
-scenarios/cloud-agent-handover/infra      -> scenarios/cloud-agent-handover/infra
-scenarios/cloud-agent-handover/scripts    -> scenarios/cloud-agent-handover/scripts
-scenarios/cloud-agent-handover/docs       -> scenarios/cloud-agent-handover/docs
-scenarios/cloud-agent-handover/knowledge  -> scenarios/cloud-agent-handover/knowledge
+workshops/appservice/src        -> scenarios/cloud-agent-handover/src
+workshops/appservice/tests      -> scenarios/cloud-agent-handover/tests
+workshops/appservice/infra      -> scenarios/cloud-agent-handover/infra
+workshops/appservice/scripts    -> scenarios/cloud-agent-handover/scripts
+workshops/appservice/docs       -> scenarios/cloud-agent-handover/docs
+workshops/appservice/knowledge  -> scenarios/cloud-agent-handover/knowledge
 ```
 
 Set the instruction frontmatter to:
@@ -195,7 +195,7 @@ scenarios/cloud-agent-handover/tests/**
 - [ ] **Step 4: Confirm no stale App Service paths**
 
 ```bash
-rg -n 'scenarios/cloud-agent-handover' scenarios/cloud-agent-handover .github || true
+rg -n 'workshops/appservice' scenarios/cloud-agent-handover .github || true
 ```
 
 Expected: no matches in App Service docs, scripts, instructions, or workflows after Task 4.
@@ -213,7 +213,7 @@ git commit -m "docs: repath app service scenario guidance"
 - Modify: `.github/workflows/validate-appservice-app.yml`
 - Modify: `.github/workflows/validate-appservice-infra.yml`
 - Modify: `.github/workflows/deploy-appservice-app.yml`
-- Move: `.devcontainer/cloud-agent-handover/devcontainer.json`
+- Move: `.devcontainer/appservice/devcontainer.json`
 - Create: `.devcontainer/cloud-agent-handover/devcontainer.json`
 
 - [ ] **Step 1: Rename display names and path filters**
@@ -249,7 +249,7 @@ Coverage results must use `scenarios/cloud-agent-handover/TestResults`.
 
 ```bash
 mkdir -p .devcontainer/cloud-agent-handover
-git mv .devcontainer/cloud-agent-handover/devcontainer.json .devcontainer/cloud-agent-handover/devcontainer.json
+git mv .devcontainer/appservice/devcontainer.json .devcontainer/cloud-agent-handover/devcontainer.json
 ```
 
 Set:

@@ -14,7 +14,7 @@
 
 ## File Structure
 
-**New files (scenario, all under `scenarios/cloud-agent-handover/scenarios/canary-bad-release/`):**
+**New files (scenario, all under `workshops/appservice/scenarios/canary-bad-release/`):**
 - `scenario.yaml` — the manifest (id, signal, inject/validate/remediate, docPage).
 - `Program.regression.cs` — the committed "v2" build: identical to `src/Program.cs` except three constants (red `Accent`, `v2 · canary` `BadgeText`, and the `Sku` `ProductsQuery`).
 - `alert.bicep` — `scheduledQueryRules` firing on `/products` 5xx; binds `scopes: [scopeResourceId]`.
@@ -25,16 +25,16 @@
 - `README.md` — the `docPage` walkthrough.
 
 **Modified files:**
-- `scenarios/cloud-agent-handover/src/Program.cs` — themed green v1 landing page, shared `ProductsQuery`, graceful `/` (returns 200 even when the query fails).
-- `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep` — plan `B1`→`S1`, shared `appSettingsArray` var, new `staging` slot.
-- `scenarios/cloud-agent-handover/infra/bicep/main.bicep` — uncomment/wire the `scenarioAlerts` module seam.
+- `workshops/appservice/src/Program.cs` — themed green v1 landing page, shared `ProductsQuery`, graceful `/` (returns 200 even when the query fails).
+- `workshops/appservice/infra/bicep/modules/appservice.bicep` — plan `B1`→`S1`, shared `appSettingsArray` var, new `staging` slot.
+- `workshops/appservice/infra/bicep/main.bicep` — uncomment/wire the `scenarioAlerts` module seam.
 - `.github/workflows/deploy-appservice-app.yml` — seed the good build to the `staging` slot.
-- `scenarios/cloud-agent-handover/README.md` — cost note `B1`→`S1` (the scenario table region is generated).
+- `workshops/appservice/README.md` — cost note `B1`→`S1` (the scenario table region is generated).
 
 **Generated (by `scripts/validate-scenarios.sh --write` — never hand-edit):**
-- `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep` (new aggregator).
-- `scenarios/cloud-agent-handover/scenarios/INDEX.md` (new).
-- The `<!-- BEGIN SCENARIOS -->`…`<!-- END SCENARIOS -->` table in `scenarios/cloud-agent-handover/README.md`.
+- `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep` (new aggregator).
+- `workshops/appservice/scenarios/INDEX.md` (new).
+- The `<!-- BEGIN SCENARIOS -->`…`<!-- END SCENARIOS -->` table in `workshops/appservice/README.md`.
 
 ---
 
@@ -90,11 +90,11 @@ az bicep version
 Rewrite the `/` route into a server-rendered themed shop that lists the catalog and **degrades gracefully (always returns 200)**, factor the SQL into a shared `ProductsQuery`, and add the v1 theme constants. `/health` and `/products` behavior are preserved (with `/products` now using `ProductsQuery`).
 
 **Files:**
-- Modify: `scenarios/cloud-agent-handover/src/Program.cs` (full rewrite, 80 → ~110 lines)
+- Modify: `workshops/appservice/src/Program.cs` (full rewrite, 80 → ~110 lines)
 
 - [ ] **Step 1: Replace the entire file contents**
 
-Replace `scenarios/cloud-agent-handover/src/Program.cs` with:
+Replace `workshops/appservice/src/Program.cs` with:
 ```csharp
 using Microsoft.Data.SqlClient;
 using Shop.Models;
@@ -110,7 +110,7 @@ var connectionString = Environment.GetEnvironmentVariable("AZURE_SQL_CONNECTIONS
 const string ProductsQuery = "SELECT Id, Name, Price FROM dbo.Products ORDER BY Id";
 
 // Release theme. The v2 canary build flips exactly these constants — see
-// scenarios/cloud-agent-handover/scenarios/canary-bad-release/Program.regression.cs.
+// workshops/appservice/scenarios/canary-bad-release/Program.regression.cs.
 const string Accent = "#1a7f37";      // v1 green
 const string BadgeText = "v1 · stable";
 
@@ -210,14 +210,14 @@ app.Run();
 
 Run:
 ```bash
-dotnet build scenarios/cloud-agent-handover/src/Shop.csproj -c Release
+dotnet build workshops/appservice/src/Shop.csproj -c Release
 ```
 Expected: `Build succeeded.` with `0 Error(s)`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add scenarios/cloud-agent-handover/src/Program.cs
+git add workshops/appservice/src/Program.cs
 git commit -m "feat(appservice): themed landing page with shared ProductsQuery and graceful /"
 ```
 
@@ -228,11 +228,11 @@ git commit -m "feat(appservice): themed landing page with shared ProductsQuery a
 Deployment slots require Standard tier. Bump the plan, hoist the production app settings into a shared `var`, and add a `staging` slot that clones the web app's identity, runtime, and settings.
 
 **Files:**
-- Modify: `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`
+- Modify: `workshops/appservice/infra/bicep/modules/appservice.bicep`
 
 - [ ] **Step 1: Add the shared `appSettingsArray` var**
 
-In `scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep`, immediately after the `var sqlConnectionString = …` line (line 31), add:
+In `workshops/appservice/infra/bicep/modules/appservice.bicep`, immediately after the `var sqlConnectionString = …` line (line 31), add:
 ```bicep
 
 var appSettingsArray = [
@@ -320,14 +320,14 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 
 Run:
 ```bash
-az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null && echo "bicep OK"
+az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null && echo "bicep OK"
 ```
 Expected: `bicep OK` (exit 0). Warnings are acceptable; errors are not.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add scenarios/cloud-agent-handover/infra/bicep/modules/appservice.bicep
+git add workshops/appservice/infra/bicep/modules/appservice.bicep
 git commit -m "feat(appservice): S1 plan, shared app settings, and a staging slot"
 ```
 
@@ -336,8 +336,8 @@ git commit -m "feat(appservice): S1 plan, shared app settings, and a staging slo
 ## Task 3: Scaffold the scenario and write the manifest
 
 **Files:**
-- Create (via tool): the `scenarios/cloud-agent-handover/scenarios/canary-bad-release/` tree from the template.
-- Modify: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/scenario.yaml`
+- Create (via tool): the `workshops/appservice/scenarios/canary-bad-release/` tree from the template.
+- Modify: `workshops/appservice/scenarios/canary-bad-release/scenario.yaml`
 
 - [ ] **Step 1: Scaffold from the canonical template**
 
@@ -349,7 +349,7 @@ Expected: `Created appservice/canary-bad-release at …` and a "Next steps" list
 
 - [ ] **Step 2: Overwrite `scenario.yaml`**
 
-Replace `scenarios/cloud-agent-handover/scenarios/canary-bad-release/scenario.yaml` with:
+Replace `workshops/appservice/scenarios/canary-bad-release/scenario.yaml` with:
 ```yaml
 id: canary-bad-release
 title: Canary Release Regression
@@ -385,7 +385,7 @@ docPage: README.md
 
 Run:
 ```bash
-chmod +x scenarios/cloud-agent-handover/scenarios/canary-bad-release/*.sh
+chmod +x workshops/appservice/scenarios/canary-bad-release/*.sh
 ```
 
 ---
@@ -393,8 +393,8 @@ chmod +x scenarios/cloud-agent-handover/scenarios/canary-bad-release/*.sh
 ## Task 4: Author `alert.bicep` and `query.kql`
 
 **Files:**
-- Modify: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/alert.bicep`
-- Modify: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/query.kql`
+- Modify: `workshops/appservice/scenarios/canary-bad-release/alert.bicep`
+- Modify: `workshops/appservice/scenarios/canary-bad-release/query.kql`
 
 - [ ] **Step 1: Overwrite `alert.bicep`**
 
@@ -476,7 +476,7 @@ AppRequests
 
 Run:
 ```bash
-az bicep build --file scenarios/cloud-agent-handover/scenarios/canary-bad-release/alert.bicep --stdout > /dev/null && echo "alert bicep OK"
+az bicep build --file workshops/appservice/scenarios/canary-bad-release/alert.bicep --stdout > /dev/null && echo "alert bicep OK"
 ```
 Expected: `alert bicep OK` (exit 0).
 
@@ -487,7 +487,7 @@ Expected: `alert bicep OK` (exit 0).
 All three ship as `.sh` **and** `.ps1`. Defaults `rg-srelabapp` / `srelabapp`, overridable with `-g`/`-w`. The web app is resolved by the `${WORKLOAD}-web-` name prefix.
 
 **Files:**
-- Modify: `inject.sh`, `inject.ps1`, `validate.sh`, `validate.ps1`, `remediate.sh`, `remediate.ps1` (all under `scenarios/cloud-agent-handover/scenarios/canary-bad-release/`)
+- Modify: `inject.sh`, `inject.ps1`, `validate.sh`, `validate.ps1`, `remediate.sh`, `remediate.ps1` (all under `workshops/appservice/scenarios/canary-bad-release/`)
 
 - [ ] **Step 1: Overwrite `inject.sh`**
 
@@ -675,8 +675,8 @@ try {
 - [ ] **Step 7: Re-assert executable bit and syntax-check the bash scripts**
 
 ```bash
-chmod +x scenarios/cloud-agent-handover/scenarios/canary-bad-release/*.sh
-for f in inject validate remediate; do bash -n "scenarios/cloud-agent-handover/scenarios/canary-bad-release/$f.sh" && echo "$f.sh syntax OK"; done
+chmod +x workshops/appservice/scenarios/canary-bad-release/*.sh
+for f in inject validate remediate; do bash -n "workshops/appservice/scenarios/canary-bad-release/$f.sh" && echo "$f.sh syntax OK"; done
 ```
 Expected: three `… syntax OK` lines.
 
@@ -687,11 +687,11 @@ Expected: three `… syntax OK` lines.
 The committed v2 build: byte-for-byte `src/Program.cs` from Task 1 **except** the three release/query constants.
 
 **Files:**
-- Create: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/Program.regression.cs`
+- Create: `workshops/appservice/scenarios/canary-bad-release/Program.regression.cs`
 
 - [ ] **Step 1: Create the file**
 
-Create `scenarios/cloud-agent-handover/scenarios/canary-bad-release/Program.regression.cs` with:
+Create `workshops/appservice/scenarios/canary-bad-release/Program.regression.cs` with:
 ```csharp
 using Microsoft.Data.SqlClient;
 using Shop.Models;
@@ -806,8 +806,8 @@ app.Run();
 Run:
 ```bash
 TMP=$(mktemp -d)
-cp -r scenarios/cloud-agent-handover/src/. "$TMP/"
-cp scenarios/cloud-agent-handover/scenarios/canary-bad-release/Program.regression.cs "$TMP/Program.cs"
+cp -r workshops/appservice/src/. "$TMP/"
+cp workshops/appservice/scenarios/canary-bad-release/Program.regression.cs "$TMP/Program.cs"
 dotnet build "$TMP/Shop.csproj" -c Release && echo "overlay builds"
 rm -rf "$TMP"
 ```
@@ -817,8 +817,8 @@ Expected: `Build succeeded.` then `overlay builds`. (The `Sku` failure happens o
 
 Run:
 ```bash
-diff <(grep -nE 'const string (ProductsQuery|Accent|BadgeText)' scenarios/cloud-agent-handover/src/Program.cs) \
-     <(grep -nE 'const string (ProductsQuery|Accent|BadgeText)' scenarios/cloud-agent-handover/scenarios/canary-bad-release/Program.regression.cs) || true
+diff <(grep -nE 'const string (ProductsQuery|Accent|BadgeText)' workshops/appservice/src/Program.cs) \
+     <(grep -nE 'const string (ProductsQuery|Accent|BadgeText)' workshops/appservice/scenarios/canary-bad-release/Program.regression.cs) || true
 ```
 Expected: the three lines differ (red `Accent`, `v2 · canary` `BadgeText`, `, Sku` in `ProductsQuery`) and nothing else of substance. Eyeball the rest is identical.
 
@@ -827,7 +827,7 @@ Expected: the three lines differ (red `Accent`, `v2 · canary` `BadgeText`, `, S
 ## Task 7: Write the scenario `README.md` (docPage)
 
 **Files:**
-- Modify: `scenarios/cloud-agent-handover/scenarios/canary-bad-release/README.md`
+- Modify: `workshops/appservice/scenarios/canary-bad-release/README.md`
 
 - [ ] **Step 1: Overwrite `README.md`**
 
@@ -853,7 +853,7 @@ A naive uptime check on `/health` misses this entirely — that's the point.
 
 ## Prerequisites
 
-- The App Service track infrastructure deployed **with the `staging` slot** (run **Deploy Cloud Agent Handover Infrastructure**, then **Deploy Cloud Agent Handover Application**, which seeds the good build to the slot).
+- The App Service track infrastructure deployed **with the `staging` slot** (run **Deploy App Service Infrastructure**, then **Deploy App Service Application**, which seeds the good build to the slot).
 - Local tools for inject/remediate: `az`, the **.NET 10 SDK** (`dotnet`), and `zip`.
 
 ## Inject the fault
@@ -883,7 +883,7 @@ The `canary-5xx` alert (`alert.bicep`) fires when more than three `/products` re
 1. **Detect** the partial outage from the alert.
 2. **Investigate** with `query.kql` — correlate the failures to the `staging` slot's `AppRoleInstance` and drill `AppExceptions` for `Invalid column name 'Sku'`.
 3. **Mitigate operationally** — clear the canary traffic routing (the `restore-traffic` action).
-4. **Fix durably** — file a GitHub issue; `@copilot` opens a PR that reverts the `Sku` query back to `SELECT Id, Name, Price …` (the cosmetic red reskin is harmless and need not change). Merging it and re-running **Deploy Cloud Agent Handover Application** redeploys the corrected build.
+4. **Fix durably** — file a GitHub issue; `@copilot` opens a PR that reverts the `Sku` query back to `SELECT Id, Name, Price …` (the cosmetic red reskin is harmless and need not change). Merging it and re-running **Deploy App Service Application** redeploys the corrected build.
 
 ## Manual remediation (facilitator fallback)
 
@@ -905,8 +905,8 @@ Re-run `./remediate.sh` (idempotent) to clear any leftover routing, or simply ru
 The aggregator, `INDEX.md`, and README table are generated from the manifest. Generate them first (so the aggregator module file exists), then wire the hand-authored seam in `main.bicep`.
 
 **Files:**
-- Generated: `scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep`, `scenarios/cloud-agent-handover/scenarios/INDEX.md`, README table region.
-- Modify: `scenarios/cloud-agent-handover/infra/bicep/main.bicep`
+- Generated: `workshops/appservice/infra/bicep/modules/scenario-alerts.bicep`, `workshops/appservice/scenarios/INDEX.md`, README table region.
+- Modify: `workshops/appservice/infra/bicep/main.bicep`
 
 - [ ] **Step 1: Observe the validator flags missing artifacts (red)**
 
@@ -925,13 +925,13 @@ scripts/validate-scenarios.sh
 ```
 Expected: the second run prints `Scenario validation passed`. Confirm the aggregator was created and declares the workspace-scope param:
 ```bash
-grep -n 'logAnalyticsResourceId\|canary-bad-release' scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep
+grep -n 'logAnalyticsResourceId\|canary-bad-release' workshops/appservice/infra/bicep/modules/scenario-alerts.bicep
 ```
 Expected: a `param logAnalyticsResourceId string`, a `module canaryBadReleaseAlert '../../../scenarios/canary-bad-release/alert.bicep'`, and `scopeResourceId: logAnalyticsResourceId`.
 
 - [ ] **Step 3: Wire the `scenarioAlerts` seam in `main.bicep`**
 
-In `scenarios/cloud-agent-handover/infra/bicep/main.bicep`, replace the commented seam block (the `// 5. SCENARIO ALERTS …` comment through the commented module, lines ~88–102) with the active module:
+In `workshops/appservice/infra/bicep/main.bicep`, replace the commented seam block (the `// 5. SCENARIO ALERTS …` comment through the commented module, lines ~88–102) with the active module:
 ```bicep
 // ──────────────────────────────────────────────
 // 5. SCENARIO ALERTS — generated aggregator wired to the Log Analytics scope
@@ -951,7 +951,7 @@ module scenarioAlerts 'modules/scenario-alerts.bicep' = {
 
 Run:
 ```bash
-az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null && echo "main bicep OK"
+az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null && echo "main bicep OK"
 ```
 Expected: `main bicep OK` (exit 0) — the `scenario-alerts.bicep` module and `canary-bad-release/alert.bicep` both resolve.
 
@@ -961,7 +961,7 @@ Expected: `main bicep OK` (exit 0) — the `scenario-alerts.bicep` module and `c
 
 **Files:**
 - Modify: `.github/workflows/deploy-appservice-app.yml`
-- Modify: `scenarios/cloud-agent-handover/README.md`
+- Modify: `workshops/appservice/README.md`
 
 - [ ] **Step 1: Add the staging-slot seed deploy step**
 
@@ -981,7 +981,7 @@ In `.github/workflows/deploy-appservice-app.yml`, immediately after the `Deploy 
 
 - [ ] **Step 2: Update the cost note for the S1 plan**
 
-In `scenarios/cloud-agent-handover/README.md`, replace the cost-table row:
+In `workshops/appservice/README.md`, replace the cost-table row:
 ```markdown
 | App Service Plan (B1 Linux) | ~$0.018 | Always On enabled |
 ```
@@ -1009,9 +1009,9 @@ Expected: `yaml OK`.
 ```bash
 scripts/validate-scenarios.sh                                   # -> Scenario validation passed (no drift)
 ( cd scripts/scenario-tools && npm test )                       # -> all tests pass
-az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout > /dev/null && echo "main bicep OK"
-az bicep build --file scenarios/cloud-agent-handover/scenarios/canary-bad-release/alert.bicep --stdout > /dev/null && echo "alert bicep OK"
-dotnet build scenarios/cloud-agent-handover/src/Shop.csproj -c Release    # -> Build succeeded
+az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout > /dev/null && echo "main bicep OK"
+az bicep build --file workshops/appservice/scenarios/canary-bad-release/alert.bicep --stdout > /dev/null && echo "alert bicep OK"
+dotnet build workshops/appservice/src/Shop.csproj -c Release    # -> Build succeeded
 ```
 Expected: `Scenario validation passed`, the tooling tests pass, both `… bicep OK`, and `Build succeeded`.
 
@@ -1019,25 +1019,25 @@ Expected: `Scenario validation passed`, the tooling tests pass, both `… bicep 
 
 ```bash
 git status --porcelain
-grep -n 'canary-bad-release' scenarios/cloud-agent-handover/scenarios/INDEX.md scenarios/cloud-agent-handover/README.md
+grep -n 'canary-bad-release' workshops/appservice/scenarios/INDEX.md workshops/appservice/README.md
 ```
 Expected: the only unstaged/new files are the intended ones; `INDEX.md` and the README scenario table both list the scenario.
 
 - [ ] **Step 3: Verify the `.sh` scripts are executable**
 
 ```bash
-ls -l scenarios/cloud-agent-handover/scenarios/canary-bad-release/*.sh | awk '{print $1, $NF}'
+ls -l workshops/appservice/scenarios/canary-bad-release/*.sh | awk '{print $1, $NF}'
 ```
 Expected: every `.sh` shows the executable bit (`-rwxr-xr-x`).
 
 - [ ] **Step 4: Stage, commit, and push (Code-visibility constraint)**
 
 ```bash
-git add scenarios/cloud-agent-handover/scenarios/canary-bad-release/ \
-        scenarios/cloud-agent-handover/infra/bicep/modules/scenario-alerts.bicep \
-        scenarios/cloud-agent-handover/infra/bicep/main.bicep \
-        scenarios/cloud-agent-handover/scenarios/INDEX.md \
-        scenarios/cloud-agent-handover/README.md \
+git add workshops/appservice/scenarios/canary-bad-release/ \
+        workshops/appservice/infra/bicep/modules/scenario-alerts.bicep \
+        workshops/appservice/infra/bicep/main.bicep \
+        workshops/appservice/scenarios/INDEX.md \
+        workshops/appservice/README.md \
         .github/workflows/deploy-appservice-app.yml
 git commit -m "feat(appservice): add canary-bad-release scenario (slot canary + visible v2 reskin)
 

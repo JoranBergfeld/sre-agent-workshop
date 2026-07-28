@@ -36,7 +36,7 @@ independent repository rather than a fork.
 
 ### Repository structure
 
-The App Service track remains under `scenarios/cloud-agent-handover/` and continues to use the shared scenario
+The App Service track remains under `workshops/appservice/` and continues to use the shared scenario
 manifest, validation, generated scenario index, and generated alert aggregator. Its current
 shop/SQL/canary implementation is replaced with a single-purpose handover workshop.
 

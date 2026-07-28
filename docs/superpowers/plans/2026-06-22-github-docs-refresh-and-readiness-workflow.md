@@ -18,7 +18,7 @@
 
 - **Create** `docs/connect-github-to-sre-agent.md` — shared "Connect GitHub" how-to (code + connector).
 - **Modify** `workshops/aks/docs/03-onboard-sre-agent.md` — link to shared doc; remove dead Tools steps.
-- **Modify** `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md` — identical changes to AKS.
+- **Modify** `workshops/appservice/docs/03-onboard-sre-agent.md` — identical changes to AKS.
 - **Modify** `workshops/vm/docs/02-configure-incident-response.md` — add approval-gated callout.
 - **Create** `.github/workflows/sre-docs-readiness.md` — new gh-aw workflow source.
 - **Modify** `.github/workflows/sre-docs-freshness.md` — add one-line scope boundary note.
@@ -209,7 +209,7 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 ## Task 3: Point App Service Module 3 at the shared doc
 
 **Files:**
-- Modify: `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`
+- Modify: `workshops/appservice/docs/03-onboard-sre-agent.md`
 
 - [ ] **Step 1: Replace the code-repository step list with a shared-doc link**
 
@@ -267,13 +267,13 @@ Follow **[Connect GitHub to the SRE Agent → Set up the GitHub connector](../..
 
 - [ ] **Step 3: Verify the dead terminology is gone and the link target is valid**
 
-Run: `grep -nE 'Capabilities|GitHub tool|CreateGitHubIssue|DevOps category' scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`
+Run: `grep -nE 'Capabilities|GitHub tool|CreateGitHubIssue|DevOps category' workshops/appservice/docs/03-onboard-sre-agent.md`
 Expected: no output (exit code 1).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md
+git add workshops/appservice/docs/03-onboard-sre-agent.md
 git commit -m "docs(appservice): link Module 3 to shared Connect GitHub guide
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
@@ -537,7 +537,7 @@ Expected: no output (exit code 1). (Matches inside `docs/superpowers/` specs/pla
 - [ ] **Step 2: Confirm every new shared-doc link resolves to the file**
 
 Run: `grep -rln 'connect-github-to-sre-agent.md' workshops/*/docs/*.md`
-Expected: lists `workshops/aks/docs/03-onboard-sre-agent.md`, `scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`, and `workshops/vm/docs/02-configure-incident-response.md`.
+Expected: lists `workshops/aks/docs/03-onboard-sre-agent.md`, `workshops/appservice/docs/03-onboard-sre-agent.md`, and `workshops/vm/docs/02-configure-incident-response.md`.
 
 Run: `test -f docs/connect-github-to-sre-agent.md && echo OK`
 Expected: `OK`
