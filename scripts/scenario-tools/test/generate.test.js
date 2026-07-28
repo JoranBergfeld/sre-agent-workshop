@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderCatalog, CATALOG_BEGIN, CATALOG_END } from '../lib/generate.js';
+import { renderCatalog, replaceCatalogBlock, CATALOG_BEGIN, CATALOG_END } from '../lib/generate.js';
 
 const scenarios = [
   {
@@ -72,4 +72,128 @@ test('renderCatalog emits the root catalog block with markers, columns, links, a
   assert.ok(md.indexOf('[Alpha Deploy](scenarios/alpha-deploy/)') < md.indexOf('[Zeta Disk](scenarios/zeta-disk/)'));
   assert.ok(md.indexOf('[Zeta Disk](scenarios/zeta-disk/)') < md.indexOf('[Beta CPU](scenarios/beta-cpu/)'));
   assert.ok(md.indexOf('[Beta CPU](scenarios/beta-cpu/)') < md.indexOf('[Gamma Auth](scenarios/gamma-auth/)'));
+});
+
+test('renderCatalog uses code-point ordering even when localeCompare disagrees', () => {
+  const original = String.prototype.localeCompare;
+  String.prototype.localeCompare = function (other, ...rest) {
+    const rank = new Map([
+      ['Z', 0],
+      ['Å', 1],
+      ['Ä', 2],
+    ]);
+    const a = String(this);
+    const b = String(other);
+    const aRank = rank.get(a[0]) ?? a.codePointAt(0);
+    const bRank = rank.get(b[0]) ?? b.codePointAt(0);
+    if (aRank !== bRank) return aRank - bRank;
+    return original.call(this, other, ...rest);
+  };
+
+  try {
+    const md = renderCatalog([
+      {
+        id: 'angstrom',
+        manifest: {
+          title: 'Ångström',
+          platform: 'Azure VM',
+          incidentType: 'disk saturation',
+          severity: 2,
+          estimatedMinutes: 15,
+          difficulty: 'beginner',
+          costProfile: 'low',
+          summary: 'Disk usage is climbing on a VM.',
+        },
+      },
+      {
+        id: 'aether',
+        manifest: {
+          title: 'Äther',
+          platform: 'Azure VM',
+          incidentType: 'disk saturation',
+          severity: 2,
+          estimatedMinutes: 15,
+          difficulty: 'beginner',
+          costProfile: 'low',
+          summary: 'Disk usage is climbing on a VM.',
+        },
+      },
+      {
+        id: 'zebra',
+        manifest: {
+          title: 'Zebra',
+          platform: 'Azure VM',
+          incidentType: 'disk saturation',
+          severity: 2,
+          estimatedMinutes: 15,
+          difficulty: 'beginner',
+          costProfile: 'low',
+          summary: 'Disk usage is climbing on a VM.',
+        },
+      },
+      {
+        id: 'Ångström',
+        manifest: {
+          title: 'Zebra',
+          platform: 'Azure VM',
+          incidentType: 'disk saturation',
+          severity: 2,
+          estimatedMinutes: 15,
+          difficulty: 'beginner',
+          costProfile: 'low',
+          summary: 'Disk usage is climbing on a VM.',
+        },
+      },
+      {
+        id: 'Äther',
+        manifest: {
+          title: 'Zebra',
+          platform: 'Azure VM',
+          incidentType: 'disk saturation',
+          severity: 2,
+          estimatedMinutes: 15,
+          difficulty: 'beginner',
+          costProfile: 'low',
+          summary: 'Disk usage is climbing on a VM.',
+        },
+      },
+    ]);
+
+    assert.ok(md.indexOf('[Zebra](scenarios/Äther/)') < md.indexOf('[Zebra](scenarios/Ångström/)'));
+    assert.ok(md.indexOf('[Zebra](scenarios/Ångström/)') < md.indexOf('[Äther](scenarios/aether/)'));
+    assert.ok(md.indexOf('[Äther](scenarios/aether/)') < md.indexOf('[Ångström](scenarios/angstrom/)'));
+  } finally {
+    String.prototype.localeCompare = original;
+  }
+});
+
+test('replaceCatalogBlock replaces the full block and rejects bad markers', () => {
+  const block = renderCatalog(scenarios);
+  const source = [
+    'top',
+    CATALOG_BEGIN,
+    'old catalog',
+    CATALOG_END,
+    'bottom',
+  ].join('\n');
+
+  assert.equal(replaceCatalogBlock(source, block), ['top', block, 'bottom'].join('\n'));
+
+  assert.throws(() => replaceCatalogBlock('no markers here', block), /Missing CATALOG_BEGIN marker/);
+  assert.throws(
+    () => replaceCatalogBlock(['x', CATALOG_BEGIN, 'y', CATALOG_BEGIN, 'z', CATALOG_END].join('\n'), block),
+    /Duplicate CATALOG_BEGIN marker/
+  );
+  assert.throws(
+    () => replaceCatalogBlock(['x', CATALOG_BEGIN, 'y', CATALOG_END, 'z', CATALOG_END].join('\n'), block),
+    /Duplicate CATALOG_END marker/
+  );
+  assert.throws(
+    () => replaceCatalogBlock([CATALOG_BEGIN, 'y', 'z'].join('\n'), block),
+    /Missing CATALOG_END marker/
+  );
+  assert.throws(
+    () => replaceCatalogBlock(['x', CATALOG_END, 'y', CATALOG_BEGIN, 'z'].join('\n'), block),
+    /CATALOG_BEGIN marker must appear before CATALOG_END marker/
+  );
 });

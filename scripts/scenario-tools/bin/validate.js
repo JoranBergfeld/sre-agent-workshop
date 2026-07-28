@@ -5,7 +5,7 @@ import { legacyListTracks, legacyScenarioDirs, legacyLoadScenario } from '../lib
 import { makeLegacyValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 import { LEGACY_README_BEGIN, LEGACY_README_END, legacyRenderIndex, legacyRenderAggregator, legacyRenderReadmeBlock } from '../lib/legacy-generate.js';
 import { loadAllScenarios } from '../lib/scenarios.js';
-import { CATALOG_BEGIN, CATALOG_END, renderCatalog } from '../lib/generate.js';
+import { extractCatalogBlock, renderCatalog } from '../lib/generate.js';
 
 const fileExists = (p) => existsSync(p);
 const isExecutable = (p) => {
@@ -63,12 +63,13 @@ const rootReadme = resolve(REPO_ROOT, 'README.md');
 if (existsSync(rootReadme)) {
   const rootScenarios = loadAllScenarios();
   const src = readFileSync(rootReadme, 'utf8');
-  const re = new RegExp(`${CATALOG_BEGIN}[\\s\\S]*?${CATALOG_END}`);
-  const m = src.match(re);
-  if (!m) {
-    fail(`root: README scenario catalog is missing — run scripts/validate-scenarios.sh --write`);
-  } else if (m[0] !== renderCatalog(rootScenarios).trimEnd()) {
-    fail(`root: README scenario catalog is stale — run scripts/validate-scenarios.sh --write`);
+  try {
+    const block = extractCatalogBlock(src);
+    if (block !== renderCatalog(rootScenarios).trimEnd()) {
+      fail(`root: README scenario catalog is stale — run scripts/validate-scenarios.sh --write`);
+    }
+  } catch (error) {
+    fail(`root: README scenario catalog ${error.message}`);
   }
 }
 

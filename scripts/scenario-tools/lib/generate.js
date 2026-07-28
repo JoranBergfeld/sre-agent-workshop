@@ -12,6 +12,12 @@ function difficultyRank(difficulty) {
   return DIFFICULTY_RANK.get(difficulty) ?? Number.MAX_SAFE_INTEGER;
 }
 
+function compareLexical(a, b) {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 function sortCatalogScenarios(scenarios) {
   return scenarios.slice().sort((a, b) => {
     const ad = difficultyRank(a.manifest.difficulty);
@@ -19,9 +25,9 @@ function sortCatalogScenarios(scenarios) {
     if (ad !== bd) return ad - bd;
     const at = a.manifest.title ?? a.id;
     const bt = b.manifest.title ?? b.id;
-    const titleDiff = at.localeCompare(bt);
+    const titleDiff = compareLexical(at, bt);
     if (titleDiff !== 0) return titleDiff;
-    return a.id.localeCompare(b.id);
+    return compareLexical(a.id, b.id);
   });
 }
 
@@ -32,6 +38,37 @@ function renderRow(scenario) {
   const difficulty = manifest.difficulty ?? '—';
   const cost = manifest.costProfile ?? '—';
   return `| [${title}](scenarios/${id}/) | ${manifest.platform} | ${manifest.incidentType} | ${manifest.severity} | ${minutes} | ${difficulty} | ${cost} | ${manifest.summary} |`;
+}
+
+function findUniqueMarker(source, marker, label) {
+  const first = source.indexOf(marker);
+  if (first < 0) throw new Error(`Missing ${label} marker`);
+  const second = source.indexOf(marker, first + marker.length);
+  if (second >= 0) throw new Error(`Duplicate ${label} marker`);
+  return first;
+}
+
+function getCatalogBlockBounds(source) {
+  const beginIndex = findUniqueMarker(source, CATALOG_BEGIN, 'CATALOG_BEGIN');
+  const endIndex = findUniqueMarker(source, CATALOG_END, 'CATALOG_END');
+  if (beginIndex > endIndex) {
+    throw new Error('CATALOG_BEGIN marker must appear before CATALOG_END marker');
+  }
+  return {
+    beginIndex,
+    endIndex,
+    endEndIndex: endIndex + CATALOG_END.length,
+  };
+}
+
+export function extractCatalogBlock(source) {
+  const { beginIndex, endEndIndex } = getCatalogBlockBounds(source);
+  return source.slice(beginIndex, endEndIndex);
+}
+
+export function replaceCatalogBlock(source, block) {
+  const { beginIndex, endEndIndex } = getCatalogBlockBounds(source);
+  return source.slice(0, beginIndex) + block + source.slice(endEndIndex);
 }
 
 export function renderCatalog(scenarios) {
