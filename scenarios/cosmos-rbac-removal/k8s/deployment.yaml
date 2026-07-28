@@ -2,7 +2,7 @@
 #
 # Placeholders (substituted at deploy time via envsubst or sed):
 #   ${COSMOSDB_ENDPOINT} — CosmosDB account endpoint from Bicep outputs
-#   ${IMAGE_REPOSITORY} — lowercase github.repository/cosmos-rbac-removal
+#   IMAGE_REPOSITORY — lowercase github.repository/cosmos-rbac-removal
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -1,5 +1,5 @@
 # Publishes the Workload Identity Break scenario container image to GitHub Container Registry.
-name: Publish Workload Identity Break Application Image
+name: Publish Workload Identity Break Image
 
 on:
   workflow_dispatch:

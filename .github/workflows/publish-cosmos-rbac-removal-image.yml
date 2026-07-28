@@ -1,5 +1,5 @@
 # Publishes the Cosmos RBAC Removal scenario container image to GitHub Container Registry.
-name: Publish Cosmos RBAC Removal Application Image
+name: Publish Cosmos RBAC Removal Image
 
 on:
   workflow_dispatch:
