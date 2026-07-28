@@ -120,7 +120,7 @@ resource restartAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
 }
 
 // ──────────────────────────────────────────────
-// 6. Scenario alert
+// 6. CosmosDB RBAC Removal alert
 // ──────────────────────────────────────────────
 module scenarioAlert 'modules/alert.bicep' = {
   name: 'scenario-alert'
