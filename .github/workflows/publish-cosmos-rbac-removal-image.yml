@@ -1,0 +1,39 @@
+# Publishes the Cosmos RBAC Removal scenario container image to GitHub Container Registry.
+name: Publish Cosmos RBAC Removal Application Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scenarios/cosmos-rbac-removal/src/**']
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lowercase repository name
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: scenarios/cosmos-rbac-removal/src/app
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:latest
+            ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:${{ github.sha }}
