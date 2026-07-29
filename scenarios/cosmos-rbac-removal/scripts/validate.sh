@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-NAMESPACE="workshop"
-SERVICE="web-app"
+NAMESPACE="cosmos-rbac-removal"
+SERVICE="cosmos-rbac-removal-app"
 
 while [ $# -gt 0 ]; do
   case "$1" in

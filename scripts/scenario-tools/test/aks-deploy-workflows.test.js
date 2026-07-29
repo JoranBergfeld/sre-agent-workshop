@@ -4,13 +4,19 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..');
-const workflows = [
-  'deploy-cosmos-rbac-removal-app.yml',
-  'deploy-workload-identity-break-app.yml',
-];
+const workflows = {
+  'deploy-cosmos-rbac-removal-app.yml': {
+    namespace: 'cosmos-rbac-removal',
+    workloadName: 'cosmos-rbac-removal-app',
+  },
+  'deploy-workload-identity-break-app.yml': {
+    namespace: 'workload-identity-break',
+    workloadName: 'workload-identity-break-app',
+  },
+};
 const imageTagError = '::error::imageTag must be a full 40-character lowercase Git SHA published by the scenario image workflow.';
 
-for (const workflow of workflows) {
+for (const [workflow, identity] of Object.entries(workflows)) {
   test(`${workflow} validates immutable tags and keeps GHCR tokens out of command arguments`, () => {
     const content = readFileSync(resolve(repositoryRoot, '.github', 'workflows', workflow), 'utf8');
 
@@ -23,7 +29,28 @@ for (const workflow of workflows) {
     assert.match(content, /trap 'rm -rf -- "\$DOCKER_CONFIG"' EXIT/);
     assert.match(content, /docker --config "\$DOCKER_CONFIG" login ghcr\.io --username "\$\{\{ github\.repository_owner \}\}" --password-stdin/);
     assert.match(content, /docker --config "\$DOCKER_CONFIG" manifest inspect "\$\{IMAGE\}"/);
-    assert.match(content, /kubectl create secret generic ghcr-pull --namespace workshop --type=kubernetes\.io\/dockerconfigjson --from-file=\.dockerconfigjson="\$DOCKER_CONFIG\/config\.json" --dry-run=client -o yaml \| kubectl apply -f -/);
+    assert.match(
+      content,
+      new RegExp(
+        `kubectl create namespace ${identity.namespace} --dry-run=client -o yaml \\| kubectl apply -f -`,
+      ),
+    );
+    assert.match(
+      content,
+      new RegExp(
+        `kubectl create secret generic ghcr-pull --namespace ${identity.namespace} --type=kubernetes\\.io/dockerconfigjson --from-file=\\.dockerconfigjson="\\$DOCKER_CONFIG/config\\.json" --dry-run=client -o yaml \\| kubectl apply -f -`,
+      ),
+    );
+    assert.match(
+      content,
+      new RegExp(
+        `kubectl rollout status deployment/${identity.workloadName} -n ${identity.namespace} --timeout=120s`,
+      ),
+    );
+    assert.match(
+      content,
+      new RegExp(`kubectl get svc ${identity.workloadName} -n ${identity.namespace}`),
+    );
     assert.doesNotMatch(content, /--docker-password|docker-registry ghcr-pull/);
   });
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-RESOURCE_GROUP="rg-srelab"
-WORKLOAD="srelab"
-NAMESPACE="workshop"
-DEPLOYMENT="web-app"
+RESOURCE_GROUP="rg-srelabcosmos"
+WORKLOAD="srelabcosmos"
+NAMESPACE="cosmos-rbac-removal"
+DEPLOYMENT="cosmos-rbac-removal-app"
 ROLE_DEF_ID="00000000-0000-0000-0000-000000000002"
 
 while [ $# -gt 0 ]; do

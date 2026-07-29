@@ -31,7 +31,7 @@ remediate:
   - action: restore-federated-credential
     bash: scripts/remediate.sh
     powershell: scripts/remediate.ps1
-    description: Recreate the federated identity credential binding the workshop-app ServiceAccount to the UAMI, and restart pods.
+    description: Recreate the federated identity credential binding the workload-identity-break-app ServiceAccount to the UAMI, and restart pods.
 investigation:
   query: investigation/query.kql
 source: src/app

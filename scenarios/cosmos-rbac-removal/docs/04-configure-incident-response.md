@@ -12,17 +12,17 @@ You can verify with:
 
 ```bash
 # Find the agent's managed identity
-AGENT_UAMI=$(az resource list --resource-group rg-srelab \
+AGENT_UAMI=$(az resource list --resource-group rg-srelabcosmos \
   --resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
   --query "[?contains(name, 'agent')].name" -o tsv)
 
 # List its role assignments
-PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group rg-srelab --query principalId -o tsv)
+PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group rg-srelabcosmos --query principalId -o tsv)
 az role assignment list --assignee "$PRINCIPAL_ID" --all \
   --query "[].{role:roleDefinitionName, scope:scope}" -o table
 ```
 
-Look for **Reader** and **Monitoring Contributor** on `rg-srelab`. If missing, the SRE Agent portal will tell you what to grant when you connect Azure Monitor.
+Look for **Reader** and **Monitoring Contributor** on `rg-srelabcosmos`. If missing, the SRE Agent portal will tell you what to grant when you connect Azure Monitor.
 
 ## Connect Azure Monitor
 
@@ -111,12 +111,12 @@ Log Analytics workspace, not a metric alert.
 ```bash
 # List scheduled query rules in the resource group
 az resource list \
-  --resource-group rg-srelab \
+  --resource-group rg-srelabcosmos \
   --resource-type "Microsoft.Insights/scheduledQueryRules" \
   --query "[].name" -o tsv
 ```
 
-Look for **`srelab-http-500-errors`**, whose display name is **HTTP 500 Errors
+Look for **`srelabcosmos-http-500-errors`**, whose display name is **HTTP 500 Errors
 Detected**. It queries `ContainerLog` for the scenario's CosmosDB/RBAC failure
 signals.
 

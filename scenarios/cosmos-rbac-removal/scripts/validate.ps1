@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-param([string]$Service = "web-app", [string]$Namespace = "workshop")
+param([string]$Service = "cosmos-rbac-removal-app", [string]$Namespace = "cosmos-rbac-removal")
 $ErrorActionPreference = 'Stop'
 $ip = kubectl get svc $Service -n $Namespace -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 if (-not $ip) { throw "No external IP yet for svc/$Service" }

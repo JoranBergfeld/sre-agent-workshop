@@ -14,10 +14,10 @@ param aksOidcIssuerUrl string
 param cosmosDbAccountName string
 
 @description('Kubernetes namespace for the workload')
-param k8sNamespace string = 'workshop'
+param k8sNamespace string = 'cosmos-rbac-removal'
 
 @description('Kubernetes ServiceAccount name for the workload')
-param k8sServiceAccountName string = 'workshop-app'
+param k8sServiceAccountName string = 'cosmos-rbac-removal-app'
 
 // ──────────────────────────────────────────────
 // User-Assigned Managed Identity

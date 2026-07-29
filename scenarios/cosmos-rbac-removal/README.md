@@ -21,12 +21,12 @@ Run the setup check and cleanup commands from the repository root:
 
 ```bash
 ./scenarios/cosmos-rbac-removal/scripts/setup.sh
-./scenarios/cosmos-rbac-removal/scripts/cleanup.sh --resource-group rg-srelab
+./scenarios/cosmos-rbac-removal/scripts/cleanup.sh --resource-group rg-srelabcosmos
 ```
 
 ```powershell
 ./scenarios/cosmos-rbac-removal/scripts/setup.ps1
-./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -ResourceGroup rg-srelab
+./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -ResourceGroup rg-srelabcosmos
 ```
 
 The Cosmos injector accepts only `--resource-group <rg>` in Bash or
@@ -56,7 +56,7 @@ Before you break anything, confirm the app is working:
 
 ```bash
 # Set the IP again (if not already set)
-export APP_IP=$(kubectl get svc web-app -n workshop -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export APP_IP=$(kubectl get svc cosmos-rbac-removal-app -n cosmos-rbac-removal -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 # This should return 200
 curl http://$APP_IP/items

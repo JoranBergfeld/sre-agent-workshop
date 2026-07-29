@@ -13,7 +13,7 @@ All your workshop resources (AKS, CosmosDB, Log Analytics, Application Insights,
 ### Get Your Resource Group Name
 
 When you deployed infrastructure (Module 1), you specified a resource group name. It's likely one of:
-- `rg-srelab` (if you used the default)
+- `rg-srelabcosmos` (if you used the default)
 - Check the Azure Portal: navigate to **Resource Groups** and look for the one you created
 
 ### Delete the Resource Group
@@ -37,7 +37,7 @@ This command will return an error once the resource group is deleted (which is t
 
 **Example (with default name):**
 ```bash
-az group delete --name rg-srelab --yes --no-wait
+az group delete --name rg-srelabcosmos --yes --no-wait
 ```
 
 > **Note:** Deletion typically takes 5–10 minutes. You'll stop incurring hourly charges immediately, but Azure may take a moment to fully remove the resources from billing.

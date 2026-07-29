@@ -14,7 +14,7 @@ targetScope = 'resourceGroup'
 param location string = 'eastus2'
 
 @description('Base workload name used in resource naming ({workloadName}-{type})')
-param workloadName string = 'srelab'
+param workloadName string = 'srelabidentity'
 
 @description('Resource tags applied to every resource')
 param tags object = {

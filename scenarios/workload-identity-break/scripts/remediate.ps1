@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
-param([string]$ResourceGroup = "rg-srelab", [string]$Workload = "srelab", [string]$Namespace = "workshop", [string]$Deployment = "web-app")
+param([string]$ResourceGroup = "rg-srelabidentity", [string]$Workload = "srelabidentity", [string]$Namespace = "workload-identity-break", [string]$Deployment = "workload-identity-break-app")
 $ErrorActionPreference = 'Stop'
 $fedCred = "$Workload-fed-cred"
 $identity = "$Workload-id"
-$subject = "system:serviceaccount:workshop:workshop-app"
+$subject = "system:serviceaccount:workload-identity-break:workload-identity-break-app"
 $audience = "api://AzureADTokenExchange"
 $cluster = az aks list --resource-group $ResourceGroup --query "[0].name" -o tsv
 if (-not $cluster) { throw "No AKS cluster found in $ResourceGroup" }

@@ -1,4 +1,4 @@
-# Deployment for the workshop web application.
+# Deployment for the Workload Identity Break application.
 #
 # Placeholders (substituted at deploy time via envsubst or sed):
 #   ${COSMOSDB_ENDPOINT} — CosmosDB account endpoint from Bicep outputs
@@ -7,27 +7,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-app
-  namespace: workshop
+  name: workload-identity-break-app
+  namespace: workload-identity-break
   labels:
-    app: web-app
+    app: workload-identity-break-app
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: web-app
+      app: workload-identity-break-app
   template:
     metadata:
       labels:
-        app: web-app
+        app: workload-identity-break-app
         # Required for the AKS workload identity mutating webhook
         azure.workload.identity/use: "true"
     spec:
-      serviceAccountName: workshop-app
+      serviceAccountName: workload-identity-break-app
       imagePullSecrets:
         - name: ghcr-pull
       containers:
-        - name: web-app
+        - name: workload-identity-break-app
           # Private GHCR image pulled with the ghcr-pull pod secret.
           image: ghcr.io/IMAGE_REPOSITORY/app:IMAGE_TAG
           ports:

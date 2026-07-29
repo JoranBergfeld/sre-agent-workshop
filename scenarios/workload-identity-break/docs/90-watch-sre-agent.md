@@ -56,12 +56,12 @@ run the capsule fallback:
 
 ```bash
 ./scenarios/workload-identity-break/scripts/remediate.sh \
-  --resource-group rg-srelab --workload srelab
+  --resource-group rg-srelabidentity --workload srelabidentity
 ```
 
 ```powershell
 ./scenarios/workload-identity-break/scripts/remediate.ps1 `
-  -ResourceGroup rg-srelab -Workload srelab
+  -ResourceGroup rg-srelabidentity -Workload srelabidentity
 ```
 
 The fallback recreates the federated credential and restarts the workload. It

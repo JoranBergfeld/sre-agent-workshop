@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-param([string]$ResourceGroup = "rg-srelab", [string]$Workload = "srelab", [string]$Namespace = "workshop", [string]$Deployment = "web-app")
+param([string]$ResourceGroup = "rg-srelabcosmos", [string]$Workload = "srelabcosmos", [string]$Namespace = "cosmos-rbac-removal", [string]$Deployment = "cosmos-rbac-removal-app")
 $ErrorActionPreference = 'Stop'
 $roleDefId = "00000000-0000-0000-0000-000000000002"
 

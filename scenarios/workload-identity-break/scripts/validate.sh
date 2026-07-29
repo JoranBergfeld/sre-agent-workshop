@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Health probe: the app's /items endpoint should return HTTP 200 when the
 # workload identity is intact. Exit 0 on 200, non-zero otherwise.
-NAMESPACE="workshop"
-SERVICE="web-app"
+NAMESPACE="workload-identity-break"
+SERVICE="workload-identity-break-app"
 
 while [ $# -gt 0 ]; do
   case "$1" in

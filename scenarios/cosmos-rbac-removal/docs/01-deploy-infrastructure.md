@@ -8,7 +8,7 @@ After this module completes, you'll have a fully-functional Kubernetes cluster a
 
 ## What Gets Deployed
 
-The workflow deploys the following Azure resources to your subscription. All resource names are prefixed with your `workloadName` (default: `srelab`):
+The workflow deploys the following Azure resources to your subscription. All resource names are prefixed with your `workloadName` (default: `srelabcosmos`):
 
 | Resource | Name Pattern | Purpose |
 |----------|--------------|---------|
@@ -91,7 +91,7 @@ Go to your fork of the workshop repository on GitHub:
      - `australiaeast` (recommended for Asia-Pacific)
    
    - **workloadName** (text input)  
-     Defaults to `srelab`. You can customize this if desired (e.g., `srelab-team1`). This name is used in all resource naming. **Keep this name handy — you'll need it in future modules.** Use lowercase alphanumeric only, no special characters.
+     Defaults to `srelabcosmos`. You can customize this if desired (e.g., `srelabcosmosteam1`). This name is used in all resource naming. **Keep this name handy — you'll need it in future modules.** Use lowercase alphanumeric only, no special characters. Custom workload names must be unique: `srelabcosmos` and `srelabidentity` are intentionally distinct defaults for the two capsules.
 
 3. Click **Run workflow**
 
@@ -119,10 +119,10 @@ The workflow performs these steps:
 ============================================
   Infrastructure Deployment Complete
 ============================================
-Resource Group:      rg-srelab
+Resource Group:      rg-srelabcosmos
 Location:            eastus2
-AKS Cluster:         srelab-aks
-CosmosDB Endpoint:   https://srelab-cosmos-xxxx.documents.azure.com:443/
+AKS Cluster:         srelabcosmos-aks
+CosmosDB Endpoint:   https://srelabcosmos-cosmos-xxxx.documents.azure.com:443/
 UAMI Client ID:     xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 Log Analytics ID:    xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ============================================
@@ -148,10 +148,10 @@ Deploy infrastructure directly from your machine using the Azure CLI. This is us
 
 #### Step 1: Set Environment Variables
 
-Replace `srelab` and `eastus2` with your desired workload name and location:
+Replace `srelabcosmos` and `eastus2` with your desired workload name and location:
 
 ```bash
-export WORKLOAD_NAME="srelab"
+export WORKLOAD_NAME="srelabcosmos"
 export LOCATION="eastus2"
 ```
 
@@ -161,9 +161,10 @@ export LOCATION="eastus2"
 - `australiaeast` (recommended for Asia-Pacific)
 
 **Workload name guidelines:**
-- Lowercase alphanumeric only (e.g., `srelab`, `srelab-team1`, `mysre123`)
+- Lowercase alphanumeric only (e.g., `srelabcosmos`, `srelabcosmosteam1`, `mysre123`)
 - Keep it short — it's used in all resource names
 - Remember this name for future modules
+- Use a workload name unique to this deployment; the supplied defaults are intentionally distinct so both capsules can run at once.
 
 #### Step 2: Create the Resource Group
 
@@ -177,10 +178,10 @@ az group create \
 **Expected output:**
 ```json
 {
-  "id": "/subscriptions/.../resourceGroups/rg-srelab",
+  "id": "/subscriptions/.../resourceGroups/rg-srelabcosmos",
   "location": "eastus2",
   "managedBy": null,
-  "name": "rg-srelab",
+  "name": "rg-srelabcosmos",
   "properties": {
     "provisioningState": "Succeeded"
   },
@@ -260,10 +261,10 @@ az login
 
 ### 2. List All Resources
 
-Replace `srelab` with your `workloadName` if you customized it:
+Replace `srelabcosmos` with your `workloadName` if you customized it:
 
 ```bash
-az resource list --resource-group rg-srelab -o table
+az resource list --resource-group rg-srelabcosmos -o table
 ```
 
 Expected output: ~8–10 resources including AKS cluster, CosmosDB, Log Analytics, Application Insights, managed identity, alert rules, etc. (Azure may auto-create additional resources like Smart Detection rules.)
@@ -272,8 +273,8 @@ Expected output: ~8–10 resources including AKS cluster, CosmosDB, Log Analytic
 
 ```bash
 az aks show \
-  --resource-group rg-srelab \
-  --name srelab-aks \
+  --resource-group rg-srelabcosmos \
+  --name srelabcosmos-aks \
   --query "{name:name, status:provisioningState, oidc:oidcIssuerProfile.enabled}" \
   -o table
 ```
@@ -282,7 +283,7 @@ Expected output:
 ```
 Name        Status    Oidc
 ──────────  ────────  ─────
-srelab-aks  Succeeded True
+srelabcosmos-aks  Succeeded True
 ```
 
 > The `oidc` field must be `True`. This enables workload identity, which is critical for Module 2.
@@ -293,8 +294,8 @@ Download the cluster credentials so `kubectl` can communicate with your cluster:
 
 ```bash
 az aks get-credentials \
-  --resource-group rg-srelab \
-  --name srelab-aks
+  --resource-group rg-srelabcosmos \
+  --name srelabcosmos-aks
 ```
 
 > **⚠️ Existing kubectl users:** If you already use `kubectl` with other clusters, this command adds a new context to your kubeconfig and sets it as the current context. Your existing cluster configurations are preserved — you can switch back with `kubectl config use-context <your-old-context>`.
@@ -318,8 +319,8 @@ Both nodes should be in `Ready` state. If nodes show `NotReady` or `NotSchedulab
 
 ```bash
 az cosmosdb show \
-  --resource-group rg-srelab \
-  --name $(az cosmosdb list --resource-group rg-srelab --query "[0].name" -o tsv) \
+  --resource-group rg-srelabcosmos \
+  --name $(az cosmosdb list --resource-group rg-srelabcosmos --query "[0].name" -o tsv) \
   --query "{name:name, kind:kind, status:provisioningState}" \
   -o table
 ```
@@ -328,15 +329,15 @@ Expected output:
 ```
 Name                  Kind              Status
 --------------------  ----------------  ---------
-srelab-cosmos-xxxx    GlobalDocumentDB  Succeeded
+srelabcosmos-cosmos-xxxx    GlobalDocumentDB  Succeeded
 ```
 
 ### 7. Verify Managed Identity
 
 ```bash
 az identity show \
-  --resource-group rg-srelab \
-  --name srelab-id \
+  --resource-group rg-srelabcosmos \
+  --name srelabcosmos-id \
   --query "{name:name, clientId:clientId}" \
   -o table
 ```
@@ -345,7 +346,7 @@ Expected output:
 ```
 Name       ClientId
 ─────────  ──────────────────────────────────────────
-srelab-id  xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+srelabcosmos-id  xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 ## Understanding the Architecture
@@ -466,16 +467,16 @@ These regions are tested and supported by the workshop. Retry the workflow with 
 **Solution:**
 1. Re-run the credential fetch:
    ```bash
-   az aks get-credentials --resource-group rg-srelab --name srelab-aks
+   az aks get-credentials --resource-group rg-srelabcosmos --name srelabcosmos-aks
    ```
 2. Verify the kubeconfig context:
    ```bash
    kubectl config current-context
    ```
-   Should show something like `srelab-aks` or similar.
+   Should show something like `srelabcosmos-aks` or similar.
 3. Check cluster status in Azure:
    ```bash
-   az aks show --resource-group rg-srelab --name srelab-aks --query provisioningState
+   az aks show --resource-group rg-srelabcosmos --name srelabcosmos-aks --query provisioningState
    ```
    Should return `"Succeeded"`. If it shows `"Creating"` or other state, wait a few more minutes.
 
@@ -502,7 +503,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
 
 At this point, you should have:
 
-✅ All Azure resources created in `rg-srelab`  
+✅ All Azure resources created in `rg-srelabcosmos`
 ✅ AKS cluster with OIDC issuer and workload identity enabled  
 ✅ 2 nodes in `Ready` state  
 ✅ CosmosDB serverless account created  
@@ -514,7 +515,7 @@ Run this quick verification:
 
 ```bash
 # List resources
-az resource list --resource-group rg-srelab --query "[].type" -o table | wc -l
+az resource list --resource-group rg-srelabcosmos --query "[].type" -o table | wc -l
 # Should show: ~10
 
 # Check nodes
@@ -522,7 +523,7 @@ kubectl get nodes
 # Should show: 2 nodes in Ready state
 
 # Check cluster readiness
-az aks show --resource-group rg-srelab --name srelab-aks --query "provisioningState"
+az aks show --resource-group rg-srelabcosmos --name srelabcosmos-aks --query "provisioningState"
 # Should show: "Succeeded"
 ```
 

@@ -29,7 +29,7 @@ resource authErrorsAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-prev
         {
           query: '''
             let workshopContainers = KubePodInventory
-            | where Namespace == "workshop"
+            | where Namespace == "workload-identity-break"
             | where TimeGenerated > ago(1h)
             | distinct ContainerID;
             ContainerLog

@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Manual fallback fix: recreate the federated identity credential that binds the
-# workshop-app ServiceAccount to the UAMI via the AKS OIDC issuer, then restart
+# workload-identity-break-app ServiceAccount to the UAMI via the AKS OIDC issuer, then restart
 # pods. The primary remediation in the workshop is the @copilot PR restoring the
 # federatedCredential block in identity.bicep + a Deploy Workload Identity Break
 # Infrastructure run.
-RESOURCE_GROUP="rg-srelab"
-WORKLOAD="srelab"
-NAMESPACE="workshop"
-DEPLOYMENT="web-app"
-SA_SUBJECT="system:serviceaccount:workshop:workshop-app"
+RESOURCE_GROUP="rg-srelabidentity"
+WORKLOAD="srelabidentity"
+NAMESPACE="workload-identity-break"
+DEPLOYMENT="workload-identity-break-app"
+SA_SUBJECT="system:serviceaccount:workload-identity-break:workload-identity-break-app"
 AUDIENCE="api://AzureADTokenExchange"
 
 while [ $# -gt 0 ]; do

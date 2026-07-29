@@ -1,16 +1,16 @@
-# Service exposing the web-app deployment via an Azure Load Balancer.
+# Service exposing the Cosmos RBAC Removal deployment via an Azure Load Balancer.
 # External traffic on port 80 is forwarded to the app containers on port 3000.
 apiVersion: v1
 kind: Service
 metadata:
-  name: web-app
-  namespace: workshop
+  name: cosmos-rbac-removal-app
+  namespace: cosmos-rbac-removal
   labels:
-    app: web-app
+    app: cosmos-rbac-removal-app
 spec:
   type: LoadBalancer
   selector:
-    app: web-app
+    app: cosmos-rbac-removal-app
   ports:
     - protocol: TCP
       port: 80

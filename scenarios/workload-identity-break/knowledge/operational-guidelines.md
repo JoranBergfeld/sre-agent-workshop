@@ -24,9 +24,9 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 ## Architecture Overview
 
-- **AKS cluster** (`srelab-aks`): Hosts the web app in the `workshop` namespace
-- **CosmosDB** (`srelab-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
-- **Managed Identity** (`srelab-id`): UAMI with federated credential linked to K8s ServiceAccount `workshop-app`
+- **AKS cluster** (`srelabidentity-aks`): Hosts the web app in the `workload-identity-break` namespace
+- **CosmosDB** (`srelabidentity-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
+- **Managed Identity** (`srelabidentity-id`): UAMI with federated credential linked to K8s ServiceAccount `workload-identity-break-app`
 - **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
 
 ## Common Failure: Workload Identity Federation
@@ -34,7 +34,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 If `/items` returns HTTP 500 while `/health` remains green and ContainerLog
 contains `AADSTS70021` or `No matching federated identity`:
 - **Root cause**: The UAMI's federated identity credential for
-  `system:serviceaccount:workshop:workshop-app` is missing.
+  `system:serviceaccount:workload-identity-break:workload-identity-break-app` is missing.
 - **Where to fix**:
   `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` — the
   `federatedCredential` resource block.

@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-param([string]$ResourceGroup = "rg-srelab", [string]$Workload = "srelab", [string]$Namespace = "workshop", [string]$Deployment = "web-app")
+param([string]$ResourceGroup = "rg-srelabidentity", [string]$Workload = "srelabidentity", [string]$Namespace = "workload-identity-break", [string]$Deployment = "workload-identity-break-app")
 $ErrorActionPreference = 'Stop'
 $fedCred = "$Workload-fed-cred"
 $identity = "$Workload-id"

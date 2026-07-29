@@ -55,12 +55,12 @@ run the capsule fallback:
 
 ```bash
 ./scenarios/cosmos-rbac-removal/scripts/remediate.sh \
-  --resource-group rg-srelab --workload srelab
+  --resource-group rg-srelabcosmos --workload srelabcosmos
 ```
 
 ```powershell
 ./scenarios/cosmos-rbac-removal/scripts/remediate.ps1 `
-  -ResourceGroup rg-srelab -Workload srelab
+  -ResourceGroup rg-srelabcosmos -Workload srelabcosmos
 ```
 
 The fallback safely exits without creating another assignment if the matching

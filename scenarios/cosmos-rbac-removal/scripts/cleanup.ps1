@@ -2,12 +2,12 @@
 # Usage from repository root:
 #   .\scenarios\cosmos-rbac-removal\scripts\cleanup.ps1
 #   .\scenarios\cosmos-rbac-removal\scripts\cleanup.ps1 -ResourceGroup rg-myworkshop
-#   .\scenarios\cosmos-rbac-removal\scripts\cleanup.ps1 --resource-group rg-srelab --yes
+#   .\scenarios\cosmos-rbac-removal\scripts\cleanup.ps1 --resource-group rg-srelabcosmos --yes
 
 param()
 
 $ErrorActionPreference = 'Stop'
-$ResourceGroup = 'rg-srelab'
+$ResourceGroup = 'rg-srelabcosmos'
 $Yes = $false
 $DryRun = $false
 
@@ -16,7 +16,7 @@ function Show-Usage {
 Usage: .\cleanup.ps1 [--resource-group <name>] [--yes] [--dry-run]
 
 Options:
-  -g, -ResourceGroup, --resource-group <name>  Resource group to delete (default: rg-srelab)
+  -g, -ResourceGroup, --resource-group <name>  Resource group to delete (default: rg-srelabcosmos)
   -y, -Yes, --yes                              Skip the confirmation prompt
       --dry-run                                Show the selected resource group without deleting it
   -h, --help                                   Show this help

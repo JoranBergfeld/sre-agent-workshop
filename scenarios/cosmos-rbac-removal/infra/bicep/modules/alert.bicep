@@ -29,7 +29,7 @@ resource http500Alert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
         {
           query: '''
             let workshopContainers = KubePodInventory
-            | where Namespace == "workshop"
+            | where Namespace == "cosmos-rbac-removal"
             | where TimeGenerated > ago(1h)
             | distinct ContainerID;
             ContainerLog

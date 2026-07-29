@@ -30,9 +30,9 @@ replace the required Bicep correction.
 
 ## Architecture Overview
 
-- **AKS cluster** (`srelab-aks`): Hosts the web app in the `workshop` namespace
-- **CosmosDB** (`srelab-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
-- **Managed Identity** (`srelab-id`): UAMI with federated credential linked to K8s ServiceAccount `workshop-app`
+- **AKS cluster** (`srelabcosmos-aks`): Hosts the web app in the `cosmos-rbac-removal` namespace
+- **CosmosDB** (`srelabcosmos-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
+- **Managed Identity** (`srelabcosmos-id`): UAMI with federated credential linked to K8s ServiceAccount `cosmos-rbac-removal-app`
 - **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
 
 ## Common Failure: CosmosDB RBAC

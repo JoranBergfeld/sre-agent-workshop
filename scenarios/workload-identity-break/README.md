@@ -21,22 +21,22 @@ Run the setup check and cleanup commands from the repository root:
 
 ```bash
 ./scenarios/workload-identity-break/scripts/setup.sh
-./scenarios/workload-identity-break/scripts/cleanup.sh --resource-group rg-srelab
+./scenarios/workload-identity-break/scripts/cleanup.sh --resource-group rg-srelabidentity
 ```
 
 ```powershell
 ./scenarios/workload-identity-break/scripts/setup.ps1
-./scenarios/workload-identity-break/scripts/cleanup.ps1 -ResourceGroup rg-srelab
+./scenarios/workload-identity-break/scripts/cleanup.ps1 -ResourceGroup rg-srelabidentity
 ```
 
 For a custom deployment name, run the injector with both required flags:
 
 ```bash
-./scenarios/workload-identity-break/scripts/inject.sh --resource-group rg-srelab --workload myworkload
+./scenarios/workload-identity-break/scripts/inject.sh --resource-group rg-srelabidentity --workload myworkload
 ```
 
 ```powershell
-./scenarios/workload-identity-break/scripts/inject.ps1 -ResourceGroup rg-srelab -Workload myworkload
+./scenarios/workload-identity-break/scripts/inject.ps1 -ResourceGroup rg-srelabidentity -Workload myworkload
 ```
 
 # Break It: Workload Identity 💥 (~30 min)
@@ -53,7 +53,7 @@ Before running this scenario's deployment workflow, maintainers must configure t
 
 ## The Scenario
 
-> _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `srelab-id` with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._
+> _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `srelabidentity-id` with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._
 >
 > _Pods are running. Health checks are green. But every data request now fails with a cryptic `AADSTS70021` error. The app can no longer prove who it is to Azure._
 
@@ -65,7 +65,7 @@ Before you break anything, confirm the app is working:
 
 ```bash
 # Set the IP again (if not already set)
-export APP_IP=$(kubectl get svc web-app -n workshop -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export APP_IP=$(kubectl get svc workload-identity-break-app -n workload-identity-break -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 # This should return 200
 curl http://$APP_IP/items

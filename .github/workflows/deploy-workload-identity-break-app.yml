@@ -7,7 +7,7 @@ on:
       workloadName:
         description: 'Workload name (must match the infra deployment)'
         type: string
-        default: srelab
+        default: srelabidentity
       imageTag:
         description: 'Immutable Git SHA tag emitted by the Publish Workload Identity Break Image workflow'
         required: true
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SCENARIO_ROOT: scenarios/workload-identity-break
-      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabidentity' }}
       IMAGE_TAG: ${{ inputs.imageTag }}
     steps:
       - name: Checkout code
@@ -85,8 +85,8 @@ jobs:
           trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
           printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
 
-          kubectl create namespace workshop --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic ghcr-pull --namespace workshop --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG/config.json" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create namespace workload-identity-break --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic ghcr-pull --namespace workload-identity-break --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG/config.json" --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Fetch deployment values from Azure
         id: values
@@ -127,7 +127,7 @@ jobs:
           kubectl apply -f "${SCENARIO_ROOT}/k8s/service.yaml"
 
       - name: Wait for rollout
-        run: kubectl rollout status deployment/web-app -n workshop --timeout=120s
+        run: kubectl rollout status deployment/workload-identity-break-app -n workload-identity-break --timeout=120s
 
       - name: Print app URL
         id: rollout
@@ -139,7 +139,7 @@ jobs:
 
           echo "Waiting for external IP (up to 60s)..."
           for i in $(seq 1 12); do
-            IP=$(kubectl get svc web-app -n workshop -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            IP=$(kubectl get svc workload-identity-break-app -n workload-identity-break -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
             if [ -n "$IP" ]; then
               break
             fi
@@ -154,7 +154,7 @@ jobs:
             echo "Items:    $APP_URL/items"
           else
             echo "External IP not yet assigned."
-            echo "Run: kubectl get svc web-app -n workshop"
+            echo "Run: kubectl get svc workload-identity-break-app -n workload-identity-break"
           fi
 
           {

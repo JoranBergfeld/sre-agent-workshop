@@ -2,7 +2,7 @@
 # Tears down all Azure resources created by the workshop.
 set -euo pipefail
 
-RG_NAME="rg-srelab"
+RG_NAME="rg-srelabidentity"
 AUTO_YES=false
 DRY_RUN=false
 RESOURCE_GROUP_SET=false
@@ -12,7 +12,7 @@ usage() {
 Usage: $0 [--resource-group <name>] [--yes] [--dry-run]
 
 Options:
-  -g, --resource-group <name>  Resource group to delete (default: rg-srelab)
+  -g, --resource-group <name>  Resource group to delete (default: rg-srelabidentity)
   -y, --yes                    Skip the confirmation prompt
       --dry-run                Show the selected resource group without deleting it
   -h, --help                   Show this help

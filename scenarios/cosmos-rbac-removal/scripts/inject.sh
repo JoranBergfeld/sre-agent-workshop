@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-RESOURCE_GROUP="rg-srelab"
-NAMESPACE="workshop"
-DEPLOYMENT="web-app"
+RESOURCE_GROUP="rg-srelabcosmos"
+NAMESPACE="cosmos-rbac-removal"
+DEPLOYMENT="cosmos-rbac-removal-app"
 
 while [ $# -gt 0 ]; do
   case "$1" in

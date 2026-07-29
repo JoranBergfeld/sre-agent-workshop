@@ -170,7 +170,7 @@ Repository variables provide defaults for the scenario workflows. While deployme
 
 | Variable Name | Value | Description |
 |---------------|-------|-------------|
-| `WORKLOAD_NAME` | Your chosen workload name (e.g., `srelab`) | Used in resource naming — should match what you used in Module 1 |
+| `WORKLOAD_NAME` | Your chosen workload name (e.g., `srelabcosmos`) | Used in resource naming — should match what you used in Module 1 and be unique |
 | `AZURE_LOCATION` | Your chosen Azure region (e.g., `eastus2`) | Should match the region used in Module 1 |
 
 > **Why this matters:** `Validate Cosmos RBAC Removal Infrastructure` runs automatically when you push Bicep changes or open a PR. It validates the capsule's Bicep syntax. `Deploy Cosmos RBAC Removal Infrastructure` uses these variables as defaults when you manually run it.

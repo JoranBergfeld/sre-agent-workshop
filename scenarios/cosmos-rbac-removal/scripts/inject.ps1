@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-param([string]$ResourceGroup = "rg-srelab", [string]$Namespace = "workshop", [string]$Deployment = "web-app")
+param([string]$ResourceGroup = "rg-srelabcosmos", [string]$Namespace = "cosmos-rbac-removal", [string]$Deployment = "cosmos-rbac-removal-app")
 $ErrorActionPreference = 'Stop'
 $cosmos = az cosmosdb list --resource-group $ResourceGroup --query "[0].name" -o tsv
 if (-not $cosmos) { throw "No CosmosDB account found in $ResourceGroup" }

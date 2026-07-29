@@ -3,10 +3,10 @@ set -euo pipefail
 
 # Break: delete the workload's federated identity credential so pods can no
 # longer exchange their ServiceAccount token for an Azure AD token.
-RESOURCE_GROUP="rg-srelab"
-WORKLOAD="srelab"
-NAMESPACE="workshop"
-DEPLOYMENT="web-app"
+RESOURCE_GROUP="rg-srelabidentity"
+WORKLOAD="srelabidentity"
+NAMESPACE="workload-identity-break"
+DEPLOYMENT="workload-identity-break-app"
 
 while [ $# -gt 0 ]; do
   case "$1" in

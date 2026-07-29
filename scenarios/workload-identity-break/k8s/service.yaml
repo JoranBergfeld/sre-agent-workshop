@@ -1,16 +1,16 @@
-# Service exposing the web-app deployment via an Azure Load Balancer.
+# Service exposing the Workload Identity Break deployment via an Azure Load Balancer.
 # External traffic on port 80 is forwarded to the app containers on port 3000.
 apiVersion: v1
 kind: Service
 metadata:
-  name: web-app
-  namespace: workshop
+  name: workload-identity-break-app
+  namespace: workload-identity-break
   labels:
-    app: web-app
+    app: workload-identity-break-app
 spec:
   type: LoadBalancer
   selector:
-    app: web-app
+    app: workload-identity-break-app
   ports:
     - protocol: TCP
       port: 80

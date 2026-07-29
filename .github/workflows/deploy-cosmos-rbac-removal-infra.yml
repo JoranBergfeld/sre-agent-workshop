@@ -14,7 +14,7 @@ on:
       workloadName:
         description: 'Workload name (used in resource naming)'
         type: string
-        default: srelab
+        default: srelabcosmos
 
 permissions:
   id-token: write
@@ -26,7 +26,7 @@ jobs:
     env:
       SCENARIO_ROOT: scenarios/cosmos-rbac-removal
       LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
-      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabcosmos' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

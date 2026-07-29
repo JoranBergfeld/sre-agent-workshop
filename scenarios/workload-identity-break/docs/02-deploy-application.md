@@ -24,7 +24,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a fine-grained (or classic) PAT with **Packages: read** access. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
 3. **Go to your fork** on GitHub → **Actions** tab and select `Deploy Workload Identity Break Application`.
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
-   - **workloadName** (default: `srelab`) — **must match what you used in Module 1**.
+   - **workloadName** (default: `srelabidentity`) — **must match what you used in Module 1**.
    - **imageTag** — the published full 40-character lowercase Git SHA from `Publish Workload Identity Break Image` (for example, `0123456789abcdef0123456789abcdef01234567`).
 5. **Click "Run workflow"** and wait for completion (~3–5 minutes). The workflow preflights and deploys exactly `ghcr.io/<owner>/<repository>/workload-identity-break/app:<imageTag>`.
 
@@ -33,7 +33,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 - Gets your AKS cluster credentials
 - Queries Azure for the UAMI client ID and CosmosDB endpoint (from Module 1 outputs)
 - Substitutes placeholders in the Kubernetes manifests (`${COSMOSDB_ENDPOINT}`)
-- Creates or updates the `ghcr-pull` image-pull secret, workshop namespace, service account, deployment, and service
+- Creates or updates the `ghcr-pull` image-pull secret, `workload-identity-break` namespace, service account, deployment, and service
 - Waits for pods to be ready (rollout completion)
 
 ## Verify the Deployment
@@ -42,19 +42,19 @@ First, make sure you have AKS credentials:
 
 ```bash
 # Get AKS credentials (if you haven't done this since Module 1)
-az aks get-credentials --resource-group rg-srelab --name srelab-aks
+az aks get-credentials --resource-group rg-srelabidentity --name srelabidentity-aks
 ```
 
 Now check that the pods are running:
 
 ```bash
-# List pods in the workshop namespace
-kubectl get pods -n workshop
+# List pods in the workload-identity-break namespace
+kubectl get pods -n workload-identity-break
 
 # Expected output:
 # NAME                       READY   STATUS    RESTARTS   AGE
-# web-app-5d8c4f7b9d-abc12   1/1     Running   0          2m
-# web-app-5d8c4f7b9d-def45   1/1     Running   0          2m
+# workload-identity-break-app-5d8c4f7b9d-abc12   1/1     Running   0          2m
+# workload-identity-break-app-5d8c4f7b9d-def45   1/1     Running   0          2m
 ```
 
 Both replicas should be in `Running` state and `Ready 1/1`.
@@ -63,11 +63,11 @@ Check that the service has an external IP assigned:
 
 ```bash
 # List services
-kubectl get svc -n workshop
+kubectl get svc -n workload-identity-break
 
 # Expected output:
 # NAME      TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
-# web-app   LoadBalancer   10.0.123.456   20.123.45.67    80:31234/TCP   1m
+# workload-identity-break-app   LoadBalancer   10.0.123.456   20.123.45.67    80:31234/TCP   1m
 ```
 
 Wait for the `EXTERNAL-IP` to appear (if it shows `<pending>`, wait 1–2 minutes and run the command again).
@@ -78,7 +78,7 @@ Once the service has an external IP:
 
 ```bash
 # Capture the external IP
-export APP_IP=$(kubectl get svc web-app -n workshop -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export APP_IP=$(kubectl get svc workload-identity-break-app -n workload-identity-break -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 # Test the health endpoint (should always return 200)
 curl http://$APP_IP/health
@@ -125,14 +125,14 @@ Database Access ✓
 **Pods stuck in `Pending` state:**
 ```bash
 # Check node capacity and pod events
-kubectl describe pod -n workshop <pod-name>
+kubectl describe pod -n workload-identity-break <pod-name>
 # Look for "Insufficient cpu" or "Insufficient memory" in events
 ```
 This usually means the cluster nodes don't have enough capacity. Check that Module 1 successfully created the AKS nodes.
 
 **ImagePullBackOff error:**
 ```bash
-kubectl describe pod -n workshop <pod-name>
+kubectl describe pod -n workload-identity-break <pod-name>
 # Look for the "Events" section — it will show the exact image URL and pull error
 ```
 The workflow deploys `ghcr.io/<owner>/<repository>/workload-identity-break/app:<imageTag>` and pulls it using `ghcr-pull`. Common causes:
@@ -153,7 +153,7 @@ This means one of the identity/RBAC chain steps failed. Common causes:
 
 **Pod logs show "DefaultAzureCredential" errors:**
 ```bash
-kubectl logs -n workshop <pod-name>
+kubectl logs -n workload-identity-break <pod-name>
 ```
 The workload identity isn't being picked up. Verify:
 - The deployment has the label `azure.workload.identity/use: "true"` (it should)

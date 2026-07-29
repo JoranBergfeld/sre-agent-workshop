@@ -2,12 +2,12 @@
 # Usage from repository root:
 #   .\scenarios\workload-identity-break\scripts\cleanup.ps1
 #   .\scenarios\workload-identity-break\scripts\cleanup.ps1 -ResourceGroup rg-myworkshop
-#   .\scenarios\workload-identity-break\scripts\cleanup.ps1 --resource-group rg-srelab --yes
+#   .\scenarios\workload-identity-break\scripts\cleanup.ps1 --resource-group rg-srelabidentity --yes
 
 param()
 
 $ErrorActionPreference = 'Stop'
-$ResourceGroup = 'rg-srelab'
+$ResourceGroup = 'rg-srelabidentity'
 $Yes = $false
 $DryRun = $false
 
@@ -16,7 +16,7 @@ function Show-Usage {
 Usage: .\cleanup.ps1 [--resource-group <name>] [--yes] [--dry-run]
 
 Options:
-  -g, -ResourceGroup, --resource-group <name>  Resource group to delete (default: rg-srelab)
+  -g, -ResourceGroup, --resource-group <name>  Resource group to delete (default: rg-srelabidentity)
   -y, -Yes, --yes                              Skip the confirmation prompt
       --dry-run                                Show the selected resource group without deleting it
   -h, --help                                   Show this help
