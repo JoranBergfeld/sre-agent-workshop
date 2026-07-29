@@ -32,7 +32,8 @@ specific incident rather than a platform hierarchy:
   show evidence-led GitOps recovery for AKS workloads.
 - [CPU Runaway](../scenarios/cpu-runaway/README.md),
   [Disk Full](../scenarios/disk-full/README.md), and
-  [IIS App Pool Failure](../scenarios/iis-app-pool/README.md) demonstrate
+  [IIS App Pool Failure](../scenarios/iis-app-pool/README.md), and
+  [VM Size Retirement](../scenarios/vm-size-retirement/README.md) demonstrate
   approval-gated VM remediation.
 - [SRE Agent to Copilot Handover](../scenarios/cloud-agent-handover/README.md)
   shows an approved issue-to-Copilot-pull-request flow with automatic
