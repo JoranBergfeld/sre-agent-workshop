@@ -1,0 +1,19 @@
+{
+  "eventSource": "ServiceHealth",
+  "category": "ServiceHealth",
+  "level": "Warning",
+  "operationName": "Microsoft.ServiceHealth/healthadvisory/action",
+  "eventTimestamp": "2026-06-22T09:00:00Z",
+  "properties": {
+    "title": "Action required: migrate off retiring Dv2/DSv2-series virtual machine sizes",
+    "service": "Virtual Machines",
+    "region": "eastus2",
+    "incidentType": "ActionRequired",
+    "trackingId": "0BNF-9X8",
+    "impactedService": "Virtual Machines",
+    "impactedSizes": "Standard_DS1_v2 / Standard_DS2_v2 (DSv2-series)",
+    "retirementDate": "2027-05-31",
+    "subscriptionId": "00000000-0000-0000-0000-000000000000",
+    "communication": "The Dv2/DSv2-series VM sizes are being retired on 2027-05-31. Identify all virtual machines in your control on these sizes and resize them to a current series (for example Standard_D2s_v5) before the retirement date to avoid service disruption."
+  }
+}

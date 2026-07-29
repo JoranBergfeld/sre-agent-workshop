@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "simulated Azure CLI failure" >&2
+exit 42

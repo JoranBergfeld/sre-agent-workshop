@@ -1,0 +1,34 @@
+id: vm-size-retirement
+title: VM Size Retirement (SKU Discontinuation)
+platform: Azure Virtual Machines
+incidentType: Platform lifecycle advisory
+summary: An Azure Service Health advisory announces a VM size retirement; the agent uses Azure Resource Graph to identify every VM in its resource group on a retiring size and migrates them to a current family via the approval gate.
+severity: 2
+estimatedMinutes: 30
+difficulty: intermediate
+costProfile: high
+learningObjectives:
+  - Read an Azure Service Health "service retirement" advisory and extract the affected SKU and deadline.
+  - Use Azure Resource Graph to identify all affected services under the agent's control (every VM on a retiring size in the resource group).
+  - Migrate affected VMs to a current size by resize, executed only through the approval gate with a CHG/INC ticket and audit entry.
+guide: README.md
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
+inject:
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
+validate:
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1
+remediate:
+  - action: migrate-vm-size
+    bash: scripts/remediation/migrate-vm-size.sh
+    powershell: scripts/remediation/migrate-vm-size.ps1
+    description: Resize every VM in the resource group that is on a retiring size to the current target size (Standard_D2s_v5).
+investigation:
+  query: investigation/query.kql
+tests: tests
