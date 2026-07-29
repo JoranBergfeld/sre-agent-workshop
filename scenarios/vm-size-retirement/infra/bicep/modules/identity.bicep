@@ -1,45 +1,29 @@
-@description('Azure region for identity resources')
-param location string
+@description('Object (principal) ID of the Azure SRE Agent managed identity. Empty disables assignments for the initial infrastructure deployment.')
+param sreAgentPrincipalId string
 
-@description('Base workload name for resource naming')
-param workloadName string
+var sreAgentAccessConfigured = !empty(sreAgentPrincipalId)
 
-@description('Resource tags')
-param tags object
-
-// Operations User-Assigned Managed Identity used by SRE Agent investigation tooling.
-resource operationsIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${workloadName}-ops-id'
-  location: location
-  tags: tags
-}
-
-// Constrained role assignments keep the investigation identity read-only.
-resource readerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, operationsIdentity.id, 'reader')
+// The SRE Agent's own managed identity receives only the read permissions that
+// Azure Monitor and Resource Graph investigation require.
+resource sreAgentReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (sreAgentAccessConfigured) {
+  name: guid(resourceGroup().id, sreAgentPrincipalId, 'sre-agent-reader')
   scope: resourceGroup()
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
-    principalId: operationsIdentity.properties.principalId
+    principalId: sreAgentPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-resource monitoringReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, operationsIdentity.id, 'monitoring-reader')
+resource sreAgentMonitoringReaderRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (sreAgentAccessConfigured) {
+  name: guid(resourceGroup().id, sreAgentPrincipalId, 'sre-agent-monitoring-reader')
   scope: resourceGroup()
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '43d0d8ad-25c7-4714-9337-8ba259a9fe05')
-    principalId: operationsIdentity.properties.principalId
+    principalId: sreAgentPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
 
-@description('Operations UAMI client ID')
-output uamiClientId string = operationsIdentity.properties.clientId
-
-@description('Operations UAMI principal ID')
-output uamiPrincipalId string = operationsIdentity.properties.principalId
-
-@description('Operations UAMI resource ID')
-output uamiId string = operationsIdentity.id
+@description('Whether the configured SRE Agent principal received Reader and Monitoring Reader')
+output sreAgentAccessConfigured bool = sreAgentAccessConfigured

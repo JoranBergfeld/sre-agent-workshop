@@ -36,7 +36,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Approved remediation failed with exit code $LASTEXITCODE."
 }
 
-$outputDirectory = Join-Path $PSScriptRoot '..\..\output'
+$outputDirectory = if ([string]::IsNullOrWhiteSpace($env:SRE_OUTPUT_DIR)) {
+    Join-Path $PSScriptRoot '..\..\output'
+} else {
+    $env:SRE_OUTPUT_DIR
+}
 New-Item -Path $outputDirectory -ItemType Directory -Force | Out-Null
 
 [PSCustomObject]@{

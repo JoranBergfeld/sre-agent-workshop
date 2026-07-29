@@ -6,27 +6,29 @@ The expected investigation chain is:
 Simulated or real Service Health advisory
   → extract retiring SKUs and deadline
   → Azure Resource Graph inventories every affected VM
-  → issue records evidence and migration plan
-  → @copilot authors the change
-  → human review, merge, and controlled deployment
+  → operator reviews the migration plan
+  → valid CHG/INC ticket enters the approval gate
+  → operator types exact APPROVE
+  → audited resize action runs
   → validation confirms no retiring SKU remains
 ```
 
-The normal recovery contract is **one issue assigned to `@copilot` → Copilot
-PR → human merge/controlled deploy**. The SRE Agent must not resize VMs
-directly, merge a PR, or trigger an uncontrolled deployment.
+The normal recovery contract is the local approval gate. The SRE Agent must not
+resize VMs directly. An authorized operator reviews the affected fleet and
+deadline, provides a valid ticket, then confirms the action with exact
+`APPROVE`.
 
-The issue should contain:
+The approval record should contain:
 
 - the Service Health tracking ID and retirement date;
 - the retiring SKUs and affected VM inventory;
 - the target `Standard_D2s_v5` size and expected disruption;
 - the validation command and completion criteria.
 
-## Manual approved fallback
+## Approval-gated migration
 
-Only when the issue-to-Copilot flow is unavailable, an authorized operator can
-execute the capsule's direct-action fallback:
+After reviewing the inventory, the authorized operator executes the
+capsule's only remediation action:
 
 ```bash
 ./scenarios/vm-size-retirement/scripts/tools/invoke-approved-remediation.sh \
@@ -40,8 +42,8 @@ execute the capsule's direct-action fallback:
   -ChangeTicket CHG-12345
 ```
 
-The local gate validates the `CHG-`/`INC-` ticket, waits for `APPROVE`, runs
-only the capsule remediation script, and writes an audit record.
+The local gate validates the `CHG-`/`INC-` ticket, waits for exact `APPROVE`,
+runs only the capsule remediation script, and writes an audit record.
 
 ## Validate
 

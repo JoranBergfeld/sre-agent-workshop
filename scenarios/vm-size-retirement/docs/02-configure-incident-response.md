@@ -1,9 +1,22 @@
 # Module 2: Configure Incident Response
 
-Connect the SRE Agent to Azure Monitor and Azure Resource Graph with
-read-only investigation access. Give it this capsule's
+Connect the SRE Agent to Azure Monitor and Azure Resource Graph with the
+read-only access assigned to its own managed identity. Give it this capsule's
 [`knowledge/operational-guidelines.md`](../knowledge/operational-guidelines.md)
 and Resource Graph query.
+
+Before connecting Azure Monitor, complete the **Assign the actual SRE Agent
+identity** step in [01 Deploy infrastructure](./01-deploy-infrastructure.md).
+The `sreAgentPrincipalId` Bicep parameter assigns the SRE Agent's managed
+identity **Reader** and **Monitoring Reader** on `rg-srelabretirement`. The
+local Bash and PowerShell investigation tools use the operator's signed-in
+Azure CLI identity instead.
+
+Create the SRE Agent in the Azure SRE Agent portal for this subscription and
+resource group, then copy its managed identity's object (principal) ID. Re-run
+the scenario deployment with that ID before mapping `rg-srelabretirement` in
+the portal's Azure Resources configuration. This ensures the configured agent,
+not a capsule-created identity, can read Azure Monitor and Resource Graph data.
 
 ## Simulate the advisory
 

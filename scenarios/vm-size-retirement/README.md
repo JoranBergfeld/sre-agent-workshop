@@ -46,14 +46,10 @@ The validator intentionally fails until every retiring VM is migrated.
 
 ## Recovery contract
 
-Normal recovery is **one issue assigned to `@copilot` → Copilot PR → human
-merge/controlled deploy**. The issue must include the advisory, affected VM
-inventory, target SKU, deadline, and validation evidence. A human reviews the
-PR and chooses when to run the controlled deployment.
-
-Do not resize VMs directly during normal incident response. If the GitOps path
-is unavailable and an urgent resize is authorized, use the audited manual
-fallback:
+Normal remediation is approval-gated. The SRE Agent investigates and proposes
+the fleet resize, but it never performs the action. An authorized operator
+must supply a valid `CHG-<number>` or `INC-<number>` ticket and type exactly
+`APPROVE` at the local gate:
 
 ```bash
 ./scenarios/vm-size-retirement/scripts/tools/invoke-approved-remediation.sh \
@@ -65,5 +61,6 @@ fallback:
   -Action migrate-vm-size -ChangeTicket CHG-12345
 ```
 
-The fallback requires a valid `CHG-` or `INC-` ticket and an interactive
-`APPROVE` response. It records execution in `output/actions-audit.log`.
+The gate runs only `migrate-vm-size`, resizes the full retiring-SKU fleet, and
+records execution in `output/actions-audit.log`. Validate after the approved
+action completes.

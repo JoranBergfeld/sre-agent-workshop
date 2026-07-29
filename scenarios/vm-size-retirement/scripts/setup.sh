@@ -2,6 +2,7 @@
 set -uo pipefail
 
 LOCATION="eastus2"
+SRE_AGENT_PRINCIPAL_ID="${SRE_AGENT_PRINCIPAL_ID:-}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -9,8 +10,12 @@ while [ "$#" -gt 0 ]; do
       LOCATION="$2"
       shift 2
       ;;
+    -p|--sre-agent-principal-id)
+      SRE_AGENT_PRINCIPAL_ID="$2"
+      shift 2
+      ;;
     -h|--help)
-      echo "Usage: $0 [--location <azure-region>]"
+      echo "Usage: $0 [--location <azure-region>] [--sre-agent-principal-id <object-id>]"
       exit 0
       ;;
     *)
@@ -42,6 +47,14 @@ if az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name
   ok "Standard_B2s available in $LOCATION"
 else
   fail "Standard_B2s unavailable in $LOCATION"
+fi
+
+if [ -z "$SRE_AGENT_PRINCIPAL_ID" ]; then
+  echo "  INFO: no SRE Agent principal ID supplied; deployment will not assign SRE Agent roles."
+elif [[ "$SRE_AGENT_PRINCIPAL_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+  ok "SRE Agent principal ID format is valid"
+else
+  fail "SRE Agent principal ID must be an object ID GUID"
 fi
 
 exit "$errors"

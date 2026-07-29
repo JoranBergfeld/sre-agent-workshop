@@ -32,6 +32,9 @@ param adminUsername string = 'azureuser'
 @description('Admin password for Windows VMs')
 param adminPassword string
 
+@description('Object (principal) ID of the Azure SRE Agent managed identity. Leave blank only for the initial infrastructure deployment before the agent exists.')
+param sreAgentPrincipalId string = ''
+
 // 1. Monitoring must exist before VM agents emit telemetry.
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
@@ -65,13 +68,12 @@ module vm 'modules/vm.bicep' = {
   }
 }
 
-// 4. Read-only operations identity for investigation tooling.
+// 4. Least-privilege SRE Agent access. The module assigns roles to the actual
+// configured SRE Agent principal; it does not create a disconnected identity.
 module identity 'modules/identity.bicep' = {
   name: 'identity'
   params: {
-    location: location
-    workloadName: workloadName
-    tags: tags
+    sreAgentPrincipalId: sreAgentPrincipalId
   }
 }
 
@@ -87,8 +89,8 @@ output logAnalyticsWorkspaceId string = monitoring.outputs.logAnalyticsWorkspace
 @description('Application Insights connection string')
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
 
-@description('Operations User-Assigned Managed Identity client ID')
-output operationsIdentityClientId string = identity.outputs.uamiClientId
+@description('Whether least-privilege SRE Agent access was assigned during this deployment')
+output sreAgentAccessConfigured bool = identity.outputs.sreAgentAccessConfigured
 
 @description('Azure Bastion host name (operator access path)')
 output bastionName string = network.outputs.bastionName

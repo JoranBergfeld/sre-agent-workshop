@@ -46,9 +46,9 @@ else
   exit 1
 fi
 stage "Hypothesis" "Dv2/DSv2 VMs must be resized before the retirement date."
-stage "Propose" "Prepare one issue assigned to @copilot for the controlled migration plan."
-stage "AwaitApproval" "A human reviews the Copilot pull request and controls deployment."
-stage "Fallback" "If the GitOps route is unavailable, use the local approval gate with a CHG/INC ticket."
+stage "Propose" "Prepared the approval-gated migrate-vm-size action for the affected fleet."
+stage "AwaitApproval" "An authorized operator must provide a CHG/INC ticket and type exact APPROVE."
+stage "Execute" "Use the local approval gate; the SRE Agent does not execute remediation."
 
 cat > "$POSTMORTEM_PATH" <<EOF
 # VM Size Retirement Investigation
@@ -59,9 +59,9 @@ cat > "$POSTMORTEM_PATH" <<EOF
 
 ## Proposed recovery
 
-Create one issue assigned to @copilot with the affected VM inventory and
-deadline. A human reviews the Copilot pull request, merges it, and controls the
-deployment. Direct resizing is an approved manual fallback only.
+An authorized operator reviews the affected VM inventory and deadline, then
+uses the approval gate with a valid CHG/INC ticket and exact APPROVE response.
+The gate audits the fleet migration; the SRE Agent does not execute it.
 EOF
 
 echo "Investigation trace: $TRACE_PATH"

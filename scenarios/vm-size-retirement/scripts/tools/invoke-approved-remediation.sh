@@ -51,7 +51,7 @@ fi
 
 bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP"
 
-OUTPUT_DIR="$SCRIPT_DIR/../../output"
+OUTPUT_DIR="${SRE_OUTPUT_DIR:-$SCRIPT_DIR/../../output}"
 mkdir -p "$OUTPUT_DIR"
 TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 printf '{"timestamp":"%s","ticket":"%s","action":"%s","resourceGroup":"%s","scope":"all-retiring-vms","status":"executed"}\n' \

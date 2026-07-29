@@ -1,5 +1,6 @@
 param(
-    [string]$Location = "eastus2"
+    [string]$Location = "eastus2",
+    [string]$SreAgentPrincipalId = $env:SRE_AGENT_PRINCIPAL_ID
 )
 
 $errors = 0
@@ -29,6 +30,15 @@ if ($size -eq "Standard_B2s") {
     Write-Ok "Standard_B2s available in $Location"
 } else {
     Write-Fail "Standard_B2s unavailable in $Location"
+}
+
+$parsedPrincipalId = [guid]::Empty
+if ([string]::IsNullOrWhiteSpace($SreAgentPrincipalId)) {
+    Write-Host "  INFO: no SRE Agent principal ID supplied; deployment will not assign SRE Agent roles."
+} elseif ([guid]::TryParse($SreAgentPrincipalId, [ref]$parsedPrincipalId)) {
+    Write-Ok "SRE Agent principal ID format is valid"
+} else {
+    Write-Fail "SRE Agent principal ID must be an object ID GUID"
 }
 
 exit $errors

@@ -34,9 +34,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Stage "Correlate" "Resource Graph returned the affected VM inventory."
 Write-Output $result
 Write-Stage "Hypothesis" "Dv2/DSv2 VMs must be resized before the retirement date."
-Write-Stage "Propose" "Prepare one issue assigned to @copilot for the controlled migration plan."
-Write-Stage "AwaitApproval" "A human reviews the Copilot pull request and controls deployment."
-Write-Stage "Fallback" "If the GitOps route is unavailable, use the local approval gate with a CHG/INC ticket."
+Write-Stage "Propose" "Prepared the approval-gated migrate-vm-size action for the affected fleet."
+Write-Stage "AwaitApproval" "An authorized operator must provide a CHG/INC ticket and type exact APPROVE."
+Write-Stage "Execute" "Use the local approval gate; the SRE Agent does not execute remediation."
 
 @"
 # VM Size Retirement Investigation
@@ -47,9 +47,9 @@ Write-Stage "Fallback" "If the GitOps route is unavailable, use the local approv
 
 ## Proposed recovery
 
-Create one issue assigned to @copilot with the affected VM inventory and
-deadline. A human reviews the Copilot pull request, merges it, and controls the
-deployment. Direct resizing is an approved manual fallback only.
+An authorized operator reviews the affected VM inventory and deadline, then
+uses the approval gate with a valid CHG/INC ticket and exact APPROVE response.
+The gate audits the fleet migration; the SRE Agent does not execute it.
 "@ | Set-Content -Path $postmortemPath
 
 Write-Host "Investigation trace: $tracePath"
