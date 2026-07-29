@@ -8,6 +8,10 @@ on:
         description: 'Workload name (must match the infra deployment)'
         type: string
         default: srelab
+      imageTag:
+        description: 'Immutable Git SHA tag emitted by the Publish Workload Identity Break Image workflow'
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -19,7 +23,7 @@ jobs:
     env:
       SCENARIO_ROOT: scenarios/workload-identity-break
       WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
-      IMAGE_TAG: ${{ github.sha }}
+      IMAGE_TAG: ${{ inputs.imageTag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -143,6 +147,7 @@ jobs:
           {
             echo "### Deployment summary"
             echo ""
+            echo "- Published image tag: \`${IMAGE_TAG}\`"
             echo "- Immutable image: \`${IMAGE}\`"
             if [ -n "${IP:-}" ]; then
               echo "- App URL: ${APP_URL}"

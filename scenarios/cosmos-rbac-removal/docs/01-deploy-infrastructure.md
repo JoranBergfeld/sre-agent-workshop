@@ -29,7 +29,7 @@ The workflow deploys the following Azure resources to your subscription. All res
 - **OIDC Issuer:** Enabled (required for workload identity)
 - **Workload Identity:** Enabled (secure pod auth without storing secrets)
 
-> **⚠️ VM Size Note:** The default VM size (`Standard_D2ads_v6`) may not be available in every subscription or region. If the deployment fails with a "VM size not allowed" error, check the error message for a list of available sizes and update `workshops/aks/infra/bicep/modules/aks.bicep` (the `vmSize` property) accordingly. Any 2-vCPU general-purpose VM from the allowed list will work.
+> **⚠️ VM Size Note:** The default VM size (`Standard_D2ads_v6`) may not be available in every subscription or region. If the deployment fails with a "VM size not allowed" error, check the error message for a list of available sizes and update `scenarios/cosmos-rbac-removal/infra/bicep/modules/aks.bicep` (the `vmSize` property) accordingly. Any 2-vCPU general-purpose VM from the allowed list will work.
 
 ## Prerequisites: Register Azure Resource Providers
 
@@ -199,8 +199,8 @@ From the repository root, run:
 ```bash
 az deployment group create \
   --resource-group "rg-${WORKLOAD_NAME}" \
-  --template-file workshops/aks/infra/bicep/main.bicep \
-  --parameters workshops/aks/infra/bicep/main.bicepparam \
+  --template-file scenarios/cosmos-rbac-removal/infra/bicep/main.bicep \
+  --parameters scenarios/cosmos-rbac-removal/infra/bicep/main.bicepparam \
     location="${LOCATION}" \
     workloadName="${WORKLOAD_NAME}" \
   --query 'properties.outputs' \

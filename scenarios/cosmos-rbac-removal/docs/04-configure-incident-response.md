@@ -116,11 +116,11 @@ What you see is the **base** alert plus **one alert per scenario** (each scenari
 - **`srelab-container-restarts`** (base, always deployed) — fires when any container restarts more than 3 times in 5 minutes (queries `KubePodInventory`).
 - **One alert per scenario.** For example, `cosmos-rbac-removal` adds `srelab-http-500-errors` and `workload-identity-break` adds `srelab-workload-identity-auth-errors` (both query `ContainerLog`).
 
-The always-current list of scenarios lives in the [Scenarios catalog](../README.md#scenarios) — each scenario contributes its own alert.
+This capsule's scenario is `cosmos-rbac-removal`; its alert contributes to the generated infrastructure for this standalone workshop.
 
 > **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
-If the list is empty, re-run the **Deploy AKS Infrastructure** workflow from Module 1 — the alerts are defined in `workshops/aks/infra/bicep/main.bicep`.
+If the list is empty, re-run the **Deploy AKS Infrastructure** workflow from Module 1 — the alerts are defined in `scenarios/cosmos-rbac-removal/infra/bicep/main.bicep`.
 
 ## How It All Connects
 
@@ -146,9 +146,9 @@ For example, when you run the `cosmos-rbac-removal` scenario in Module 5, the ap
 
 ## What Happens Next
 
-In **Module 5: Break It**, you'll intentionally inject a fault, then watch the SRE Agent detect and diagnose it. Each Break It scenario is self-contained — pick one from the [Scenarios catalog](../README.md#scenarios) and follow its README (inject → validate → let the agent remediate → clean up).
+In **Module 5: Break It**, you'll intentionally inject this capsule's fault, then watch the SRE Agent detect and diagnose it. Follow the scenario [README](../README.md) (inject → validate → let the agent remediate → clean up).
 
-As an example, the [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/README.md) scenario edits the Bicep template to remove the CosmosDB role assignment. When the change deploys:
+The `cosmos-rbac-removal` scenario edits the Bicep template to remove the CosmosDB role assignment. When the change deploys:
 
 1. The app will start failing to authenticate to CosmosDB
 2. Azure Monitor will detect the error spike
@@ -159,4 +159,4 @@ Now that incident response is configured, you're ready to introduce the fault.
 
 ## Next Step
 
-→ **Module 5: Break It** — choose a scenario from the [Scenarios catalog](../README.md#scenarios). New to the workshop? Start with [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/README.md).
+→ **Module 5: Break It** — follow this scenario's [README](../README.md).

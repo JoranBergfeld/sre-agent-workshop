@@ -99,7 +99,7 @@ if az account show &>/dev/null; then
     fail "${VM_SIZE} is NOT available in ${LOCATION}"
     echo ""
     echo "  The default AKS node VM size (${VM_SIZE}) is not available in your"
-    echo "  subscription/region. You need to edit workshops/aks/infra/bicep/modules/aks.bicep"
+    echo "  subscription/region. You need to edit scenarios/cosmos-rbac-removal/infra/bicep/modules/aks.bicep"
     echo "  and change the 'vmSize' property to an available 2-vCPU size."
     echo ""
     echo "  Suggested alternatives (any 2-vCPU general-purpose VM will work):"

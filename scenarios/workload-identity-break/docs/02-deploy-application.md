@@ -8,7 +8,7 @@ You've got the infrastructure running. Now let's deploy the workshop web app to 
 
 **Quick tech summary:**
 
-- **Runtime:** Node.js/Express running in a container (image publicly published to GitHub Packages — no build needed, no authentication required to pull)
+- **Runtime:** Node.js/Express running in a scenario-specific GHCR container image
 - **Three endpoints:**
   - `GET /` — Landing page showing connection status and pod info
   - `GET /health` — Health check (used by Kubernetes liveness/readiness probes)
@@ -20,19 +20,20 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 
 ## Deploy via GitHub Actions
 
-1. **Go to your fork** on GitHub → **Actions** tab
-2. **Select the workflow:** `Deploy Application`
-3. **Click "Run workflow"** (dropdown in the upper right)
-4. Fill in the workflow inputs:
-   - **workloadName** (default: `srelab`) — **must match what you used in Module 1**. If you deployed infrastructure with a different name, use the same name here.
-5. **Click "Run workflow"** and wait for completion (~3–5 minutes)
+1. **Publish an immutable image first.** Run `Publish Workload Identity Break Image` from the **Actions** tab, or push an application change to `main`. It publishes `ghcr.io/<owner>/<repository>/workload-identity-break/app:<commit-sha>`. Copy the published commit SHA from that workflow run.
+2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a fine-grained (or classic) PAT with **Packages: read** access. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
+3. **Go to your fork** on GitHub → **Actions** tab and select `Deploy Workload Identity Break Application`.
+4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
+   - **workloadName** (default: `srelab`) — **must match what you used in Module 1**.
+   - **imageTag** — the published commit SHA from `Publish Workload Identity Break Image`.
+5. **Click "Run workflow"** and wait for completion (~3–5 minutes). The workflow preflights and deploys exactly `ghcr.io/<owner>/<repository>/workload-identity-break/app:<imageTag>`.
 
 **What the workflow does under the hood:**
 
 - Gets your AKS cluster credentials
 - Queries Azure for the UAMI client ID and CosmosDB endpoint (from Module 1 outputs)
 - Substitutes placeholders in the Kubernetes manifests (`${COSMOSDB_ENDPOINT}`)
-- Creates the workshop namespace, service account, deployment, and service
+- Creates or updates the `ghcr-pull` image-pull secret, workshop namespace, service account, deployment, and service
 - Waits for pods to be ready (rollout completion)
 
 ## Verify the Deployment
@@ -134,10 +135,10 @@ This usually means the cluster nodes don't have enough capacity. Check that Modu
 kubectl describe pod -n workshop <pod-name>
 # Look for the "Events" section — it will show the exact image URL and pull error
 ```
-The workflow pulls from `ghcr.io/<owner>/sre-agent-workshop/app:latest`. The image is publicly available — no authentication is needed. Common causes:
-- The `OWNER` placeholder wasn't substituted (check the image URL in the pod events)
-- The image hasn't been published yet for your fork — run the **Publish Container Image** workflow first (push any change to `workshops/aks/src/` on main, or run it manually)
-- A `latest-broken` tag exists for the fault-injection scenario in Module 5 — make sure you're using `latest` for initial deployment
+The workflow deploys `ghcr.io/<owner>/<repository>/workload-identity-break/app:<imageTag>` and pulls it using `ghcr-pull`. Common causes:
+- `GHCR_READ_TOKEN` is missing, expired, or lacks **Packages: read** access
+- The value entered for `imageTag` was not published by `Publish Workload Identity Break Image`
+- The pod spec is not using `ghcr-pull` (check the image URL and image pull secrets in the pod events)
 
 **`/items` returns 500 with auth error:**
 ```bash

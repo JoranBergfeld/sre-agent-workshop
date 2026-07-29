@@ -102,7 +102,7 @@ if ($acct) {
         Write-Fail "$vmSize is NOT available in $Location"
         Write-Host ""
         Write-Host "  The default AKS node VM size ($vmSize) is not available in your"
-        Write-Host "  subscription/region. You need to edit workshops/aks/infra/bicep/modules/aks.bicep"
+        Write-Host "  subscription/region. You need to edit scenarios/cosmos-rbac-removal/infra/bicep/modules/aks.bicep"
         Write-Host "  and change the 'vmSize' property to an available 2-vCPU size."
         Write-Host ""
         Write-Host "  Suggested alternatives (any 2-vCPU general-purpose VM will work):"

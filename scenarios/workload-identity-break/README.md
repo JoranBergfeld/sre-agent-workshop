@@ -36,7 +36,7 @@ Good? Let's break it.
 
 ## Make the Change
 
-1. **Open** `workshops/aks/infra/bicep/modules/identity.bicep` in your editor
+1. **Open** `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` in your editor
 2. **Find the federated identity credential** — look for this comment block:
    ```bicep
    // ──────────────────────────────────────────────
@@ -67,7 +67,7 @@ The UAMI and its CosmosDB role assignment still exist — but pods can no longer
 
 ```bash
 # Stage the change
-git add workshops/aks/infra/bicep/modules/identity.bicep
+git add scenarios/workload-identity-break/infra/bicep/modules/identity.bicep
 
 # Commit with a realistic message
 git commit -m "identity cleanup: remove stale federated credential"
@@ -187,6 +187,6 @@ If you're running this workshop with a group, this is a great moment for storyte
 
 ## Next Step
 
-→ **[Watch the SRE Agent Work](../../docs/90-watch-sre-agent.md)**
+→ **[Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
 In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow — correlating logs, reading your code, and opening a PR that restores the federated credential.

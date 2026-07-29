@@ -16,7 +16,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 - Apply temporary fixes outside of version control
 - Create branches or PRs yourself — delegate to `@copilot` via GitHub issues
 
-**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `workshops/aks/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
+**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `scenarios/workload-identity-break/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
 
 ## Architecture Overview
 
@@ -29,6 +29,6 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 If the app returns HTTP 500 with "RBAC permissions" errors on `/items`:
 - **Root cause**: The CosmosDB SQL role assignment for the UAMI is missing
-- **Where to fix**: `workshops/aks/infra/bicep/modules/identity.bicep` — the `cosmosRoleAssignment` resource block
+- **Where to fix**: `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` — the `cosmosRoleAssignment` resource block
 - **How to fix**: Create a GitHub issue with the title "Restore CosmosDB role assignment in identity.bicep" and assign it to `@copilot`
 - **Do NOT** run `az cosmosdb sql role assignment create` directly
