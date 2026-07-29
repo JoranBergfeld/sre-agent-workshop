@@ -6,6 +6,10 @@ This scenario introduces an **authentication** fault — a different failure cla
 
 > **Authn vs authz:** In `cosmos-rbac-removal` the identity was valid but lacked a *role* (authorization). Here the identity can't even obtain a *token* (authentication) — the failure happens one step earlier in the chain.
 
+## GHCR pull prerequisite
+
+Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a fine-grained (or classic) PAT that has **Packages: read** access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
+
 ## The Scenario
 
 > _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `srelab-id` with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._

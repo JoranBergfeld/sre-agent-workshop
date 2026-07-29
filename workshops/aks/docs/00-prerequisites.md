@@ -153,8 +153,11 @@ Your fork needs the service principal credentials as a GitHub Actions secret. An
 | Secret Name | Value | How to get it |
 |-------------|-------|--------------|
 | `AZURE_CREDENTIALS` | The full JSON block from the `az ad sp create-for-rbac` command | Run the command above and copy the entire JSON output |
+| `GHCR_READ_TOKEN` | A fine-grained (or classic) PAT with **Packages: read** access to the scenario GHCR packages | Create a GitHub PAT with read access; never commit or print it |
 
 > **Security note:** GitHub encrypts these secrets in transit and at rest. They're only exposed to workflows running in your repository and cannot be read back via the GitHub UI.
+
+The scenario deployment workflows use `GHCR_READ_TOKEN` to authenticate the immutable-image preflight and create the `ghcr-pull` Kubernetes secret. The scenario packages can remain private.
 
 ## Step 4: Configure Repository Variables (Optional)
 
@@ -213,6 +216,7 @@ Before moving to Module 1, verify:
 - [ ] Repository forked to your account
 - [ ] Service principal created and JSON saved
 - [ ] `AZURE_CREDENTIALS` secret added to your fork
+- [ ] `GHCR_READ_TOKEN` secret added with Packages read access to the scenario packages
 - [ ] `WORKLOAD_NAME` variable added to your fork (if using a custom name)
 - [ ] `AZURE_LOCATION` variable added to your fork (if using a non-default region)
 - [ ] Secrets and variables are visible in Settings → Secrets and variables → Actions

@@ -95,6 +95,10 @@ The authoritative contract is `schemas/scenario.schema.json`.
 - App: `src/app/server.js` (Express; `/`, `/health`, `/items`; `DefaultAzureCredential`). Image at
   `ghcr.io/<owner>/sre-agent-workshop/app:latest`; the `OWNER` placeholder in `k8s/deployment.yaml`
   is substituted by the publish workflow.
+- Scenario application deploy workflows require the repository secret `GHCR_READ_TOKEN`: a fine-grained
+  (or classic) PAT with Packages read access to the relevant GHCR packages. They authenticate immutable
+  image preflight checks and create the `workshop` namespace's `ghcr-pull` secret; do not make packages
+  public or expose the token.
 
 ### VM (`workshops/vm/`)
 
@@ -134,7 +138,8 @@ The authoritative contract is `schemas/scenario.schema.json`.
   on every `alert.bicep` + aggregator.
 - **Docs freshness:** `sre-docs-freshness.md` is the gh-aw **source**; `sre-docs-freshness.lock.yml`
   (and `.github/aw/actions-lock.json`) are generated — edit the `.md` and recompile with `gh aw compile`.
-- AKS and VM infrastructure deployments remain manual. App Service
+- AKS scenario application deploy workflows require `AZURE_CREDENTIALS` and `GHCR_READ_TOKEN`; the
+  latter must have Packages read access to the relevant private GHCR packages. AKS and VM infrastructure deployments remain manual. App Service
   infrastructure validation is credential-free, the Cloud Agent handover
   preview workflow is manual only, and the application deployment is automatic
   on qualifying pushes to `main`. In the Actions tab, refer to workflows by

@@ -24,10 +24,11 @@ spec:
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: workshop-app
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: web-app
-          # Container image publicly published to GitHub Packages.
-          # Attendees pull this public image — no build or auth required.
+          # Private GHCR image pulled with the ghcr-pull pod secret.
           image: ghcr.io/IMAGE_REPOSITORY/app:IMAGE_TAG
           ports:
             - containerPort: 3000

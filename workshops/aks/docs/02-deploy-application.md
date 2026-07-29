@@ -8,7 +8,7 @@ You've got the infrastructure running. Now let's deploy the workshop web app to 
 
 **Quick tech summary:**
 
-- **Runtime:** Node.js/Express running in a container (image publicly published to GitHub Packages — no build needed, no authentication required to pull)
+- **Runtime:** Node.js/Express running in a private GitHub Container Registry image (the deployment workflow authenticates pulls with `GHCR_READ_TOKEN`)
 - **Three endpoints:**
   - `GET /` — Landing page showing connection status and pod info
   - `GET /health` — Health check (used by Kubernetes liveness/readiness probes)
@@ -30,6 +30,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 **What the workflow does under the hood:**
 
 - Gets your AKS cluster credentials
+- Authenticates to GHCR and creates or updates the `ghcr-pull` Kubernetes image-pull secret
 - Queries Azure for the UAMI client ID and CosmosDB endpoint (from Module 1 outputs)
 - Substitutes placeholders in the Kubernetes manifests (`${COSMOSDB_ENDPOINT}`)
 - Creates the workshop namespace, service account, deployment, and service
@@ -134,7 +135,7 @@ This usually means the cluster nodes don't have enough capacity. Check that Modu
 kubectl describe pod -n workshop <pod-name>
 # Look for the "Events" section — it will show the exact image URL and pull error
 ```
-The workflow pulls from `ghcr.io/<owner>/sre-agent-workshop/app:latest`. The image is publicly available — no authentication is needed. Common causes:
+The scenario deployment workflows pull private immutable images from GHCR with the `ghcr-pull` secret. Confirm the repository `GHCR_READ_TOKEN` secret is a fine-grained (or classic) PAT with **Packages: read** access to the scenario packages. Common causes:
 - The `OWNER` placeholder wasn't substituted (check the image URL in the pod events)
 - The image hasn't been published yet for your fork — run the **Publish Container Image** workflow first (push any change to `workshops/aks/src/` on main, or run it manually)
 - A `latest-broken` tag exists for the fault-injection scenario in Module 5 — make sure you're using `latest` for initial deployment

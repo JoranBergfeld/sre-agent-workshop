@@ -4,6 +4,10 @@
 
 Time to introduce a realistic infrastructure fault. You'll remove a critical role assignment from the Bicep code that gives your app permission to access CosmosDB. When you deploy this change, the app will lose access to the database — causing 500 errors on the `/items` endpoint. This simulates a real-world scenario that operations teams encounter: a well-meaning engineer thinks they're cleaning up unused infrastructure and accidentally breaks production.
 
+## GHCR pull prerequisite
+
+Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a fine-grained (or classic) PAT that has **Packages: read** access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
+
 ## The Scenario
 
 > _A team member is reviewing the Bicep code during a cleanup initiative. They spot a role assignment on the CosmosDB account that they think might be leftover from an old project. No one is sure if it's needed, so they remove it, commit the change, and submit a PR. The code review looks good — the Bicep is syntactically valid. The PR gets merged. The team deploys the updated infrastructure. The deployment completes successfully._

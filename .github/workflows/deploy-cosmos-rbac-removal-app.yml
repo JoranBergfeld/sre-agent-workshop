@@ -24,15 +24,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Preflight public image
+      - name: Check GHCR read token
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GHCR_READ_TOKEN:-}" ]; then
+            echo "::error::Repository secret GHCR_READ_TOKEN is required. Set it to a fine-grained (or classic) PAT with Packages read access to this scenario's GHCR package."
+            exit 1
+          fi
+
+      - name: Preflight authenticated image
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         run: |
           set -euo pipefail
 
           IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/cosmos-rbac-removal"
           IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
 
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io --username="${{ github.repository_owner }}" --password-stdin >/dev/null
+
           if ! docker manifest inspect "${IMAGE}" >/dev/null; then
-            echo "::error::Unable to inspect public image ${IMAGE}"
+            echo "::error::Unable to inspect authenticated image ${IMAGE}"
             exit 1
           fi
 
@@ -47,6 +62,14 @@ jobs:
             --resource-group "rg-${{ env.WORKLOAD }}" \
             --name "${{ env.WORKLOAD }}-aks" \
             --overwrite-existing
+
+      - name: Create GHCR pull secret
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          kubectl create namespace workshop --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret docker-registry ghcr-pull --namespace workshop --docker-server=ghcr.io --docker-username="${{ github.repository_owner }}" --docker-password="$GHCR_READ_TOKEN" --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Fetch deployment values from Azure
         id: values
