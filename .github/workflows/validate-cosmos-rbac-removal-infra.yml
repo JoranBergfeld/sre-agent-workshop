@@ -1,0 +1,25 @@
+name: Validate Cosmos RBAC Removal Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cosmos-rbac-removal/infra/**'
+      - '.github/workflows/validate-cosmos-rbac-removal-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/cosmos-rbac-removal/infra/**'
+      - '.github/workflows/validate-cosmos-rbac-removal-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Bicep syntax
+        run: az bicep build --file scenarios/cosmos-rbac-removal/infra/bicep/main.bicep --stdout >/dev/null
