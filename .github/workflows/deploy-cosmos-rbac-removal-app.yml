@@ -19,9 +19,22 @@ jobs:
     env:
       SCENARIO_ROOT: scenarios/cosmos-rbac-removal
       WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelab' }}
+      IMAGE_TAG: ${{ github.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Preflight public image
+        run: |
+          set -euo pipefail
+
+          IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/cosmos-rbac-removal"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
+
+          if ! docker manifest inspect "${IMAGE}" >/dev/null; then
+            echo "::error::Unable to inspect public image ${IMAGE}"
+            exit 1
+          fi
 
       - name: Azure Login
         uses: azure/login@v2
@@ -55,7 +68,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ steps.values.outputs.uami_client_id }}
           COSMOSDB_ENDPOINT: ${{ steps.values.outputs.cosmos_endpoint }}
         run: |
+          set -euo pipefail
+
           IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/cosmos-rbac-removal"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
 
           kubectl apply -f "${SCENARIO_ROOT}/k8s/namespace.yaml"
 
@@ -64,6 +80,7 @@ jobs:
 
           sed -e "s|\${COSMOSDB_ENDPOINT}|${COSMOSDB_ENDPOINT}|g" \
               -e "s|IMAGE_REPOSITORY|${IMAGE_REPOSITORY}|g" \
+              -e "s|IMAGE_TAG|${IMAGE_TAG}|g" \
               "${SCENARIO_ROOT}/k8s/deployment.yaml" \
             | kubectl apply -f -
 
@@ -75,6 +92,11 @@ jobs:
       - name: Print app URL
         id: rollout
         run: |
+          set -euo pipefail
+
+          IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/cosmos-rbac-removal"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
+
           echo "Waiting for external IP (up to 60s)..."
           for i in $(seq 1 12); do
             IP=$(kubectl get svc web-app -n workshop -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
@@ -94,3 +116,12 @@ jobs:
             echo "External IP not yet assigned."
             echo "Run: kubectl get svc web-app -n workshop"
           fi
+
+          {
+            echo "### Deployment summary"
+            echo ""
+            echo "- Immutable image: \`${IMAGE}\`"
+            if [ -n "${IP:-}" ]; then
+              echo "- App URL: ${APP_URL}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -37,3 +37,32 @@ jobs:
           tags: |
             ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:latest
             ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:${{ github.sha }}
+
+      - name: Make container package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          repository_name="$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
+          package_name="${repository_name}/cosmos-rbac-removal/app"
+          encoded_package_name="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${package_name}")"
+
+          case '${{ github.event.repository.owner.type }}' in
+            User)
+              api_path="/user/packages/container/${encoded_package_name}/visibility"
+              ;;
+            Organization)
+              owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+              api_path="/orgs/${owner}/packages/container/${encoded_package_name}/visibility"
+              ;;
+            *)
+              echo "::error::Unsupported repository owner type: ${{ github.event.repository.owner.type }}"
+              exit 1
+              ;;
+          esac
+
+          if ! gh api -X PATCH "$api_path" -H "X-GitHub-Api-Version: 2022-11-28" -f visibility=public >/dev/null; then
+            echo "::error::Failed to make GHCR package public: ${package_name}"
+            exit 1
+          fi

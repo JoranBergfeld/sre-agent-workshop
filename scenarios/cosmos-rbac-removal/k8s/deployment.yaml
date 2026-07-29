@@ -3,6 +3,7 @@
 # Placeholders (substituted at deploy time via envsubst or sed):
 #   ${COSMOSDB_ENDPOINT} — CosmosDB account endpoint from Bicep outputs
 #   IMAGE_REPOSITORY — lowercase github.repository/cosmos-rbac-removal
+#   IMAGE_TAG — github.sha
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,7 +28,7 @@ spec:
         - name: web-app
           # Container image publicly published to GitHub Packages.
           # Attendees pull this public image — no build or auth required.
-          image: ghcr.io/IMAGE_REPOSITORY/app:latest
+          image: ghcr.io/IMAGE_REPOSITORY/app:IMAGE_TAG
           ports:
             - containerPort: 3000
           env:
