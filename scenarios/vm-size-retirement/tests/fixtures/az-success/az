@@ -10,6 +10,10 @@ fi
 
 if [ "${1:-}" = "vm" ] && [ "${2:-}" = "resize" ]; then
   printf '%s\n' "$*" >> "${AZ_SUCCESS_TRACE:?AZ_SUCCESS_TRACE must be set}"
+  if [[ " $* " == *" --name ${AZ_SUCCESS_FAIL_VM:-__none__} "* ]]; then
+    echo "simulated resize failure" >&2
+    exit 23
+  fi
   exit 0
 fi
 

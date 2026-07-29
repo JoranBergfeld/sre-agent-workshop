@@ -49,12 +49,82 @@ if [ "$APPROVAL" != "APPROVE" ]; then
   exit 1
 fi
 
-bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP"
-
 OUTPUT_DIR="${SRE_OUTPUT_DIR:-$SCRIPT_DIR/../../output}"
 mkdir -p "$OUTPUT_DIR"
-TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-printf '{"timestamp":"%s","ticket":"%s","action":"%s","resourceGroup":"%s","scope":"all-retiring-vms","status":"executed"}\n' \
-  "$TIMESTAMP" "$CHANGE_TICKET" "$ACTION" "$RESOURCE_GROUP" >> "$OUTPUT_DIR/actions-audit.log"
+ATTEMPT_ID="$(date -u '+%Y%m%dT%H%M%SZ')-$$"
+AUDIT_PATH="$OUTPUT_DIR/actions-audit.log"
+RESULT_FILE="$OUTPUT_DIR/.remediation-${ATTEMPT_ID}.result"
 
-echo "Approved remediation completed and audited."
+write_audit() {
+  local status="$1"
+  local completed="$2"
+  local failed_vm="$3"
+  local exit_code="$4"
+  local failed_vm_json="null"
+  if [ -n "$failed_vm" ]; then
+    failed_vm_json="\"$failed_vm\""
+  fi
+  printf '{"timestamp":"%s","attemptId":"%s","ticket":"%s","action":"%s","resourceGroup":"%s","scope":"all-retiring-vms","status":"%s","completedVms":%s,"failedVm":%s,"exitCode":%s}\n' \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$ATTEMPT_ID" "$CHANGE_TICKET" "$ACTION" "$RESOURCE_GROUP" \
+    "$status" "$completed" "$failed_vm_json" "$exit_code" >> "$AUDIT_PATH"
+}
+
+read_result() {
+  RESULT_STATUS=""
+  RESULT_COMPLETED="0"
+  RESULT_FAILED_VM=""
+  [ -f "$RESULT_FILE" ] || return 0
+  while IFS='=' read -r key value; do
+    case "$key" in
+      status) RESULT_STATUS="$value" ;;
+      completed) RESULT_COMPLETED="$value" ;;
+      failedVm) RESULT_FAILED_VM="$value" ;;
+    esac
+  done < "$RESULT_FILE"
+}
+
+MUTATION_STARTED=false
+TERMINAL_AUDITED=false
+
+audit_unexpected_exit() {
+  local exit_code=$?
+  trap - EXIT
+  if [ "$MUTATION_STARTED" = true ] && [ "$TERMINAL_AUDITED" = false ]; then
+    read_result || true
+    write_audit "failed" "$RESULT_COMPLETED" "$RESULT_FAILED_VM" "$exit_code" || true
+    rm -f "$RESULT_FILE"
+  fi
+  exit "$exit_code"
+}
+
+trap audit_unexpected_exit EXIT
+
+write_audit "approved" "0" "" "0"
+write_audit "started" "0" "" "0"
+MUTATION_STARTED=true
+
+if REMEDIATION_OUTPUT=$(SRE_REMEDIATION_RESULT_FILE="$RESULT_FILE" bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP" 2>&1); then
+  read_result
+  if [ "$RESULT_STATUS" != "succeeded" ]; then
+    write_audit "failed" "$RESULT_COMPLETED" "$RESULT_FAILED_VM" "1"
+    TERMINAL_AUDITED=true
+    rm -f "$RESULT_FILE"
+    printf '%s\n' "$REMEDIATION_OUTPUT"
+    echo "Approved remediation failed after completed $RESULT_COMPLETED VM(s); failed VM: ${RESULT_FAILED_VM:-unknown}." >&2
+    exit 1
+  fi
+  write_audit "succeeded" "$RESULT_COMPLETED" "" "0"
+  TERMINAL_AUDITED=true
+  rm -f "$RESULT_FILE"
+  printf '%s\n' "$REMEDIATION_OUTPUT"
+  echo "Approved remediation completed and audited."
+else
+  EXIT_CODE=$?
+  read_result
+  write_audit "failed" "$RESULT_COMPLETED" "$RESULT_FAILED_VM" "$EXIT_CODE"
+  TERMINAL_AUDITED=true
+  rm -f "$RESULT_FILE"
+  printf '%s\n' "$REMEDIATION_OUTPUT"
+  echo "Approved remediation failed after completed $RESULT_COMPLETED VM(s); failed VM: ${RESULT_FAILED_VM:-unknown}." >&2
+  exit "$EXIT_CODE"
+fi

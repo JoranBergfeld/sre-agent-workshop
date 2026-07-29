@@ -56,6 +56,7 @@ foreach ($vm in $legacyVms) {
 foreach ($vm in $legacyVms) {
     Invoke-Az vm wait --resource-group $ResourceGroup --name $vm.Name --created --only-show-errors | Out-Null
     Invoke-Az vm deallocate --resource-group $ResourceGroup --name $vm.Name --no-wait --only-show-errors | Out-Null
+    Invoke-Az vm wait --resource-group $ResourceGroup --name $vm.Name --deallocated --only-show-errors | Out-Null
 }
 
 $subscriptionId = Invoke-Az account show --query id -o tsv

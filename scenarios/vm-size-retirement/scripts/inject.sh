@@ -61,6 +61,7 @@ printf '%s\n' "$LEGACY_VMS" | while IFS='|' read -r vm _; do
   [ -z "$vm" ] && continue
   az vm wait --resource-group "$RESOURCE_GROUP" --name "$vm" --created --only-show-errors >/dev/null
   az vm deallocate --resource-group "$RESOURCE_GROUP" --name "$vm" --no-wait --only-show-errors >/dev/null
+  az vm wait --resource-group "$RESOURCE_GROUP" --name "$vm" --deallocated --only-show-errors >/dev/null
 done
 
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)

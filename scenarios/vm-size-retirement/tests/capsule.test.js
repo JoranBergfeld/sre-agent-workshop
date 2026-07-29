@@ -1,14 +1,17 @@
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
   unlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -73,6 +76,17 @@ function createTemporaryAuditDirectory(t) {
   });
 
   return requestedOutputDirectory;
+}
+
+function replaceScriptForTest(t, scriptPath, replacement) {
+  const original = readFileSync(scriptPath, 'utf8');
+  const mode = statSync(scriptPath).mode;
+  writeFileSync(scriptPath, replacement);
+  chmodSync(scriptPath, mode);
+  t.after(() => {
+    writeFileSync(scriptPath, original);
+    chmodSync(scriptPath, mode);
+  });
 }
 
 function collectScripts(directory) {
@@ -221,6 +235,36 @@ for (const [label, command, arguments_] of [
   });
 }
 
+test('Bash approval gate writes a terminal failure audit when remediation exits without progress', (t) => {
+  const outputDirectory = createTemporaryAuditDirectory(t);
+  const remediationPath = capsulePath('scripts/remediation/migrate-vm-size.sh');
+  replaceScriptForTest(t, remediationPath, '#!/usr/bin/env bash\nexit 70\n');
+
+  const result = run(
+    'bash',
+    [
+      capsulePath('scripts/tools/invoke-approved-remediation.sh'),
+      '--action',
+      'migrate-vm-size',
+      '--change-ticket',
+      'CHG-70707',
+    ],
+    {
+      env: { SRE_OUTPUT_DIR: outputDirectory },
+      input: 'APPROVE\n',
+    },
+  );
+
+  assert.equal(result.status, 70, result.stderr);
+  const auditEntries = readFileSync(resolve(outputDirectory, 'actions-audit.log'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+  assert.deepEqual(auditEntries.map((entry) => entry.status), ['approved', 'started', 'failed']);
+  assert.equal(auditEntries[2].exitCode, 70);
+  assert.equal(auditEntries[2].completedVms, 0);
+});
+
 for (const [label, command, arguments_] of [
   [
     'Bash',
@@ -308,9 +352,21 @@ test('approval gates migrate with mocked Azure CLI and write only temporary audi
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line));
-  assert.deepEqual(auditEntries.map((entry) => entry.ticket), ['CHG-12345', 'INC-67890']);
-  assert.ok(auditEntries.every((entry) => entry.action === 'migrate-vm-size'));
-  assert.ok(auditEntries.every((entry) => entry.scope === 'all-retiring-vms'));
+  assert.deepEqual(
+    auditEntries.map(({ ticket, status }) => ({ ticket, status })),
+    [
+      { ticket: 'CHG-12345', status: 'approved' },
+      { ticket: 'CHG-12345', status: 'started' },
+      { ticket: 'CHG-12345', status: 'succeeded' },
+      { ticket: 'INC-67890', status: 'approved' },
+      { ticket: 'INC-67890', status: 'started' },
+      { ticket: 'INC-67890', status: 'succeeded' },
+    ],
+  );
+  const terminalEntries = auditEntries.filter((entry) => entry.status === 'succeeded');
+  assert.ok(terminalEntries.every((entry) => entry.action === 'migrate-vm-size'));
+  assert.ok(terminalEntries.every((entry) => entry.scope === 'all-retiring-vms'));
+  assert.ok(terminalEntries.every((entry) => entry.completedVms === 2));
   assert.equal(readFileSync(tracePath, 'utf8').trim().split('\n').length, 4);
 });
 
@@ -340,13 +396,120 @@ test('PowerShell approval gate audits an approved no-op migration', (t) => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Nothing to migrate/);
-  const [entry] = readFileSync(resolve(outputDirectory, 'actions-audit.log'), 'utf8')
+  const entries = readFileSync(resolve(outputDirectory, 'actions-audit.log'), 'utf8')
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line));
-  assert.equal(entry.ticket, 'CHG-24680');
-  assert.equal(entry.status, 'executed');
+  assert.deepEqual(entries.map((entry) => entry.status), ['approved', 'started', 'succeeded']);
+  assert.equal(entries[2].ticket, 'CHG-24680');
+  assert.equal(entries[2].completedVms, 0);
 });
+
+for (const [label, command, arguments_] of [
+  [
+    'Bash',
+    'bash',
+    [
+      capsulePath('scripts/tools/invoke-approved-remediation.sh'),
+      '--action',
+      'migrate-vm-size',
+      '--change-ticket',
+      'CHG-13579',
+    ],
+  ],
+  [
+    'PowerShell',
+    'pwsh',
+    [
+      '-NoProfile',
+      '-File',
+      capsulePath('scripts/tools/Invoke-ApprovedRemediation.ps1'),
+      '-Action',
+      'migrate-vm-size',
+      '-ChangeTicket',
+      'INC-97531',
+    ],
+  ],
+]) {
+  test(`${label} approval gate records partial migration failure before propagating it`, (t) => {
+    const outputDirectory = createTemporaryAuditDirectory(t);
+    const fixtureDirectory = capsulePath('tests/fixtures/az-success');
+    const tracePath = resolve(outputDirectory, 'az-partial.log');
+    const result = run(command, arguments_, {
+      env: {
+        PATH: `${fixtureDirectory}:${process.env.PATH}`,
+        SRE_OUTPUT_DIR: outputDirectory,
+        AZ_SUCCESS_TRACE: tracePath,
+        AZ_SUCCESS_FAIL_VM: 'srelabretirement-legacy-02',
+      },
+      input: 'APPROVE\n',
+    });
+
+    assert.notEqual(result.status, 0);
+    const auditEntries = readFileSync(resolve(outputDirectory, 'actions-audit.log'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    assert.deepEqual(auditEntries.map((entry) => entry.status), ['approved', 'started', 'failed']);
+    assert.equal(auditEntries[2].completedVms, 1);
+    assert.equal(auditEntries[2].failedVm, 'srelabretirement-legacy-02');
+    assert.equal(auditEntries[2].exitCode, 23);
+    assert.match(`${result.stdout}\n${result.stderr}`, /completed 1[\s\S]*srelabretirement-legacy-02/i);
+  });
+}
+
+for (const [label, command, arguments_] of [
+  [
+    'Bash',
+    'bash',
+    [capsulePath('scripts/inject.sh')],
+  ],
+  [
+    'PowerShell',
+    'pwsh',
+    ['-NoProfile', '-File', capsulePath('scripts/inject.ps1')],
+  ],
+]) {
+  test(`${label} injector waits for every VM to deallocate before reporting readiness`, (t) => {
+    const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
+    const fixtureDirectory = capsulePath('tests/fixtures/az-inject');
+    const tracePath = resolve(temporaryRoot, 'az-inject.log');
+    t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+
+    const result = run(command, arguments_, {
+      env: {
+        PATH: `${fixtureDirectory}:${process.env.PATH}`,
+        AZ_INJECT_TRACE: tracePath,
+      },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Simulated Azure Service Health advisory/);
+    const deallocatedWaits = readFileSync(tracePath, 'utf8')
+      .split('\n')
+      .filter((line) => line.includes('vm wait') && line.includes('--deallocated'));
+    assert.equal(deallocatedWaits.length, 3);
+  });
+
+  test(`${label} injector propagates a deallocated wait failure without reporting readiness`, (t) => {
+    const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
+    const fixtureDirectory = capsulePath('tests/fixtures/az-inject');
+    const tracePath = resolve(temporaryRoot, 'az-inject.log');
+    t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+
+    const result = run(command, arguments_, {
+      env: {
+        PATH: `${fixtureDirectory}:${process.env.PATH}`,
+        AZ_INJECT_TRACE: tracePath,
+        AZ_INJECT_FAIL_DEALLOCATED: '1',
+      },
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.doesNotMatch(result.stdout, /Simulated Azure Service Health advisory/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /deallocated wait failure|failed with exit code 42/i);
+  });
+}
 
 for (const [label, command, arguments_] of [
   [
