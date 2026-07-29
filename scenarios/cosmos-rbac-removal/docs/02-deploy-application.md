@@ -25,7 +25,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 3. **Go to your fork** on GitHub → **Actions** tab and select `Deploy Cosmos RBAC Removal Application`.
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
    - **workloadName** (default: `srelab`) — **must match what you used in Module 1**.
-   - **imageTag** — the published commit SHA from `Publish Cosmos RBAC Removal Image`.
+   - **imageTag** — the published full 40-character lowercase Git SHA from `Publish Cosmos RBAC Removal Image` (for example, `0123456789abcdef0123456789abcdef01234567`).
 5. **Click "Run workflow"** and wait for completion (~3–5 minutes). The workflow preflights and deploys exactly `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app:<imageTag>`.
 
 **What the workflow does under the hood:**

@@ -28,6 +28,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate image tag
+        run: |
+          set -euo pipefail
+          if [[ ! "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::imageTag must be a full 40-character lowercase Git SHA published by the scenario image workflow."
+            exit 2
+          fi
+
       - name: Check GHCR read token
         env:
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
@@ -47,10 +55,11 @@ jobs:
           IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/workload-identity-break"
           IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
 
-          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
-          printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io --username="${{ github.repository_owner }}" --password-stdin >/dev/null
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
 
-          if ! docker manifest inspect "${IMAGE}" >/dev/null; then
+          if ! docker --config "$DOCKER_CONFIG" manifest inspect "${IMAGE}" >/dev/null; then
             echo "::error::Unable to inspect authenticated image ${IMAGE}"
             exit 1
           fi
@@ -72,8 +81,12 @@ jobs:
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         run: |
           set -euo pipefail
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
+
           kubectl create namespace workshop --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret docker-registry ghcr-pull --namespace workshop --docker-server=ghcr.io --docker-username="${{ github.repository_owner }}" --docker-password="$GHCR_READ_TOKEN" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic ghcr-pull --namespace workshop --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG/config.json" --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Fetch deployment values from Azure
         id: values
