@@ -1,0 +1,36 @@
+id: iis-app-pool
+title: IIS App Pool Failure
+platform: Azure Virtual Machines
+incidentType: Web service availability
+summary: The IIS application pool is stopped, returning 503s until the pool is restarted.
+severity: 2
+estimatedMinutes: 20
+difficulty: beginner
+costProfile: high
+learningObjectives:
+  - Detect a stopped IIS app pool from Windows Event telemetry.
+  - Restart the pool through the approval gate.
+guide: README.md
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
+signal:
+  alertModule: infra/bicep/modules/alert.bicep
+  alertName: vm-iis-app-pool-failure
+inject:
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
+validate:
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1
+remediate:
+  - action: start-iis-app-pool
+    bash: scripts/remediation/start-iis-app-pool.sh
+    powershell: scripts/remediation/start-iis-app-pool.ps1
+    description: Start the stopped IIS application pool.
+investigation:
+  query: investigation/query.kql
+tests: tests

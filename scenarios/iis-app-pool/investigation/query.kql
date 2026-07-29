@@ -1,0 +1,4 @@
+Event
+| where Computer has "{{VM_NAME}}"
+| where RenderedDescription has "stopped" or Source has "IIS"
+| top 5 by TimeGenerated desc
