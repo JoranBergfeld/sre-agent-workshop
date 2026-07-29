@@ -1,0 +1,81 @@
+name: Deploy Workload Identity Break Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: 'Azure region'
+        type: choice
+        options:
+          - eastus2
+          - swedencentral
+          - australiaeast
+        default: eastus2
+      workloadName:
+        description: 'Workload name (used in resource naming)'
+        type: string
+        default: srelabidentity
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SCENARIO_ROOT: scenarios/workload-identity-break
+      LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabidentity' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name "rg-${{ env.WORKLOAD }}" \
+            --location "${{ env.LOCATION }}" \
+            --tags scenario=workload-identity-break environment=demo
+
+      - name: Deploy Bicep template
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group "rg-${{ env.WORKLOAD }}" \
+            --template-file "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicep" \
+            --parameters "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicepparam" \
+              location="${{ env.LOCATION }}" \
+              workloadName="${{ env.WORKLOAD }}" \
+              tags='{"scenario":"workload-identity-break","environment":"demo"}' \
+            --query 'properties.outputs' \
+            -o json > deployment-outputs.json
+
+          cat deployment-outputs.json
+
+          echo "aks_name=$(jq -r '.aksClusterName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "cosmos_endpoint=$(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "uami_client_id=$(jq -r '.uamiClientId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "appinsights_cs=$(jq -r '.appInsightsConnectionString.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Print deployment summary
+        run: |
+          echo "============================================"
+          echo "  Workload Identity Break Infrastructure Complete"
+          echo "============================================"
+          echo "Resource Group:      rg-${{ env.WORKLOAD }}"
+          echo "Location:            ${{ env.LOCATION }}"
+          echo "AKS Cluster:         ${{ steps.deploy.outputs.aks_name }}"
+          echo "CosmosDB Endpoint:   ${{ steps.deploy.outputs.cosmos_endpoint }}"
+          echo "UAMI Client ID:      ${{ steps.deploy.outputs.uami_client_id }}"
+          echo "Log Analytics ID:    ${{ steps.deploy.outputs.law_id }}"
+          echo "App Insights CS:     ${{ steps.deploy.outputs.appinsights_cs }}"
+          echo "Scenario guide:      ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/scenarios/workload-identity-break/README.md"
+          echo "Next: Run 'Deploy Workload Identity Break Application' and follow scenarios/workload-identity-break/README.md."
+          echo "============================================"

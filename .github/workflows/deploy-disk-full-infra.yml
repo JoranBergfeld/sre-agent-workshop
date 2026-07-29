@@ -1,0 +1,96 @@
+name: Deploy Disk Full Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: 'Azure region'
+        type: choice
+        options:
+          - eastus2
+          - swedencentral
+          - australiaeast
+        default: eastus2
+      workloadName:
+        description: 'Workload name (used in resource naming)'
+        type: string
+        default: srelabdiskfull
+      adminUsername:
+        description: 'Windows VM admin username'
+        type: string
+        default: azureuser
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SCENARIO_ROOT: scenarios/disk-full
+      LOCATION: ${{ inputs.location || vars.AZURE_LOCATION || 'eastus2' }}
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabdiskfull' }}
+      ADMIN_USERNAME: ${{ inputs.adminUsername || 'azureuser' }}
+      ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate VM admin password secret
+        run: |
+          if [ -z "${ADMIN_PASSWORD}" ]; then
+            echo "::error::Missing repository secret VM_ADMIN_PASSWORD"
+            exit 1
+          fi
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name "rg-${{ env.WORKLOAD }}" \
+            --location "${{ env.LOCATION }}" \
+            --tags scenario=disk-full environment=demo
+
+      - name: Deploy Disk Full Bicep template
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group "rg-${{ env.WORKLOAD }}" \
+            --template-file "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicep" \
+            --parameters "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicepparam" \
+              location="${{ env.LOCATION }}" \
+              workloadName="${{ env.WORKLOAD }}" \
+              adminUsername="${{ env.ADMIN_USERNAME }}" \
+              adminPassword="${{ env.ADMIN_PASSWORD }}" \
+              tags='{"scenario":"disk-full","environment":"demo"}' \
+            --query 'properties.outputs' \
+            -o json > disk-full-deployment-outputs.json
+
+          cat disk-full-deployment-outputs.json
+          echo "vm_names=$(jq -rc '.vmNames.value' disk-full-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' disk-full-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "vm_computer_names=$(jq -rc '.vmComputerNames.value' disk-full-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' disk-full-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "bastion_name=$(jq -r '.bastionName.value' disk-full-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Print deployment summary
+        run: |
+          echo "============================================"
+          echo "  Disk Full Infrastructure Deployment Complete"
+          echo "============================================"
+          echo "Resource Group:    rg-${{ env.WORKLOAD }}"
+          echo "Location:          ${{ env.LOCATION }}"
+          echo "VM Names:          ${{ steps.deploy.outputs.vm_names }}"
+          echo "VM Private IPs:    ${{ steps.deploy.outputs.vm_private_ips }}"
+          echo "Computer Names:    ${{ steps.deploy.outputs.vm_computer_names }}"
+          echo "Bastion Host:      ${{ steps.deploy.outputs.bastion_name }}"
+          echo "Log Analytics ID:  ${{ steps.deploy.outputs.law_id }}"
+          echo "Scenario guide:    ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/scenarios/disk-full/README.md"
+          echo "============================================"
+          echo ""
+          echo "Next: follow scenarios/disk-full/README.md."

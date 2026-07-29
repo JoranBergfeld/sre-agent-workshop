@@ -1,59 +1,89 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { WORKSHOPS_DIR } from '../lib/paths.js';
-import { listTracks, scenarioDirs, loadScenario } from '../lib/scenarios.js';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
+import yaml from 'js-yaml';
+import { ROOT_README } from '../lib/paths.js';
+import { scenarioCandidateDirs } from '../lib/scenarios.js';
 import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
-import { renderIndex, renderAggregator, renderReadmeBlock, README_BEGIN, README_END } from '../lib/generate.js';
+import { extractCatalogBlock, renderCatalog } from '../lib/generate.js';
 
 const fileExists = (p) => existsSync(p);
 const isExecutable = (p) => {
-  try { return (statSync(p).mode & 0o111) !== 0; } catch { return false; }
+  try {
+    return (statSync(p).mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
 };
 
+const quietSuccess = process.argv.slice(2).includes('--quiet-success');
 const validate = makeValidator();
+const scenarios = [];
 let failed = false;
-const fail = (msg) => { console.error(`✖ ${msg}`); failed = true; };
+const fail = (msg) => {
+  console.error(`✖ ${msg}`);
+  failed = true;
+};
 
-for (const track of listTracks()) {
-  const scenarios = scenarioDirs(track).map(loadScenario);
+for (const dir of scenarioCandidateDirs()) {
+  const id = basename(dir);
+  const manifestPath = resolve(dir, 'scenario.yaml');
+  if (!existsSync(manifestPath)) {
+    fail(`${id}: missing required file scenario.yaml`);
+    continue;
+  }
 
-  for (const s of scenarios) {
-    if (!validate(s.manifest)) {
-      for (const e of validate.errors) fail(`${track}/${s.id}: schema ${e.instancePath || '/'} ${e.message}`);
-      continue;
+  let manifest;
+  try {
+    manifest = yaml.load(readFileSync(manifestPath, 'utf8'));
+  } catch (error) {
+    fail(`${id}: invalid scenario.yaml: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
+
+  const scenario = { id, dir, manifest };
+
+  if (!validate(scenario.manifest)) {
+    for (const error of validate.errors) {
+      fail(`${scenario.id}: schema ${error.instancePath || '/'} ${error.message}`);
     }
-    for (const e of checkScenario(s, { fileExists, isExecutable })) fail(`${track}/${s.id}: ${e}`);
+    continue;
   }
 
-  for (const dup of findDuplicateActions(scenarios)) {
-    fail(`${track}: remediation action "${dup.action}" is defined by multiple scenarios (${dup.ids.join(', ')}); action names must be unique per track`);
+  let isValidScenario = true;
+
+  for (const error of checkScenario(scenario, { fileExists, isExecutable, realpath: realpathSync })) {
+    fail(`${scenario.id}: ${error}`);
+    isValidScenario = false;
   }
 
-  const trackDir = resolve(WORKSHOPS_DIR, track);
-
-  const indexPath = resolve(trackDir, 'scenarios', 'INDEX.md');
-  if (!existsSync(indexPath) || readFileSync(indexPath, 'utf8') !== renderIndex(track, scenarios)) {
-    fail(`${track}: scenarios/INDEX.md is stale — run scripts/validate-scenarios.sh --write`);
+  for (const action of findDuplicateActions(scenario.manifest)) {
+    fail(`${scenario.id}: remediation action "${action}" is defined more than once within the manifest`);
+    isValidScenario = false;
   }
 
-  const modulesDir = resolve(trackDir, 'infra', 'bicep', 'modules');
-  if (existsSync(modulesDir)) {
-    const aggPath = resolve(modulesDir, 'scenario-alerts.bicep');
-    if (!existsSync(aggPath) || readFileSync(aggPath, 'utf8') !== renderAggregator(track, scenarios)) {
-      fail(`${track}: modules/scenario-alerts.bicep is stale — run scripts/validate-scenarios.sh --write`);
-    }
-  }
-
-  const readmePath = resolve(trackDir, 'README.md');
-  if (existsSync(readmePath)) {
-    const src = readFileSync(readmePath, 'utf8');
-    const re = new RegExp(`${README_BEGIN}[\\s\\S]*?${README_END}`);
-    const m = src.match(re);
-    if (m && m[0] !== renderReadmeBlock(scenarios).trimEnd()) {
-      fail(`${track}: README scenario table is stale — run scripts/validate-scenarios.sh --write`);
-    }
+  if (isValidScenario) {
+    scenarios.push(scenario);
   }
 }
 
-if (failed) { console.error('\nScenario validation FAILED'); process.exit(1); }
-console.log('Scenario validation passed');
+if (existsSync(ROOT_README)) {
+  const src = readFileSync(resolve(ROOT_README), 'utf8');
+  try {
+    const block = extractCatalogBlock(src);
+    const expected = renderCatalog(scenarios).trimEnd();
+    if (block !== expected) {
+      fail(`root: README scenario catalog is stale — run scripts/validate-scenarios.sh --write`);
+    }
+  } catch (error) {
+    fail(`root: README scenario catalog ${error.message}`);
+  }
+}
+
+if (failed) {
+  console.error('\nScenario validation FAILED');
+  process.exit(1);
+}
+
+if (!quietSuccess) {
+  console.log('Scenario validation passed');
+}

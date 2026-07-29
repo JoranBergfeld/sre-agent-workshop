@@ -2,15 +2,23 @@ name: Validate Scenarios
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'workshops/**/scenarios/**'
+      - 'README.md'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
+      - 'scripts/validate-scenarios.sh'
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scenarios/**'
   pull_request:
     paths:
-      - 'workshops/**/scenarios/**'
+      - 'README.md'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
+      - 'scripts/validate-scenarios.sh'
+      - '.github/workflows/validate-scenarios.yml'
+      - 'scenarios/**'
 
 permissions:
   contents: read
@@ -25,6 +33,10 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Install scenario-tools
         working-directory: scripts/scenario-tools
         run: npm ci
@@ -34,15 +46,98 @@ jobs:
         run: npm test
 
       - name: Validate scenarios (schema + drift)
-        run: node scripts/scenario-tools/bin/validate.js
+        run: scripts/validate-scenarios.sh
+
+      - name: Run scenario capsule tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' manifest; do
+            scenario_dir="$(dirname "$manifest")"
+            scenario_id="$(basename "$scenario_dir")"
+            [[ "$scenario_id" == _* || "$scenario_id" == .* ]] && continue
+
+            if ! test_target="$(node scripts/scenario-tools/bin/print-test-target.js "$manifest")"; then
+              exit 1
+            fi
+            [ -n "$test_target" ] || continue
+
+            recognized=0
+            while IFS= read -r -d '' test_file; do
+              test_name="$(basename -- "$test_file")"
+              case "$test_name" in
+                # test-*.sh retains the existing CPU capsule test convention.
+                *.test.sh|test-*.sh)
+                  if [ ! -x "$test_file" ]; then
+                    echo "::error file=$test_file::Bash scenario tests must be executable"
+                    exit 1
+                  fi
+                  echo "Running Bash test $test_file"
+                  bash "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.test.js)
+                  echo "Running Node test $test_file"
+                  node --test "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.csproj)
+                  echo "Running .NET test project $test_file"
+                  dotnet test "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.test.ps1|test-*.ps1)
+                  echo "::error file=$test_file::PowerShell scenario tests are not supported on ubuntu-latest"
+                  exit 1
+                  ;;
+                *.test.*|test-*.*)
+                  echo "::error file=$test_file::Unsupported scenario test extension"
+                  exit 1
+                  ;;
+              esac
+            done < <(find "$test_target" -type f -print0 | sort -z)
+
+            if [ "$recognized" -eq 0 ]; then
+              echo "::error file=$manifest::No recognized test files under declared tests path $test_target"
+              exit 1
+            fi
+          done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0 | sort -z)
 
       - name: Set up Bicep
         run: az bicep install
 
-      - name: Build all scenario + aggregator bicep
+      - name: Build validated scenario artifacts
         run: |
-          shopt -s nullglob
-          for f in workshops/*/scenarios/*/alert.bicep workshops/*/infra/bicep/modules/scenario-alerts.bicep; do
-            echo "Building $f"
-            az bicep build --file "$f" --stdout > /dev/null
+          set -euo pipefail
+          declare -A built_mains=()
+          declare -A built_bicep_files=()
+
+          if [ -d scenarios ]; then
+            while IFS= read -r -d '' manifest; do
+              scenario_dir="$(dirname "$manifest")"
+              main_bicep="$scenario_dir/infra/bicep/main.bicep"
+              if [ ! -f "$main_bicep" ]; then
+                echo "::error file=$manifest::Missing Bicep entry point: $main_bicep"
+                exit 1
+              fi
+              if [[ -z "${built_mains["$main_bicep"]+x}" ]]; then
+                built_mains["$main_bicep"]=1
+                built_bicep_files["$main_bicep"]=1
+              fi
+              alert_module="$scenario_dir/infra/bicep/modules/alert.bicep"
+              if [ -f "$alert_module" ]; then
+                built_bicep_files["$alert_module"]=1
+              fi
+              service_health_alert="$scenario_dir/infra/bicep/service-health-alert.bicep"
+              if [ -f "$service_health_alert" ]; then
+                built_bicep_files["$service_health_alert"]=1
+              fi
+            done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0)
+          fi
+
+          printf '%s\n' "${!built_mains[@]}" "${!built_bicep_files[@]}" | sort -u | while IFS= read -r bicep_file; do
+            [ -n "$bicep_file" ] || continue
+            echo "Building $bicep_file"
+            az bicep build --file "$bicep_file" --stdout > /dev/null
           done

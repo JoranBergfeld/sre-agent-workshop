@@ -1,11 +1,11 @@
-name: Deploy App Service Application
+name: Deploy Cloud Agent Handover Application
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/src/**'
-      - 'workshops/appservice/tests/**'
+      - 'scenarios/cloud-agent-handover/src/**'
+      - 'scenarios/cloud-agent-handover/tests/**'
   workflow_dispatch:
 
 permissions:
@@ -25,10 +25,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Test application
-        run: dotnet test workshops/appservice/tests/HandoverApp.Tests.csproj
+        run: dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
 
       - name: Publish application
-        run: dotnet publish workshops/appservice/src/HandoverApp.csproj --configuration Release --output publish
+        run: dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj --configuration Release --output publish
 
       - name: Create deployment archive
         working-directory: publish

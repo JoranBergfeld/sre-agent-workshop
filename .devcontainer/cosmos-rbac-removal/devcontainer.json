@@ -1,0 +1,30 @@
+{
+  "name": "SRE Scenario — Cosmos RBAC Removal",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/azure-cli:1": { "installBicep": true },
+    "ghcr.io/devcontainers/features/powershell:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": { "helm": "none", "minikube": "none" }
+  },
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y jq",
+  "postCreateCommand": "npm --prefix scripts/scenario-tools ci && npm --prefix scenarios/cosmos-rbac-removal/src/app ci",
+  "forwardPorts": [3000],
+  "hostRequirements": { "cpus": 4 },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-bicep",
+        "ms-vscode.azurecli",
+        "ms-vscode.powershell",
+        "github.vscode-github-actions",
+        "redhat.vscode-yaml",
+        "github.copilot",
+        "github.copilot-chat",
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}

@@ -1,0 +1,168 @@
+# Deploys the Workload Identity Break scenario web application to AKS.
+name: Deploy Workload Identity Break Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      workloadName:
+        description: 'Workload name (must match the infra deployment)'
+        type: string
+        default: srelabidentity
+      imageTag:
+        description: 'Immutable Git SHA tag emitted by the Publish Workload Identity Break Image workflow'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SCENARIO_ROOT: scenarios/workload-identity-break
+      WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabidentity' }}
+      IMAGE_TAG: ${{ inputs.imageTag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate image tag
+        run: |
+          set -euo pipefail
+          if [[ ! "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::imageTag must be a full 40-character lowercase Git SHA published by the scenario image workflow."
+            exit 2
+          fi
+
+      - name: Check GHCR read token
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GHCR_READ_TOKEN:-}" ]; then
+            echo "::error::Repository secret GHCR_READ_TOKEN is required. Set it to a fine-grained (or classic) PAT with Packages read access to this scenario's GHCR package."
+            exit 1
+          fi
+
+      - name: Preflight authenticated image
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/workload-identity-break"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
+
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
+
+          if ! docker --config "$DOCKER_CONFIG" manifest inspect "${IMAGE}" >/dev/null; then
+            echo "::error::Unable to inspect authenticated image ${IMAGE}"
+            exit 1
+          fi
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group "rg-${{ env.WORKLOAD }}" \
+            --name "${{ env.WORKLOAD }}-aks" \
+            --overwrite-existing
+
+      - name: Create GHCR pull secret
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          DOCKER_CONFIG=$(mktemp -d)
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
+
+          kubectl create namespace workload-identity-break --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic ghcr-pull --namespace workload-identity-break --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG/config.json" --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Fetch deployment values from Azure
+        id: values
+        run: |
+          UAMI_CLIENT_ID=$(az identity show \
+            --name "${{ env.WORKLOAD }}-id" \
+            --resource-group "rg-${{ env.WORKLOAD }}" \
+            --query clientId -o tsv)
+
+          COSMOS_ENDPOINT=$(az cosmosdb list \
+            --resource-group "rg-${{ env.WORKLOAD }}" \
+            --query "[0].documentEndpoint" -o tsv)
+
+          echo "uami_client_id=$UAMI_CLIENT_ID" >> "$GITHUB_OUTPUT"
+          echo "cosmos_endpoint=$COSMOS_ENDPOINT" >> "$GITHUB_OUTPUT"
+
+      - name: Apply Kubernetes manifests
+        env:
+          AZURE_CLIENT_ID: ${{ steps.values.outputs.uami_client_id }}
+          COSMOSDB_ENDPOINT: ${{ steps.values.outputs.cosmos_endpoint }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/workload-identity-break"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
+
+          kubectl apply -f "${SCENARIO_ROOT}/k8s/namespace.yaml"
+
+          sed "s|\${AZURE_CLIENT_ID}|${AZURE_CLIENT_ID}|g" "${SCENARIO_ROOT}/k8s/service-account.yaml" \
+            | kubectl apply -f -
+
+          sed -e "s|\${COSMOSDB_ENDPOINT}|${COSMOSDB_ENDPOINT}|g" \
+              -e "s|IMAGE_REPOSITORY|${IMAGE_REPOSITORY}|g" \
+              -e "s|IMAGE_TAG|${IMAGE_TAG}|g" \
+              "${SCENARIO_ROOT}/k8s/deployment.yaml" \
+            | kubectl apply -f -
+
+          kubectl apply -f "${SCENARIO_ROOT}/k8s/service.yaml"
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/workload-identity-break-app -n workload-identity-break --timeout=120s
+
+      - name: Print app URL
+        id: rollout
+        run: |
+          set -euo pipefail
+
+          IMAGE_REPOSITORY="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/workload-identity-break"
+          IMAGE="ghcr.io/${IMAGE_REPOSITORY}/app:${IMAGE_TAG}"
+
+          echo "Waiting for external IP (up to 60s)..."
+          for i in $(seq 1 12); do
+            IP=$(kubectl get svc workload-identity-break-app -n workload-identity-break -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [ -n "$IP" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -n "$IP" ]; then
+            APP_URL="http://${IP}"
+            echo "url=$APP_URL" >> "$GITHUB_OUTPUT"
+            echo "App URL:  $APP_URL"
+            echo "Health:   $APP_URL/health"
+            echo "Items:    $APP_URL/items"
+          else
+            echo "External IP not yet assigned."
+            echo "Run: kubectl get svc workload-identity-break-app -n workload-identity-break"
+          fi
+
+          {
+            echo "### Deployment summary"
+            echo ""
+            echo "- Published image tag: \`${IMAGE_TAG}\`"
+            echo "- Immutable image: \`${IMAGE}\`"
+            if [ -n "${IP:-}" ]; then
+              echo "- App URL: ${APP_URL}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

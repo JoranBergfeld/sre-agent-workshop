@@ -6,4 +6,5 @@ TOOLS_DIR="$SCRIPT_DIR/scenario-tools"
 if [ "${1:-}" = "--write" ]; then
   node "$TOOLS_DIR/bin/generate.js"
 fi
-node "$TOOLS_DIR/bin/validate.js"
+node "$TOOLS_DIR/bin/validate.js" --quiet-success
+echo "Scenario validation passed"

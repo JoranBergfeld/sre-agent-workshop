@@ -1,14 +1,14 @@
-name: Validate App Service Infrastructure
+name: Validate Cloud Agent Handover Infrastructure
 
 on:
   push:
     branches: [main]
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
   pull_request:
     paths:
-      - 'workshops/appservice/infra/**'
+      - 'scenarios/cloud-agent-handover/infra/**'
       - '.github/workflows/validate-appservice-infra.yml'
 
 permissions:
@@ -22,4 +22,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Bicep syntax
-        run: az bicep build --file workshops/appservice/infra/bicep/main.bicep --stdout >/dev/null
+        run: az bicep build --file scenarios/cloud-agent-handover/infra/bicep/main.bicep --stdout >/dev/null

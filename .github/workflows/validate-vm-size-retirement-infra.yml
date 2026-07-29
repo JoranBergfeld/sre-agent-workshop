@@ -1,0 +1,27 @@
+name: Validate VM Size Retirement Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/vm-size-retirement/infra/**'
+      - '.github/workflows/validate-vm-size-retirement-infra.yml'
+      - '.github/workflows/deploy-vm-size-retirement-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/vm-size-retirement/infra/**'
+      - '.github/workflows/validate-vm-size-retirement-infra.yml'
+      - '.github/workflows/deploy-vm-size-retirement-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate VM Size Retirement Bicep syntax
+        run: az bicep build --file scenarios/vm-size-retirement/infra/bicep/main.bicep --stdout >/dev/null

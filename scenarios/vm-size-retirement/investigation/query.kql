@@ -1,0 +1,10 @@
+// Azure Resource Graph query. Find every VM in the scenario resource group
+// that uses either retiring Dv2/DSv2 SKU. The investigation tool replaces
+// {{RESOURCE_GROUP}} before executing it with `az graph query`.
+Resources
+| where type =~ 'microsoft.compute/virtualMachines'
+| where resourceGroup =~ '{{RESOURCE_GROUP}}'
+| extend vmSize = tostring(properties.hardwareProfile.vmSize)
+| where vmSize in~ ('Standard_DS1_v2', 'Standard_DS2_v2')
+| project name, vmSize, resourceGroup, location, tags
+| order by name asc

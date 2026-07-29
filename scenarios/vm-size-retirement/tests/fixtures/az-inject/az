@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${AZ_INJECT_TRACE:-}" ]; then
+  printf '%s\n' "$*" >> "$AZ_INJECT_TRACE"
+fi
+
+if [ "${1:-}" = "group" ] && [ "${2:-}" = "show" ]; then
+  echo "eastus2"
+  exit 0
+fi
+
+if [ "${1:-}" = "account" ] && [ "${2:-}" = "show" ]; then
+  echo "00000000-0000-0000-0000-000000000000"
+  exit 0
+fi
+
+if [ "${1:-}" = "vm" ] && [ "${2:-}" = "show" ]; then
+  exit 0
+fi
+
+if [ "${1:-}" = "vm" ] && [ "${2:-}" = "resize" ]; then
+  exit 0
+fi
+
+if [ "${1:-}" = "vm" ] && [ "${2:-}" = "deallocate" ]; then
+  exit 0
+fi
+
+if [ "${1:-}" = "vm" ] && [ "${2:-}" = "wait" ]; then
+  if [ "${AZ_INJECT_FAIL_DEALLOCATED:-}" = "1" ] && [[ " $* " == *" --deallocated "* ]]; then
+    echo "simulated deallocated wait failure" >&2
+    exit 42
+  fi
+  exit 0
+fi
+
+echo "Unexpected Azure CLI injector fixture call: $*" >&2
+exit 64

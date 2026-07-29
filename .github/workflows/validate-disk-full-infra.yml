@@ -1,0 +1,25 @@
+name: Validate Disk Full Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/disk-full/infra/**'
+      - '.github/workflows/validate-disk-full-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/disk-full/infra/**'
+      - '.github/workflows/validate-disk-full-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Disk Full Bicep syntax
+        run: az bicep build --file scenarios/disk-full/infra/bicep/main.bicep --stdout >/dev/null

@@ -1,0 +1,6 @@
+# Namespace for the Cosmos RBAC Removal application.
+# All scenario resources (ServiceAccount, Deployment, Service) live here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cosmos-rbac-removal

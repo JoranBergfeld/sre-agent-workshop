@@ -1,0 +1,12 @@
+// Workload Identity Break — investigation query.
+// Surfaces Azure AD token-exchange failures from this scenario's containers,
+// pointing at a missing/misconfigured federated identity credential.
+let scenarioContainers = KubePodInventory
+| where Namespace == "workload-identity-break"
+| where TimeGenerated > ago(1h)
+| distinct ContainerID;
+ContainerLog
+| where ContainerID in (scenarioContainers)
+| where LogEntry has "AADSTS70021" or LogEntry has "No matching federated identity" or LogEntry has "ManagedIdentityCredential" or LogEntry contains "AADSTS"
+| project TimeGenerated, LogEntry
+| top 50 by TimeGenerated desc

@@ -1,33 +1,19 @@
 # Scenario: __SCENARIO_TITLE__
 
-> Track: `__TRACK__` · Scenario id: `__SCENARIO_ID__`
+> Platform: `__PLATFORM__` · Scenario id: `__SCENARIO_ID__`
 
-## What breaks
+## Overview
 
-Describe the fault and the symptom an attendee will observe.
+Describe the user-visible failure and the outcome the learner should observe.
 
-## Inject the fault
+## Flow
 
-```bash
-./inject.sh    # bash / Linux
-```
-```powershell
-./inject.ps1   # PowerShell / Windows
-```
+1. Run `./scripts/inject.sh` or `./scripts/inject.ps1` to create the fault.
+2. Run `./scripts/validate.sh` or `./scripts/validate.ps1` to confirm the failure.
+3. Investigate the app, logs, and metrics in this folder.
+4. Run `./scripts/cleanup.sh` or `./scripts/cleanup.ps1` to restore the starting state.
+5. Run validation again to confirm the scenario is clean.
 
-## Validate impact
+## Notes
 
-```bash
-./validate.sh
-```
-
-## Let the SRE Agent remediate
-
-Explain what alert fires (`__SCENARIO_ID__-alert`) and how the agent is expected
-to investigate (see `query.kql`) and remediate (open an issue / PR).
-
-## Manual remediation (facilitator fallback)
-
-```bash
-./remediate.sh
-```
+Keep the scenario self-contained. Update the manifest, scripts, and Bicep files together.

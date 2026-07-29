@@ -1,0 +1,44 @@
+# Operational Guidelines
+
+## Infrastructure as Code — No Direct Changes
+
+All infrastructure changes MUST go through code. Never modify Azure resources directly via CLI, portal, or API during incident remediation.
+
+**When the SRE Agent identifies a fix:**
+
+1. A human **creates or explicitly approves exactly one GitHub issue** describing
+   the root cause, affected resources, and required Bicep change, then assigns
+   it to `@copilot` (the Copilot coding agent).
+2. Copilot authors the pull request; a human reviews and merges it.
+3. That human manually triggers **Deploy Cosmos RBAC Removal Infrastructure**
+   to apply the change (deployment is intentionally manual via
+   `workflow_dispatch`, not automatic on merge).
+
+**Do NOT:**
+- Run `az` CLI commands to directly create, modify, or delete Azure resources
+- Use the Azure portal to make manual changes
+- Apply temporary fixes outside of version control
+- Create branches or PRs yourself — delegate to `@copilot` via GitHub issues
+
+**Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `scenarios/cosmos-rbac-removal/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
+
+**Constrained manual fallback:** Only when the issue → Copilot PR → review →
+merge → deployment path cannot be used, an authorized operator may use the
+scenario-owned remediation script. It first verifies whether the matching
+assignment already exists; it is not the normal remediation path and does not
+replace the required Bicep correction.
+
+## Architecture Overview
+
+- **AKS cluster** (`srelabcosmos-aks`): Hosts the web app in the `cosmos-rbac-removal` namespace
+- **CosmosDB** (`srelabcosmos-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
+- **Managed Identity** (`srelabcosmos-id`): UAMI with federated credential linked to K8s ServiceAccount `cosmos-rbac-removal-app`
+- **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
+
+## Common Failure: CosmosDB RBAC
+
+If the app returns HTTP 500 with "RBAC permissions" errors on `/items`:
+- **Root cause**: The CosmosDB SQL role assignment for the UAMI is missing
+- **Where to fix**: `scenarios/cosmos-rbac-removal/infra/bicep/modules/identity.bicep` — the `cosmosRoleAssignment` resource block
+- **How to fix**: Create a GitHub issue with the title "Restore CosmosDB role assignment in identity.bicep" and assign it to `@copilot`
+- **Do NOT** run `az cosmosdb sql role assignment create` directly

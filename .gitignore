@@ -6,13 +6,12 @@
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
 infra/bicep/main.json
+scenarios/*/infra/bicep/main.json
 node_modules/
 
-# VM workshop runtime artifacts (investigation traces, postmortems, audit logs)
-workshops/vm/output/*
-!workshops/vm/output/.gitkeep
-
-# App Service workshop: .NET build artifacts
-workshops/appservice/**/bin/
-workshops/appservice/**/obj/
-workshops/appservice/TestResults/
+# App Service scenario: .NET build artifacts
+scenarios/cloud-agent-handover/src/bin/
+scenarios/cloud-agent-handover/src/obj/
+scenarios/cloud-agent-handover/tests/bin/
+scenarios/cloud-agent-handover/tests/obj/
+scenarios/cloud-agent-handover/**/TestResults/

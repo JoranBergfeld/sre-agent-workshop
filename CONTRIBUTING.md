@@ -1,101 +1,106 @@
 # Contributing
 
-Thanks for extending the SRE Agent Workshop! The most common contribution is **a new
-scenario**. Scenarios are self-contained folders governed by a manifest contract. In most
-cases, adding one does not require hand-editing shared infrastructure or tooling because the
-generator updates the track's derived artifacts; a scenario that introduces a new track-wide
-capability may still require focused shared changes.
+Thanks for extending the SRE Agent Workshop. Contributions are scenario
+capsules: self-contained, reproducible incidents under `scenarios/<id>/`.
+The platform is scenario metadata, not a directory hierarchy.
 
 ## Prerequisites
 
-- Node.js 22+ (for the scenario tooling under `scripts/scenario-tools/`)
+- Node.js 22+ for `scripts/scenario-tools/`
 - Azure CLI with Bicep (`az bicep version`)
-- PowerShell 7+ if you want to run the `.ps1` script variants
+- PowerShell 7+ to exercise PowerShell script variants
 
-## Add a scenario (the 6-step flow)
+## Add a scenario
 
-1. **Scaffold** from the canonical template:
-
-   ```bash
-   scripts/new-scenario.sh <track> <scenario-id> "Human Title"
-   # e.g. scripts/new-scenario.sh vm memory-leak "Memory Leak"
-   ```
-
-   `<track>` is `aks`, `vm`, or `appservice`; `<scenario-id>` is kebab-case and becomes
-   the folder name.
-
-2. **Fill in `scenario.yaml`.** Required: `id` (== folder name), `title`, `track`,
-   `summary`, `severity` (0–4), `inject`, `validate`, and `docPage`. Optional:
-   `estimatedMinutes`, `difficulty`, `learningObjectives`, `signal`, `remediate`, and
-   `investigation`. The full contract lives in
-   [`schemas/scenario.schema.json`](schemas/scenario.schema.json).
-
-3. **Implement the scripts** — both `.sh` and `.ps1` are required for `inject` and
-   `validate`. Remediation is optional; when `remediate` is present, every action also needs
-   both shell variants.
-
-   The remediation script basename must equal `action` only on the **VM** track, whose
-   approval gate resolves actions by globbing `scenarios/*/<action>.sh`. Do not apply that
-   rule globally: the AKS track intentionally uses `action: restore-cosmos-rbac` with
-   `remediate.sh` and `remediate.ps1`. Action names must still be unique within each track.
-
-4. **Author the optional signal and investigation files.** When a scenario includes
-   `signal`, its `alert.bicep` must declare exactly `location`, `workloadName`, `tags`, and
-   `scopeResourceId`, and bind `scopes: [scopeResourceId]`. The generator wires it into the
-   track aggregator automatically. If the scenario needs no alert, omit `signal` and
-   `alert.bicep`. When `investigation` is present, add the referenced query file (normally
-   `query.kql`).
-
-5. **Write `README.md`** — the attendee walkthrough (inject → observe → investigate →
-   remediate → validate).
-
-6. **Generate + validate**:
+1. Scaffold the canonical capsule:
 
    ```bash
-   scripts/validate-scenarios.sh --write   # regenerates INDEX.md, aggregator, README table
-   scripts/validate-scenarios.sh           # must print "Scenario validation passed"
-   chmod +x workshops/<track>/scenarios/<id>/*.sh
+   scripts/new-scenario.sh <id> "Title" --platform "Azure Service"
+   # Example:
+   scripts/new-scenario.sh memory-leak "Memory Leak" --platform "Azure Virtual Machines"
    ```
 
-Open a PR. CI (`validate-scenarios.yml`) re-runs the schema check, unit tests, drift check,
-and `az bicep build` on every `alert.bicep` + aggregator.
+   The id is kebab-case and becomes `scenarios/<id>/`.
 
-## What CI enforces
+2. Complete the capsule. A scenario owns the files needed to set up, exercise,
+   investigate, and clean up its incident:
 
-- `scenario.yaml` validates against the schema.
-- `id` == folder name; `track` == parent track directory.
-- Required files exist; `.sh` scripts are executable; both `.sh` and `.ps1` exist for
-  `inject` / `validate` / each `remediate` action.
-- Every `alert.bicep` is wired into the generated `scenario-alerts.bicep`.
-- `INDEX.md` and the README scenario table are regenerated and unchanged (no drift).
-- Remediation action names are unique within a track.
+   ```text
+   scenarios/<id>/
+   ├── scenario.yaml            # Catalog and lifecycle contract
+   ├── README.md                # Learner entry point
+   ├── docs/                    # Walkthrough modules
+   ├── infra/bicep/             # Scenario infrastructure and alerts
+   ├── scripts/                 # Setup, inject, validate, and cleanup pairs
+   ├── knowledge/               # SRE Agent operational guidance
+   ├── investigation/           # Optional KQL or other investigation assets
+   ├── src/                     # Optional application source
+   └── tests/                   # Optional scenario or application tests
+   ```
 
-## Add a track (advanced)
+3. Fill in `scenario.yaml`. Required fields are `id`, `title`, `platform`,
+   `incidentType`, `summary`, `severity` (0–4), `estimatedMinutes`,
+   `difficulty` (`beginner`, `intermediate`, or `advanced`), `costProfile`
+   (`low`, `medium`, or `high`), `guide`, `setup`, `inject`, `validate`, and
+   `cleanup`. `id` must match the directory name; all referenced paths are
+   relative to the capsule. See
+   [`schemas/scenario.schema.json`](schemas/scenario.schema.json) for the
+   authoritative contract.
 
-Tracks are the closed set in `scripts/scenario-tools/lib/paths.js` (`TRACKS`). Current
-registrations are:
+4. Implement the lifecycle in both shells. `setup`, `inject`, `validate`, and
+   `cleanup` each require Bash and PowerShell paths in the manifest. Every
+   referenced Bash script must be executable. If the optional `remediate` list
+   is present, each action also needs a Bash/PowerShell pair and an executable
+   Bash script. Keep the learner guide, scripts, Bicep, and operational
+   guidance in the same capsule.
 
-- `aks` → `clusterId`
-- `vm` → `logAnalyticsResourceId`
-- `appservice` → `logAnalyticsResourceId`
+   Do not make SRE Agent apply a remediation directly. VM scenarios use their
+   local approval gate with a `CHG-`/`INC-` ticket, explicit `APPROVE`, and an
+   audit record. AKS scenarios use the GitOps route: an issue assigned to
+   `@copilot`, a Copilot pull request, and human deployment after merge. The
+   Cloud Agent Handover scenario requires approval before an issue assigned to
+   `copilot-swe-agent`; a human merges the pull request and the application
+   deployment runs automatically.
 
-To add another track:
+5. Validate locally:
 
-1. Add an entry to `TRACKS` with its alert `scopeParam`, the Bicep parameter the generated
-   aggregator passes into each scenario's `scopeResourceId`.
-2. Add the track value to `schemas/scenario.schema.json`
-   (`properties.track.enum`).
-3. Create `workshops/<track>/` with `README.md` (include the
-   `<!-- BEGIN SCENARIOS -->` / `<!-- END SCENARIOS -->` markers), `docs/`, `infra/bicep/`,
-   and `scenarios/`.
-4. If the track deploys alerts, have `infra/bicep/main.bicep` call the generated
-   `modules/scenario-alerts.bicep` with the track's scope resource ID.
-5. Add a workflow `validate-<track>-infra.yml` mirroring the existing ones, repathed to
-   `workshops/<track>/infra/**`.
-6. Scaffold a first scenario and run `scripts/validate-scenarios.sh --write`.
+   ```bash
+   npm --prefix scripts/scenario-tools ci
+   find scenarios/<id> -type f -name '*.sh' -exec chmod +x {} +
+   npm --prefix scripts/scenario-tools test
+   scripts/validate-scenarios.sh --write
+   scripts/validate-scenarios.sh
+   az bicep build --file scenarios/<id>/infra/bicep/main.bicep --stdout >/dev/null
+   ```
+
+   The second validation command must print `Scenario validation passed`.
+   Run `--write` after every manifest change. It regenerates the root scenario
+   catalog; do not edit the catalog table between
+   `<!-- BEGIN SCENARIO CATALOG -->` and
+   `<!-- END SCENARIO CATALOG -->` by hand.
+
+6. Open a pull request. Use a conventional commit prefix such as `feat:`,
+   `fix:`, `docs:`, `refactor:`, `ci:`, or `test:`.
+
+## Scenario workflows
+
+**Validate Scenarios** checks the manifest schema, capsule lifecycle files,
+scenario-tool tests, generated-catalog drift, and Bicep modules. Scenario
+infrastructure changes also run their named validation workflow, such as
+**Validate Cosmos RBAC Removal Infrastructure** or **Validate CPU Runaway
+Infrastructure**. Deployment workflows are explicitly named for their
+scenario and are manually dispatched where deployment is required.
+
+The Cloud Agent Handover capsule additionally uses **Validate Cloud Agent
+Handover Application** for its application tests. After an approved Copilot
+fix is reviewed and merged, **Deploy Cloud Agent Handover Application** deploys
+the application automatically on qualifying pushes to `main`.
 
 ## Style
 
-- Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `ci:`, `test:`).
-- Keep scenarios self-contained: prefer adding files under `scenarios/<id>/` over editing
-  shared tooling.
+- Keep each scenario self-contained under `scenarios/<id>/`.
+- Give a scenario a distinct default resource-name prefix so it can coexist
+  with the other capsules.
+- Link learner-facing documentation to top-level scenario paths.
+- Change the manifest and regenerate derived artifacts instead of hand-editing
+  generated catalog content.
