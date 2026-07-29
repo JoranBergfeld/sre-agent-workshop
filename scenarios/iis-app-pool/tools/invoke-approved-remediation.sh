@@ -7,6 +7,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+AUDIT_STARTED=false
 
 ACTION=""
 RESOURCE_GROUP="rg-srelabiisapppool"
@@ -58,6 +59,33 @@ if [ ! -f "$SCRIPT_PATH" ]; then
   exit 1
 fi
 
+OUTPUT_DIR="$SCRIPT_DIR/../output"
+
+append_audit() {
+  local status="$1"
+  local timestamp
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')
+  printf '{"timestamp":"%s","ticket":"%s","action":"%s","resourceGroup":"%s","vmName":"%s","status":"%s"}\n' \
+    "$timestamp" "$CHANGE_TICKET" "$ACTION" "$RESOURCE_GROUP" "$VM_NAME" "$status" >> "$OUTPUT_DIR/actions-audit.log"
+}
+
+finalize_audit() {
+  local exit_status=$?
+  if [ "$AUDIT_STARTED" = true ]; then
+    if [ "$exit_status" -eq 0 ]; then
+      if ! append_audit "succeeded"; then
+        echo "Failed to write succeeded audit entry." >&2
+      fi
+    else
+      if ! append_audit "failed"; then
+        echo "Failed to write failed audit entry." >&2
+      fi
+    fi
+  fi
+  trap - EXIT
+  exit "$exit_status"
+}
+
 echo "========================================"
 echo "  Approval Gate"
 echo "========================================"
@@ -72,14 +100,17 @@ if [ "$APPROVAL" != "APPROVE" ]; then
   exit 1
 fi
 
-bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP" --vm-name "$VM_NAME"
-
-OUTPUT_DIR="$SCRIPT_DIR/../output"
 mkdir -p "$OUTPUT_DIR"
+append_audit "approved-attempted"
+AUDIT_STARTED=true
+trap finalize_audit EXIT
 
-TS=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')
+set +e
+bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP" --vm-name "$VM_NAME"
+remediation_status=$?
+set -e
+if [ "$remediation_status" -ne 0 ]; then
+  exit "$remediation_status"
+fi
 
-printf '{"timestamp":"%s","ticket":"%s","action":"%s","resourceGroup":"%s","vmName":"%s","status":"executed"}\n' \
-  "$TS" "$CHANGE_TICKET" "$ACTION" "$RESOURCE_GROUP" "$VM_NAME" >> "$OUTPUT_DIR/actions-audit.log"
-
-echo "Approved remediation completed and audited."
+echo "Approved remediation completed."

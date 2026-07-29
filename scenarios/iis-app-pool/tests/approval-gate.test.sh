@@ -81,6 +81,26 @@ run_gate "APPROVE" >/dev/null
 
 grep -Fq '"ticket":"CHG-12345"' "$FIXTURE/output/actions-audit.log"
 grep -Fq '"action":"start-iis-app-pool"' "$FIXTURE/output/actions-audit.log"
+grep -Fq '"status":"approved-attempted"' "$FIXTURE/output/actions-audit.log"
+grep -Fq '"status":"succeeded"' "$FIXTURE/output/actions-audit.log"
 grep -Fq -- '--resource-group rg-test --vm-name vm-test' "$FIXTURE/run-command-arguments.txt"
+
+cat > "$FIXTURE/scripts/remediation/start-iis-app-pool.sh" <<'EOF'
+#!/usr/bin/env bash
+exit 17
+EOF
+chmod +x "$FIXTURE/scripts/remediation/start-iis-app-pool.sh"
+
+if run_gate "APPROVE" >/dev/null 2>&1; then
+  echo "failing remediation unexpectedly succeeded" >&2
+  exit 1
+fi
+
+mapfile -t audit_statuses < <(sed -n 's/.*"status":"\([^"]*\)".*/\1/p' "$FIXTURE/output/actions-audit.log")
+expected_statuses=(approved-attempted succeeded approved-attempted failed)
+if [[ "${audit_statuses[*]}" != "${expected_statuses[*]}" ]]; then
+  echo "unexpected audit status order: ${audit_statuses[*]}" >&2
+  exit 1
+fi
 
 echo "approval gate regression checks passed"

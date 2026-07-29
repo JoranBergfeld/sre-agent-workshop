@@ -36,20 +36,52 @@ if ($approval -ne "APPROVE") {
     throw "Remediation canceled. Explicit approval was not granted."
 }
 
-& $scriptPath -ResourceGroup $ResourceGroup -VmName $VmName
-
-if (-not (Test-Path "$PSScriptRoot\..\output")) {
-    New-Item -Path "$PSScriptRoot\..\output" -ItemType Directory | Out-Null
+$outputDirectory = Join-Path $PSScriptRoot "..\output"
+if (-not (Test-Path $outputDirectory)) {
+    New-Item -Path $outputDirectory -ItemType Directory | Out-Null
 }
 
-$auditEntry = [PSCustomObject]@{
-    timestamp = (Get-Date).ToString("o")
-    ticket = $ChangeTicket
-    action = $Action
-    resourceGroup = $ResourceGroup
-    vmName = $VmName
-    status = "executed"
+function Write-AuditEntry {
+    param([Parameter(Mandatory = $true)][string]$Status)
+
+    $auditEntry = [PSCustomObject]@{
+        timestamp = (Get-Date).ToString("o")
+        ticket = $ChangeTicket
+        action = $Action
+        resourceGroup = $ResourceGroup
+        vmName = $VmName
+        status = $Status
+    }
+    $auditEntry | ConvertTo-Json -Compress | Add-Content -Path (Join-Path $outputDirectory "actions-audit.log")
 }
 
-$auditEntry | ConvertTo-Json -Compress | Add-Content -Path "$PSScriptRoot\..\output\actions-audit.log"
+$terminalStatus = "failed"
+$remediationFailure = $null
+$auditFailure = $null
+
+Write-AuditEntry -Status "approved-attempted"
+
+try {
+    & $scriptPath -ResourceGroup $ResourceGroup -VmName $VmName
+    $terminalStatus = "succeeded"
+}
+catch {
+    $remediationFailure = $_
+}
+finally {
+    try {
+        Write-AuditEntry -Status $terminalStatus
+    }
+    catch {
+        $auditFailure = $_
+    }
+}
+
+if ($remediationFailure) {
+    throw $remediationFailure
+}
+if ($auditFailure) {
+    throw $auditFailure
+}
+
 Write-Host "Approved remediation completed and audited."

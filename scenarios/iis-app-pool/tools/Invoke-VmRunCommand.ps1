@@ -32,7 +32,7 @@ if ($stderr -and $stderr.Trim().Length -gt 0) {
 }
 
 if ($stdout -and $stdout.Trim().Length -gt 0) {
-    Write-Host $stdout
+    Write-Output $stdout
 } else {
-    Write-Host "VM command completed with no stdout output."
+    Write-Output "VM command completed with no stdout output."
 }

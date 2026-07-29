@@ -51,19 +51,28 @@ write_stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtim
 
 KQL=$(sed "s/{{VM_NAME}}/$VM_NAME/g" "$QUERY_FILE")
 TELEMETRY_CONFIRMED=false
-INSPECTION_CONFIRMED=false
+INSPECTION_STOPPED=false
+INSPECTION_CONTRADICTORY=false
 
 inspect_vm() {
-  local inspection_script
+  local inspection_script inspection_result inspection_value
   inspection_script="Import-Module WebAdministration
 Get-WebAppPoolState -Name 'DefaultAppPool' | Select-Object Name, Value | ConvertTo-Json -Compress"
 
-  if "$SCRIPT_DIR/invoke-vm-run-command.sh" \
+  if inspection_result=$("$SCRIPT_DIR/invoke-vm-run-command.sh" \
     --resource-group "$RESOURCE_GROUP" \
     --vm-name "$VM_NAME" \
-    --script "$inspection_script"; then
-    INSPECTION_CONFIRMED=true
-    write_stage "InspectVM" "VM inspection reported the current IIS app-pool state."
+    --script "$inspection_script"); then
+    if printf '%s' "$inspection_result" | jq -e '.Value == "Stopped"' >/dev/null 2>&1; then
+      INSPECTION_STOPPED=true
+      write_stage "InspectVM" "VM inspection emitted Value exactly 'Stopped'."
+    elif printf '%s' "$inspection_result" | jq -e '(.Value | type) == "string"' >/dev/null 2>&1; then
+      inspection_value=$(printf '%s' "$inspection_result" | jq -r '.Value')
+      INSPECTION_CONTRADICTORY=true
+      write_stage "InspectVM" "VM inspection emitted Value '$inspection_value', contradicting the stopped app-pool hypothesis."
+    else
+      write_stage "InspectVM" "VM inspection output is unparseable; the stopped app-pool hypothesis is unconfirmed."
+    fi
   else
     write_stage "InspectVM" "VM inspection failed; the app-pool state remains unconfirmed."
   fi
@@ -88,9 +97,12 @@ fi
 
 inspect_vm
 
-if [ "$TELEMETRY_CONFIRMED" = true ] && [ "$INSPECTION_CONFIRMED" = true ]; then
+if [ "$TELEMETRY_CONFIRMED" = true ] && [ "$INSPECTION_STOPPED" = true ]; then
   CONFIDENCE="high"
   write_stage "Hypothesis" "Telemetry and VM inspection support a stopped IIS app pool."
+elif [ "$INSPECTION_CONTRADICTORY" = true ]; then
+  CONFIDENCE="low"
+  write_stage "Hypothesis" "VM inspection contradicts a stopped IIS app pool."
 elif [ "$TELEMETRY_CONFIRMED" = true ]; then
   CONFIDENCE="medium"
   write_stage "Hypothesis" "Telemetry supports a stopped IIS app pool, but VM inspection is unavailable."

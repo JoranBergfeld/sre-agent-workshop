@@ -32,7 +32,8 @@ Write-Stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtim
 
 $kql = (Get-Content $queryFile -Raw).Replace('{{VM_NAME}}', $VmName)
 $telemetryConfirmed = $false
-$inspectionConfirmed = $false
+$inspectionStopped = $false
+$inspectionContradictory = $false
 
 if ($WorkspaceId) {
     $queryResult = & az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
@@ -58,24 +59,46 @@ if ($WorkspaceId) {
     Write-Stage "Correlate" "WorkspaceId not provided; telemetry evidence is unavailable."
 }
 
+$inspectionOutput = $null
 try {
     $inspectionScript = @"
 Import-Module WebAdministration
 Get-WebAppPoolState -Name 'DefaultAppPool' | Select-Object Name, Value | ConvertTo-Json -Compress
 "@
-    & "$PSScriptRoot\Invoke-VmRunCommand.ps1" `
+    $inspectionOutput = @(& "$PSScriptRoot\Invoke-VmRunCommand.ps1" `
         -ResourceGroup $ResourceGroup `
         -VmName $VmName `
-        -Script $inspectionScript
-    $inspectionConfirmed = $true
-    Write-Stage "InspectVM" "VM inspection reported the current IIS app-pool state."
-} catch {
+        -Script $inspectionScript)
+}
+catch {
     Write-Stage "InspectVM" "VM inspection failed; the app-pool state remains unconfirmed."
 }
 
-if ($telemetryConfirmed -and $inspectionConfirmed) {
+if ($null -ne $inspectionOutput) {
+    try {
+        $inspectionPayload = ($inspectionOutput -join [Environment]::NewLine) | ConvertFrom-Json -ErrorAction Stop
+        $valueProperty = $inspectionPayload.PSObject.Properties['Value']
+        if ($null -eq $valueProperty -or -not ($valueProperty.Value -is [string])) {
+            Write-Stage "InspectVM" "VM inspection output is unparseable; the stopped app-pool hypothesis is unconfirmed."
+        } elseif ($valueProperty.Value -ceq "Stopped") {
+            $inspectionStopped = $true
+            Write-Stage "InspectVM" "VM inspection emitted Value exactly 'Stopped'."
+        } else {
+            $inspectionContradictory = $true
+            Write-Stage "InspectVM" "VM inspection emitted Value '$($valueProperty.Value)', contradicting the stopped app-pool hypothesis."
+        }
+    }
+    catch {
+        Write-Stage "InspectVM" "VM inspection output is unparseable; the stopped app-pool hypothesis is unconfirmed."
+    }
+}
+
+if ($telemetryConfirmed -and $inspectionStopped) {
     $confidence = "high"
     Write-Stage "Hypothesis" "Telemetry and VM inspection support a stopped IIS app pool."
+} elseif ($inspectionContradictory) {
+    $confidence = "low"
+    Write-Stage "Hypothesis" "VM inspection contradicts a stopped IIS app pool."
 } elseif ($telemetryConfirmed) {
     $confidence = "medium"
     Write-Stage "Hypothesis" "Telemetry supports a stopped IIS app pool, but VM inspection is unavailable."
