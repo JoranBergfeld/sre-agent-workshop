@@ -1,0 +1,95 @@
+name: Deploy VM Size Retirement Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: 'Azure region'
+        type: choice
+        options:
+          - eastus2
+          - swedencentral
+          - australiaeast
+        default: eastus2
+      workloadName:
+        description: 'Workload name used in resource naming'
+        type: string
+        default: srelabretirement
+      adminUsername:
+        description: 'Windows VM admin username'
+        type: string
+        default: azureuser
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      LOCATION: ${{ inputs.location }}
+      WORKLOAD: ${{ inputs.workloadName }}
+      ADMIN_USERNAME: ${{ inputs.adminUsername }}
+      ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+      RESOURCE_GROUP: rg-${{ inputs.workloadName }}
+      SCENARIO_README: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/workshops/vm/scenarios/vm-size-retirement/README.md
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate VM admin password secret
+        run: |
+          if [ -z "${ADMIN_PASSWORD}" ]; then
+            echo "::error::Missing repository secret VM_ADMIN_PASSWORD"
+            exit 1
+          fi
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name "${RESOURCE_GROUP}" \
+            --location "${LOCATION}" \
+            --tags workshop=sre-agent environment=demo track=vm scenario=vm-size-retirement
+
+      - name: Deploy VM infrastructure
+        id: deploy
+        run: |
+          az deployment group create \
+            --resource-group "${RESOURCE_GROUP}" \
+            --template-file workshops/vm/infra/bicep/main.bicep \
+            --parameters workshops/vm/infra/bicep/main.bicepparam \
+              location="${LOCATION}" \
+              workloadName="${WORKLOAD}" \
+              adminUsername="${ADMIN_USERNAME}" \
+              adminPassword="${ADMIN_PASSWORD}" \
+              tags='{"workshop":"sre-agent","environment":"demo","track":"vm","scenario":"vm-size-retirement"}' \
+            --query 'properties.outputs' \
+            -o json > vm-size-retirement-deployment-outputs.json
+
+          echo "vm_names=$(jq -rc '.vmNames.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "bastion_name=$(jq -r '.bastionName.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## VM Size Retirement infrastructure deployed"
+            echo
+            echo "| Setting | Value |"
+            echo "| --- | --- |"
+            echo "| Resource group | \`${RESOURCE_GROUP}\` |"
+            echo "| Location | \`${LOCATION}\` |"
+            echo "| VM names | \`${{ steps.deploy.outputs.vm_names }}\` |"
+            echo "| VM private IPs | \`${{ steps.deploy.outputs.vm_private_ips }}\` |"
+            echo "| Bastion host | \`${{ steps.deploy.outputs.bastion_name }}\` |"
+            echo "| Log Analytics workspace ID | \`${{ steps.deploy.outputs.law_id }}\` |"
+            echo
+            echo "Next, [follow the VM Size Retirement scenario guide](${SCENARIO_README})."
+          } >> "$GITHUB_STEP_SUMMARY"
