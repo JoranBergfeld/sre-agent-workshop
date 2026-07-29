@@ -1,0 +1,40 @@
+id: disk-full
+title: "Disk Full (C: Pressure)"
+platform: Azure Virtual Machines
+incidentType: Storage capacity
+summary: A runaway process fills C:\Temp until free space drops below 10%, degrading the IIS workload.
+severity: 2
+estimatedMinutes: 25
+difficulty: beginner
+costProfile: high
+learningObjectives:
+  - Correlate a disk-pressure alert to the offending folder via Azure Monitor Perf data.
+  - Drive remediation through the approval gate instead of ad-hoc deletion.
+guide: README.md
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
+signal:
+  alertModule: infra/bicep/modules/alert.bicep
+  alertName: vm-disk-pressure
+inject:
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
+validate:
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1
+remediate:
+  - action: cleanup-disk
+    bash: scripts/remediation/cleanup-disk.sh
+    powershell: scripts/remediation/cleanup-disk.ps1
+    description: Remove the injected fill files from C:\Temp\diskfill.
+  - action: cleanup-temp
+    bash: scripts/remediation/cleanup-temp.sh
+    powershell: scripts/remediation/cleanup-temp.ps1
+    description: Approved Temp-folder cleanup (constrained path allow-list).
+investigation:
+  query: investigation/query.kql
+tests: tests/disk-full-scripts.test.sh
