@@ -4,7 +4,9 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import yaml from 'js-yaml';
 
-import { scenarioCandidateDirs, scenarioDirs, loadScenario, loadAllScenarios, legacyScenarioDirs } from '../lib/scenarios.js';
+import * as paths from '../lib/paths.js';
+import * as scenarioApi from '../lib/scenarios.js';
+import { scenarioCandidateDirs, scenarioDirs, loadScenario, loadAllScenarios } from '../lib/scenarios.js';
 
 function makeRepo(entries) {
   const repo = resolve(import.meta.dirname, `repo-${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -20,29 +22,15 @@ function makeRepo(entries) {
   return repo;
 }
 
-function makeLegacyRepo(rootEntries, legacyEntries) {
-  const repo = resolve(import.meta.dirname, `legacy-repo-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  mkdirSync(resolve(repo, 'scenarios'), { recursive: true });
-  mkdirSync(resolve(repo, 'workshops', 'vm', 'scenarios'), { recursive: true });
-
-  for (const [name, manifest] of rootEntries) {
-    const dir = resolve(repo, 'scenarios', name);
-    mkdirSync(dir, { recursive: true });
-    if (manifest) {
-      writeFileSync(resolve(dir, 'scenario.yaml'), yaml.dump(manifest));
-    }
-  }
-
-  for (const [name, manifest] of legacyEntries) {
-    const dir = resolve(repo, 'workshops', 'vm', 'scenarios', name);
-    mkdirSync(dir, { recursive: true });
-    if (manifest) {
-      writeFileSync(resolve(dir, 'scenario.yaml'), yaml.dump(manifest));
-    }
-  }
-
-  return repo;
-}
+test('scenario tooling exposes only top-level catalog paths and discovery APIs', () => {
+  assert.deepEqual(Object.keys(paths).sort(), ['REPO_ROOT', 'ROOT_README', 'SCENARIOS_DIR']);
+  assert.deepEqual(Object.keys(scenarioApi).sort(), [
+    'loadAllScenarios',
+    'loadScenario',
+    'scenarioCandidateDirs',
+    'scenarioDirs',
+  ]);
+});
 
 test('scenarioCandidateDirs discovers all direct folders and scenarioDirs filters to loadable scenarios', (t) => {
   const repo = makeRepo([
@@ -88,28 +76,4 @@ test('loadAllScenarios loads every direct scenario folder in sorted order', (t) 
 
   const scenarios = loadAllScenarios(resolve(repo, 'scenarios'));
   assert.deepEqual(scenarios.map((s) => s.id), ['a-first', 'z-last']);
-});
-
-test('legacyScenarioDirs returns direct legacy folders even without manifests', (t) => {
-  const repo = makeLegacyRepo(
-    [
-      ['with-manifest', { id: 'with-manifest', platform: 'Azure VM' }],
-      ['without-manifest', null],
-      ['.hidden', { id: 'hidden', platform: 'Azure VM' }],
-      ['_template', { id: 'template', platform: 'Azure VM' }],
-    ],
-    [
-      ['legacy-with-manifest', { id: 'legacy-with-manifest', platform: 'Azure VM' }],
-      ['legacy-without-manifest', null],
-      ['.hidden', { id: 'hidden', platform: 'Azure VM' }],
-      ['_template', { id: 'template', platform: 'Azure VM' }],
-    ]
-  );
-  t.after(() => rmSync(repo, { recursive: true, force: true }));
-
-  const rootDirs = scenarioDirs(resolve(repo, 'scenarios'));
-  assert.deepEqual(rootDirs.map((dir) => basename(dir)), ['with-manifest']);
-
-  const legacyDirs = legacyScenarioDirs('vm', resolve(repo, 'workshops'));
-  assert.deepEqual(legacyDirs.map((dir) => basename(dir)), ['legacy-with-manifest', 'legacy-without-manifest']);
 });

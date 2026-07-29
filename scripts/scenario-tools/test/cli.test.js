@@ -6,7 +6,6 @@ import { resolve } from 'node:path';
 
 const toolsDir = resolve(import.meta.dirname, '..');
 const validateJs = resolve(toolsDir, 'bin', 'validate.js');
-const validateLegacyJs = resolve(toolsDir, 'bin', 'validate-legacy.js');
 const wrapper = resolve(toolsDir, '..', 'validate-scenarios.sh');
 const scenariosDir = resolve(toolsDir, '..', '..', 'scenarios');
 
@@ -17,20 +16,18 @@ function makeTempCapsuleDir() {
 }
 
 test('direct validators emit success once and quiet-success suppresses it', () => {
-  for (const script of [validateJs, validateLegacyJs]) {
-    const normal = spawnSync('node', [script], { encoding: 'utf8' });
-    assert.equal(normal.status, 0, normal.stderr);
-    assert.equal(normal.stdout.trim(), 'Scenario validation passed');
-    assert.equal(normal.stderr.trim(), '');
+  const normal = spawnSync('node', [validateJs], { encoding: 'utf8' });
+  assert.equal(normal.status, 0, normal.stderr);
+  assert.equal(normal.stdout.trim(), 'Scenario validation passed');
+  assert.equal(normal.stderr.trim(), '');
 
-    const quiet = spawnSync('node', [script, '--quiet-success'], { encoding: 'utf8' });
-    assert.equal(quiet.status, 0, quiet.stderr);
-    assert.equal(quiet.stdout.trim(), '');
-    assert.equal(quiet.stderr.trim(), '');
-  }
+  const quiet = spawnSync('node', [validateJs, '--quiet-success'], { encoding: 'utf8' });
+  assert.equal(quiet.status, 0, quiet.stderr);
+  assert.equal(quiet.stdout.trim(), '');
+  assert.equal(quiet.stderr.trim(), '');
 });
 
-test('wrapper prints a single success line after both validators complete', () => {
+test('wrapper prints a single success line after generation and validation complete', () => {
   const normal = spawnSync('bash', [wrapper], { encoding: 'utf8' });
   assert.equal(normal.status, 0, normal.stderr);
   assert.equal(normal.stdout.trim(), 'Scenario validation passed');

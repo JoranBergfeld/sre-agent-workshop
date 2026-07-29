@@ -17,10 +17,6 @@ export function makeValidator() {
   return compileSchema('scenario.schema.json');
 }
 
-export function makeLegacyValidator() {
-  return compileSchema('legacy-scenario.schema.json');
-}
-
 function pathError(label) {
   return `${label} must stay inside the scenario directory`;
 }

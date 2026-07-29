@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
+import * as validateApi from '../lib/validate.js';
 import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
 
 const baseManifest = {
@@ -49,6 +50,15 @@ const present = new Set([
 ]);
 
 const fileExists = (p) => present.has(p.split('/').pop());
+
+test('validation library exports only the top-level scenario validator API', () => {
+  assert.deepEqual(Object.keys(validateApi).sort(), [
+    'checkReferencedPath',
+    'checkScenario',
+    'findDuplicateActions',
+    'makeValidator',
+  ]);
+});
 
 function makeTempScenarioDir() {
   const root = resolve(import.meta.dirname, `validate-temp-${Date.now()}-${Math.random().toString(16).slice(2)}`);

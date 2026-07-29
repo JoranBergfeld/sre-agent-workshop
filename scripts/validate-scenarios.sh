@@ -5,8 +5,6 @@ TOOLS_DIR="$SCRIPT_DIR/scenario-tools"
 [ -d "$TOOLS_DIR/node_modules" ] || (cd "$TOOLS_DIR" && npm install --silent)
 if [ "${1:-}" = "--write" ]; then
   node "$TOOLS_DIR/bin/generate.js"
-  node "$TOOLS_DIR/bin/generate-legacy.js"
 fi
 node "$TOOLS_DIR/bin/validate.js" --quiet-success
-node "$TOOLS_DIR/bin/validate-legacy.js" --quiet-success
 echo "Scenario validation passed"

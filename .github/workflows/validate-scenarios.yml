@@ -6,27 +6,19 @@ on:
       - main
     paths:
       - 'README.md'
-      - 'schemas/legacy-scenario.schema.json'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
       - 'scripts/validate-scenarios.sh'
       - '.github/workflows/validate-scenarios.yml'
       - 'scenarios/**'
-      - 'workshops/**/scenarios/**'
-      - 'workshops/*/README.md'
-      - 'workshops/*/infra/bicep/modules/scenario-alerts.bicep'
   pull_request:
     paths:
       - 'README.md'
-      - 'schemas/legacy-scenario.schema.json'
       - 'schemas/scenario.schema.json'
       - 'scripts/scenario-tools/**'
       - 'scripts/validate-scenarios.sh'
       - '.github/workflows/validate-scenarios.yml'
       - 'scenarios/**'
-      - 'workshops/**/scenarios/**'
-      - 'workshops/*/README.md'
-      - 'workshops/*/infra/bicep/modules/scenario-alerts.bicep'
 
 permissions:
   contents: read
@@ -137,21 +129,12 @@ jobs:
               if [ -f "$alert_module" ]; then
                 built_bicep_files["$alert_module"]=1
               fi
+              service_health_alert="$scenario_dir/infra/bicep/service-health-alert.bicep"
+              if [ -f "$service_health_alert" ]; then
+                built_bicep_files["$service_health_alert"]=1
+              fi
             done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0)
           fi
-
-          # Legacy workshop coverage stays discovery-based so the current set of
-          # alert bicep files, aggregators, and the standalone service-health
-          # template are built without hardcoding a count.
-          for pattern in \
-            'workshops/*/scenarios/*/alert.bicep' \
-            'workshops/*/infra/bicep/modules/scenario-alerts.bicep' \
-            'workshops/*/scenarios/*/service-health-alert.bicep'; do
-            for bicep_file in $pattern; do
-              [ -e "$bicep_file" ] || continue
-              built_bicep_files["$bicep_file"]=1
-            done
-          done
 
           printf '%s\n' "${!built_mains[@]}" "${!built_bicep_files[@]}" | sort -u | while IFS= read -r bicep_file; do
             [ -n "$bicep_file" ] || continue
