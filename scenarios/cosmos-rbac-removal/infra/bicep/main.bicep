@@ -80,47 +80,7 @@ module identity 'modules/identity.bicep' = {
 }
 
 // ──────────────────────────────────────────────
-// 5. Alert: Container restart count > 3 in 5 min
-//    Deployed after AKS so it can scope to the cluster
-// ──────────────────────────────────────────────
-resource restartAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview' = {
-  name: '${workloadName}-container-restarts'
-  location: location
-  tags: tags
-  properties: {
-    displayName: 'Container Restart Count > 3'
-    description: 'Fires when any container in the AKS cluster restarts more than 3 times within 5 minutes.'
-    severity: 2
-    enabled: true
-    evaluationFrequency: 'PT5M'
-    windowSize: 'PT5M'
-    scopes: [
-      aks.outputs.clusterId
-    ]
-    criteria: {
-      allOf: [
-        {
-          query: '''
-            KubePodInventory
-            | where ContainerRestartCount > 3
-            | summarize RestartCount = max(ContainerRestartCount) by Name, Namespace, bin(TimeGenerated, 5m)
-          '''
-          timeAggregation: 'Count'
-          operator: 'GreaterThan'
-          threshold: 0
-          failingPeriods: {
-            numberOfEvaluationPeriods: 1
-            minFailingPeriodsToAlert: 1
-          }
-        }
-      ]
-    }
-    autoMitigate: true
-  }
-}
-
-// ──────────────────────────────────────────────
-// 6. CosmosDB RBAC Removal alert
+// 5. CosmosDB RBAC Removal alert
 // ──────────────────────────────────────────────
 module scenarioAlert 'modules/alert.bicep' = {
   name: 'scenario-alert'

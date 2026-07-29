@@ -115,20 +115,26 @@ The SRE Agent can ingest runbooks and operational guidelines that shape how it r
 
 ### What This Does
 
-The operational guidelines tell the agent to **always fix through code** — never make direct Azure changes. When it identifies a root cause, it will:
-- Create a **GitHub issue** describing the root cause and required fix
-- Assign the issue to **`@copilot`** (the Copilot coding agent)
-- Copilot picks up the issue, creates a branch, makes the Bicep fix, and opens a PR
+The operational guidelines tell the agent to **always fix through code** —
+never make direct Azure changes. When it identifies a root cause, it proposes
+remediation. A human creates or explicitly approves exactly one GitHub issue,
+assigns it to **`@copilot`** (the Copilot coding agent), then reviews and
+merges the PR Copilot authors before manually deploying the fix.
 
 This creates a full audit trail: incident → investigation → issue → PR → deployment.
 
 ## Set up the GitHub Connector
 
-For the SRE Agent to **create GitHub issues and assign them to `@copilot`**, connect the GitHub **connector**.
+For the SRE Agent to inspect repository evidence during an investigation,
+connect the GitHub **connector**.
 
 Follow **[Connect GitHub to the SRE Agent → Set up the GitHub connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-connector)**, then verify the connection per that guide.
 
-> **Why this matters:** Without the GitHub connector, the agent can investigate and diagnose issues but cannot create issues or PRs on your repository. With it connected, the full remediation loop works: SRE Agent detects fault → files an issue → assigns `@copilot` → `@copilot` fixes the code and opens a PR → an operator runs the deploy workflow.
+> **Why this matters:** With the GitHub connector, the agent can correlate
+> repository evidence with the incident. The governed remediation loop is: SRE
+> Agent detects and investigates the fault → proposes remediation → a human
+> creates or approves one issue assigned to `@copilot` → Copilot authors the PR
+> → a human reviews, merges, and deploys the fix.
 
 ## Team Onboarding
 

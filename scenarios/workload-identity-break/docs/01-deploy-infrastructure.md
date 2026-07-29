@@ -20,7 +20,6 @@ The workflow deploys the following Azure resources to your subscription. All res
 | User-Assigned Managed Identity | `{workloadName}-id` | Workload identity for the app to authenticate to CosmosDB |
 | Federated Identity Credential | Automatic | Maps Kubernetes ServiceAccount → Azure managed identity |
 | CosmosDB Role Assignment | Automatic | Grants the managed identity permission to read database data |
-| Alert Rule | `{workloadName}-container-restarts` | Monitors container restart count; triggers incident response in Module 4 |
 | Alert Rule | `{workloadName}-workload-identity-auth-errors` | Monitors workload identity token-acquisition failures in container logs; triggers incident response in Module 4 |
 
 **Cluster Configuration:**
@@ -365,32 +364,25 @@ Here's how the app will authenticate to CosmosDB in Module 2:
 │  ↓                                                          │
 │  Queries: AZURE_FEDERATED_TOKEN_FILE env var              │
 │  ↓                                                          │
-│  Finds: Kubernetes ServiceAccount JWT mounted at /run/...  │
+│  Reads: projected Kubernetes ServiceAccount JWT at /run/...│
 └─────────────────────────────────────────────────────────────┘
-                          ↓
+                          │ Presents the projected token
+                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ AKS OIDC Issuer (OpenID Connect endpoint)                   │
+│ Microsoft Entra ID                                          │
 │                                                             │
-│  Kubernetes ServiceAccount (with workload identity         │
-│  annotation client-id={UAMI ClientId}) is presented        │
+│  Retrieves AKS OIDC issuer metadata and signing keys        │
 │  ↓                                                          │
-│  OIDC issuer validates JWT signature                       │
+│  Finds the configured UAMI federated credential             │
+│  and validates token signature, issuer, subject, audience   │
 │  ↓                                                          │
-│  Mints an Azure AD token for the managed identity          │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ Azure AD                                                    │
-│                                                             │
-│  Token claims: User-Assigned Managed Identity {UAMI}       │
-│  ↓                                                          │
-│  Response: Azure AD access token for CosmosDB service      │
+│  Issues an access token for the UAMI to call CosmosDB       │
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ CosmosDB                                                    │
 │                                                             │
-│  App includes: Bearer token (Azure AD access token)        │
+│  App includes: Microsoft Entra ID access token              │
 │  ↓                                                          │
 │  CosmosDB validates token against RBAC role assignment     │
 │  ↓                                                          │
@@ -398,12 +390,24 @@ Here's how the app will authenticate to CosmosDB in Module 2:
 │  ↓                                                          │
 │  Authorization succeeds → data returned                    │
 └─────────────────────────────────────────────────────────────┘
+
+Token-verification metadata (not an exchange step):
+
+┌─────────────────────────────────────────────────────────────┐
+│ AKS OIDC Issuer                                             │
+│                                                             │
+│  Publishes Kubernetes ServiceAccount token issuer metadata  │
+│  and signing keys for Microsoft Entra ID to retrieve.       │
+│                                                             │
+│  It does not validate or exchange the projected token,      │
+│  and it does not issue Azure access tokens.                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **Key components:**
 - **User-Assigned Managed Identity (UAMI):** An Azure identity that the app will use (not an app password or certificate)
-- **Federated Identity Credential:** Links the Kubernetes ServiceAccount to the UAMI, allowing OIDC token exchange
-- **OIDC Issuer:** AKS's built-in OpenID Connect server that issues tokens to workloads
+- **Federated Identity Credential:** Configures Microsoft Entra ID to trust the Kubernetes ServiceAccount token's issuer, subject, and audience for the UAMI.
+- **AKS OIDC Issuer:** Publishes issuer metadata and signing keys for Kubernetes-issued ServiceAccount tokens. Microsoft Entra ID uses that information to verify the projected token; the issuer does not exchange tokens or issue Azure access tokens.
 - **CosmosDB Role Assignment:** Grants the UAMI the "Cosmos DB Built-in Data Contributor" role on the database
 
 This chain is the foundation of what we'll break in **Module 5**. When we

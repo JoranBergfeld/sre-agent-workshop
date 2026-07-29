@@ -103,7 +103,8 @@ The workshop repository is a template. You'll fork it to your own GitHub account
    cd sre-agent-workshop
    ```
 
-Now all your work will be in your own fork, and the SRE Agent will open pull requests against *your* fork.
+Now all your work will be in your own fork, and Copilot will author pull
+requests against it after a human assigns an approved issue.
 
 ## Step 2: Create a Service Principal for GitHub Actions
 

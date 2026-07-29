@@ -91,9 +91,12 @@ This step is important — it controls how much the agent is allowed to do autom
 | Autonomy Level | Behavior | Best For |
 |---|---|---|
 | **Review** | Agent investigates, identifies root cause, proposes fixes, and waits for human approval before taking action | Production systems, high-risk changes |
-| **Autonomous** | Agent investigates, identifies root cause, and automatically takes approved actions (like opening PRs or restarting pods) without waiting for approval | Non-production, trusted automation, this workshop |
+| **Autonomous** | Agent investigates, identifies root cause, and automatically gathers approved diagnostic evidence; remediation still follows the human-approved issue → Copilot PR flow | Non-production, trusted automation |
 
-For the workshop, **Autonomous** is perfect. It lets you watch the agent work end-to-end without needing to approve each step. In production, you'd typically start with **Review** mode for 2-4 weeks while you build confidence in the agent's decision-making. Once you're approving the same types of fixes repeatedly, you can graduate to Autonomous for those specific scenarios.
+For the workshop, use **Review** mode. The SRE Agent investigates and proposes
+remediation; a human creates or approves one issue assigned to `@copilot`,
+reviews and merges the Copilot PR, then manually runs the deployment. In
+production, retain this separation of investigation from remediation approval.
 
 Click **Save**
 
@@ -148,13 +151,17 @@ For example, when you run the `cosmos-rbac-removal` scenario in Module 5, the
 app starts receiving CosmosDB authorization failures and Azure Monitor detects
 the spike in errors. The SRE Agent picks up the alert, queries the app's logs,
 checks the Bicep deployment history, and identifies the removed role
-assignment. After its investigation, create one GitHub issue assigned to
-`@copilot`; review and merge the resulting PR, then manually run the matching
-deployment workflow if required. Do not remediate directly in Azure.
+assignment. After it proposes remediation, a human creates or explicitly
+approves exactly one GitHub issue assigned to `@copilot`, reviews and merges the
+resulting PR, then manually runs the matching deployment workflow. Do not
+remediate directly in Azure.
 
 ## What Happens Next
 
-In **Module 5: Break It**, you'll intentionally inject this capsule's fault, then watch the SRE Agent detect and diagnose it. Follow the scenario [README](../README.md) (inject → validate → let the agent remediate → clean up).
+In **Module 5: Break It**, you'll intentionally inject this capsule's fault,
+then watch the SRE Agent detect and diagnose it. Follow the scenario
+[README](../README.md) (inject → validate → use the human-approved GitOps flow
+→ clean up).
 
 The `cosmos-rbac-removal` scenario edits the Bicep template to remove the CosmosDB role assignment. When the change deploys:
 

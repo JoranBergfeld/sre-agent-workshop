@@ -9,6 +9,10 @@ case " $* " in
     printf 'principal-id\n'
     ;;
   *" cosmosdb sql role assignment list "*)
+    if [ "${LIFECYCLE_AZ_FAIL_ROLE_ASSIGNMENT_LIST:-}" = "1" ]; then
+      echo 'simulated role-assignment list failure' >&2
+      exit 42
+    fi
     printf 'matching-assignment\n'
     ;;
   *" cosmosdb sql role assignment create "*)

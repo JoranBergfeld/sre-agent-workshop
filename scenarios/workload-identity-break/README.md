@@ -206,17 +206,20 @@ Your Azure Monitor alert detects the authentication errors. The SRE Agent, which
 4. **Correlate with recent deployments** (find the `identity.bicep` change you just made)
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** the missing `federatedCredential`
-7. **Record the diagnosis and evidence** for the missing `federatedCredential`
-8. **Follow the GitOps remediation flow below** to restore the credential through code
+7. **Propose remediation** and record the diagnosis and evidence for the
+   missing `federatedCredential`
+8. **Follow the human-approved GitOps remediation flow below** to restore the
+   credential through code
 
 ## Remediate through GitOps
 
-After the SRE Agent completes its investigation, do **not** recreate the
-federated credential directly in Azure. Create **one** GitHub issue describing
-the evidence and the required `federatedCredential` Bicep restoration, then
-assign it to `@copilot` (the Copilot coding agent). Review the Copilot PR,
-merge it, and manually run **Deploy Workload Identity Break Infrastructure** if
-the deployment is required.
+After the SRE Agent investigates and proposes remediation, do **not** recreate
+the federated credential directly in Azure. A human creates or explicitly
+approves exactly **one** GitHub issue describing the evidence and required
+`federatedCredential` Bicep restoration, then assigns it to `@copilot` (the
+Copilot coding agent). Copilot authors the PR; a human reviews and merges it,
+then manually runs **Deploy Workload Identity Break Infrastructure** if
+deployment is required.
 
 `scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
 fallbacks only. Use them only when the normal issue → Copilot PR → review →
@@ -237,7 +240,9 @@ If you're running this workshop with a group, this is a great moment for storyte
 
 → **[Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
-In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow — correlating logs, reading your code, and opening a PR that restores the federated credential.
+In the next module, you'll see the SRE Agent correlate logs, read your code,
+and propose remediation. A human then uses the single-issue GitOps flow for
+Copilot to author the PR and deploys the merged fix.
 
 After recovery, run the capsule validator:
 

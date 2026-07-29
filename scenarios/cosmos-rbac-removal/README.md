@@ -29,9 +29,8 @@ Run the setup check and cleanup commands from the repository root:
 ./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -ResourceGroup rg-srelab
 ```
 
-For a custom deployment name, use `--workload <name>` with Bash fault and
-manual-fallback scripts, or `-Workload <name>` with their PowerShell
-equivalents.
+The Cosmos injector accepts only `--resource-group <rg>` in Bash or
+`-ResourceGroup <rg>` in PowerShell.
 
 # Module 5: Break It! 💥 (~20 min)
 
@@ -192,17 +191,20 @@ Your Azure Monitor alert will detect the spike in failed requests. The SRE Agent
 4. **Correlate with recent deployments** (find the Bicep change you just made)
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** missing role assignment
-7. **Record the diagnosis and evidence** for the missing role assignment
-8. **Follow the GitOps remediation flow below** to restore the assignment through code
+7. **Propose remediation** and record the diagnosis and evidence for the
+   missing role assignment
+8. **Follow the human-approved GitOps remediation flow below** to restore the
+   assignment through code
 
 ## Remediate through GitOps
 
-After the SRE Agent completes its investigation, do **not** restore the Cosmos
-role assignment directly in Azure. Create **one** GitHub issue describing the
-evidence and the required `cosmosRoleAssignment` Bicep restoration, then assign
-it to `@copilot` (the Copilot coding agent). Review the Copilot PR, merge it,
-and manually run **Deploy Cosmos RBAC Removal Infrastructure** if the
-deployment is required.
+After the SRE Agent investigates and proposes remediation, do **not** restore
+the Cosmos role assignment directly in Azure. A human creates or explicitly
+approves exactly **one** GitHub issue describing the evidence and required
+`cosmosRoleAssignment` Bicep restoration, then assigns it to `@copilot` (the
+Copilot coding agent). Copilot authors the PR; a human reviews and merges it,
+then manually runs **Deploy Cosmos RBAC Removal Infrastructure** if deployment
+is required.
 
 `scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
 fallbacks only. Use them only when the normal issue → Copilot PR → review →
@@ -223,7 +225,9 @@ If you're running this workshop with a group, this is a great moment for storyte
 
 → **[Module 6: Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
-In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow. You'll see it correlate logs, read your code, and open a PR with the fix. This is where the magic happens.
+In the next module, you'll see the SRE Agent correlate logs, read your code,
+and propose remediation. A human then uses the single-issue GitOps flow for
+Copilot to author the PR and deploys the merged fix.
 
 After recovery, run the capsule validator:
 

@@ -33,14 +33,16 @@ federated credential deleted
 ## Remediate through the required GitOps flow
 
 Do **not** recreate the federated credential directly in Azure during normal
-incident response. After the SRE Agent investigation:
+incident response. After the SRE Agent investigates and proposes remediation:
 
-1. Create **one** GitHub issue containing the diagnosis, relevant log evidence,
-   and the required restoration of `federatedCredential` in `identity.bicep`.
-2. Assign that issue to `@copilot` (the Copilot coding agent).
-3. Review the Copilot pull request and merge it when it correctly restores the
+1. A human creates or explicitly approves exactly **one** GitHub issue
+   containing the diagnosis, relevant log evidence, and the required
+   restoration of `federatedCredential` in `identity.bicep`, then assigns it
+   to `@copilot` (the Copilot coding agent).
+2. Copilot authors the pull request.
+3. A human reviews and merges the pull request when it correctly restores the
    credential.
-4. Manually run **Deploy Workload Identity Break Infrastructure** to apply the
+4. That human manually runs **Deploy Workload Identity Break Infrastructure** to apply the
    merged Bicep change when deployment is required.
 5. Verify `/health` and `/items`, then confirm the alert resolves.
 
@@ -69,13 +71,11 @@ the issue and Copilot PR afterward.
 ## Verify recovery
 
 ```bash
-./scenarios/workload-identity-break/scripts/validate.sh \
-  --resource-group rg-srelab --workload srelab
+./scenarios/workload-identity-break/scripts/validate.sh
 ```
 
 ```powershell
-./scenarios/workload-identity-break/scripts/validate.ps1 `
-  -ResourceGroup rg-srelab -Workload srelab
+./scenarios/workload-identity-break/scripts/validate.ps1
 ```
 
 Continue to [99 Cleanup](./99-cleanup.md) once the incident is resolved.

@@ -63,3 +63,27 @@ test('Cosmos RBAC manual fallback does not create an existing matching assignmen
     assert.match(result.stdout, /already exists.*No changes made\./);
   }
 });
+
+test('Cosmos RBAC manual fallback stops when listing role assignments fails', () => {
+  const scriptsDirectory = resolve(repositoryRoot, 'scenarios', 'cosmos-rbac-removal', 'scripts');
+
+  const commands = [
+    ['bash', [resolve(scriptsDirectory, 'remediate.sh')]],
+    ['pwsh', ['-NoProfile', '-File', resolve(scriptsDirectory, 'remediate.ps1')]],
+  ];
+
+  for (const [command, args] of commands) {
+    const result = spawnSync(command, args, {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: mockedLifecyclePath,
+        LIFECYCLE_AZ_FAIL_ROLE_ASSIGNMENT_LIST: '1',
+      },
+    });
+
+    assert.notEqual(result.status, 0, result.stderr);
+    assert.match(result.stderr, /simulated role-assignment list failure/);
+    assert.doesNotMatch(result.stderr, /unexpected CosmosDB role assignment creation/);
+  }
+});

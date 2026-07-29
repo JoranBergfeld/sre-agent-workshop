@@ -4,13 +4,15 @@
 
 All infrastructure changes MUST go through code. Never modify Azure resources directly via CLI, portal, or API during incident remediation.
 
-**When you identify a fix:**
+**When the SRE Agent identifies a fix:**
 
-1. **Create a GitHub issue** describing the root cause, affected resources, and the required Bicep change
-2. **Assign the issue to `@copilot`** (the Copilot coding agent) — it will pick up the issue, create a branch, make the fix, and open a PR automatically
-3. After the PR is merged, an operator manually triggers **Deploy Cosmos RBAC
-   Removal Infrastructure** to apply the change (deployment is intentionally
-   manual via `workflow_dispatch`, not automatic on merge)
+1. A human **creates or explicitly approves exactly one GitHub issue** describing
+   the root cause, affected resources, and required Bicep change, then assigns
+   it to `@copilot` (the Copilot coding agent).
+2. Copilot authors the pull request; a human reviews and merges it.
+3. That human manually triggers **Deploy Cosmos RBAC Removal Infrastructure**
+   to apply the change (deployment is intentionally manual via
+   `workflow_dispatch`, not automatic on merge).
 
 **Do NOT:**
 - Run `az` CLI commands to directly create, modify, or delete Azure resources
