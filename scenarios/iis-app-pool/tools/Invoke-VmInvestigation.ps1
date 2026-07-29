@@ -4,7 +4,7 @@
 param(
     [string]$WorkspaceId,
     [string]$ResourceGroup = "rg-srelabiisapppool",
-    [string]$VmName = "srelabiisapppool-vm01"
+    [string]$VmName = "srelabiisa-01"
 )
 
 $Scenario = "iis-app-pool"
@@ -31,20 +31,59 @@ Write-Stage "Observe" "Received alert for scenario '$Scenario' on VM '$VmName'."
 Write-Stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
 $kql = (Get-Content $queryFile -Raw).Replace('{{VM_NAME}}', $VmName)
+$telemetryConfirmed = $false
+$inspectionConfirmed = $false
 
 if ($WorkspaceId) {
-    $queryResult = az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
-    if ($LASTEXITCODE -eq 0 -and $queryResult) {
-        Write-Stage "Correlate" "Telemetry query returned matching records."
+    $queryResult = & az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Stage "Correlate" "KQL query failed; telemetry evidence is unavailable."
+    } elseif (-not $queryResult) {
+        Write-Stage "Correlate" "KQL query returned no records; telemetry evidence is unavailable."
     } else {
-        Write-Stage "Correlate" "No telemetry records returned yet; continuing with VM inspection evidence."
+        try {
+            $queryPayload = ($queryResult -join [Environment]::NewLine) | ConvertFrom-Json
+            $rowCount = @($queryPayload.tables | ForEach-Object { @($_.rows).Count } | Measure-Object -Sum).Sum
+            if ($rowCount -gt 0) {
+                $telemetryConfirmed = $true
+                Write-Stage "Correlate" "KQL query returned matching telemetry records."
+            } else {
+                Write-Stage "Correlate" "KQL query returned no records; telemetry evidence is unavailable."
+            }
+        } catch {
+            Write-Stage "Correlate" "KQL query results could not be evaluated; telemetry evidence is unavailable."
+        }
     }
 } else {
-    Write-Stage "Correlate" "WorkspaceId not provided; skipping KQL query."
+    Write-Stage "Correlate" "WorkspaceId not provided; telemetry evidence is unavailable."
 }
 
-Write-Stage "Hypothesis" "The scenario symptom matches the expected failure mode for '$Scenario'."
-$confidence = "high"
+try {
+    $inspectionScript = @"
+Import-Module WebAdministration
+Get-WebAppPoolState -Name 'DefaultAppPool' | Select-Object Name, Value | ConvertTo-Json -Compress
+"@
+    & "$PSScriptRoot\Invoke-VmRunCommand.ps1" `
+        -ResourceGroup $ResourceGroup `
+        -VmName $VmName `
+        -Script $inspectionScript
+    $inspectionConfirmed = $true
+    Write-Stage "InspectVM" "VM inspection reported the current IIS app-pool state."
+} catch {
+    Write-Stage "InspectVM" "VM inspection failed; the app-pool state remains unconfirmed."
+}
+
+if ($telemetryConfirmed -and $inspectionConfirmed) {
+    $confidence = "high"
+    Write-Stage "Hypothesis" "Telemetry and VM inspection support a stopped IIS app pool."
+} elseif ($telemetryConfirmed) {
+    $confidence = "medium"
+    Write-Stage "Hypothesis" "Telemetry supports a stopped IIS app pool, but VM inspection is unavailable."
+} else {
+    $confidence = "low"
+    Write-Stage "Hypothesis" "Telemetry is incomplete; a stopped IIS app pool remains an unconfirmed hypothesis."
+}
+
 Write-Stage "Propose" "Prepared remediation plan with confidence: $confidence."
 Write-Stage "AwaitApproval" "Remediation execution requires explicit operator approval."
 Write-Stage "Execute" "Use Invoke-ApprovedRemediation.ps1 with a valid change ticket."

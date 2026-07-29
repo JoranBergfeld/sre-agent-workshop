@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 RESOURCE_GROUP="rg-srelabiisapppool"
-VM_NAME="srelabiisapppool-vm01"
+VM_NAME="srelabiisa-01"
 APP_POOL_NAME="DefaultAppPool"
 
 while [ $# -gt 0 ]; do

@@ -9,7 +9,7 @@ OUTPUT_DIR="$SCRIPT_DIR/../output"
 
 WORKSPACE_ID=""
 RESOURCE_GROUP="rg-srelabiisapppool"
-VM_NAME="srelabiisapppool-vm01"
+VM_NAME="srelabiisa-01"
 SCENARIO="iis-app-pool"
 
 while [ $# -gt 0 ]; do
@@ -50,19 +50,55 @@ write_stage "Observe" "Received alert for scenario '$SCENARIO' on VM '$VM_NAME'.
 write_stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
 KQL=$(sed "s/{{VM_NAME}}/$VM_NAME/g" "$QUERY_FILE")
+TELEMETRY_CONFIRMED=false
+INSPECTION_CONFIRMED=false
+
+inspect_vm() {
+  local inspection_script
+  inspection_script="Import-Module WebAdministration
+Get-WebAppPoolState -Name 'DefaultAppPool' | Select-Object Name, Value | ConvertTo-Json -Compress"
+
+  if "$SCRIPT_DIR/invoke-vm-run-command.sh" \
+    --resource-group "$RESOURCE_GROUP" \
+    --vm-name "$VM_NAME" \
+    --script "$inspection_script"; then
+    INSPECTION_CONFIRMED=true
+    write_stage "InspectVM" "VM inspection reported the current IIS app-pool state."
+  else
+    write_stage "InspectVM" "VM inspection failed; the app-pool state remains unconfirmed."
+  fi
+}
 
 if [ -n "$WORKSPACE_ID" ]; then
-  if az monitor log-analytics query -w "$WORKSPACE_ID" --analytics-query "$KQL" -o json >/dev/null 2>&1; then
-    write_stage "Correlate" "Telemetry query returned matching records."
+  if QUERY_RESULT=$(az monitor log-analytics query -w "$WORKSPACE_ID" --analytics-query "$KQL" -o json 2>/dev/null); then
+    if command -v jq >/dev/null 2>&1 && printf '%s' "$QUERY_RESULT" | jq -e '[.tables[]?.rows[]?] | length > 0' >/dev/null 2>&1; then
+      TELEMETRY_CONFIRMED=true
+      write_stage "Correlate" "KQL query returned matching telemetry records."
+    elif command -v jq >/dev/null 2>&1; then
+      write_stage "Correlate" "KQL query returned no records; telemetry evidence is unavailable."
+    else
+      write_stage "Correlate" "KQL query results could not be evaluated because jq is unavailable; telemetry evidence is unavailable."
+    fi
   else
-    write_stage "Correlate" "No telemetry records returned yet; continuing with VM inspection evidence."
+    write_stage "Correlate" "KQL query failed; telemetry evidence is unavailable."
   fi
 else
-  write_stage "Correlate" "WorkspaceId not provided; skipping KQL query."
+  write_stage "Correlate" "WorkspaceId not provided; telemetry evidence is unavailable."
 fi
 
-write_stage "Hypothesis" "The scenario symptom matches the expected failure mode for '$SCENARIO'."
-CONFIDENCE="high"
+inspect_vm
+
+if [ "$TELEMETRY_CONFIRMED" = true ] && [ "$INSPECTION_CONFIRMED" = true ]; then
+  CONFIDENCE="high"
+  write_stage "Hypothesis" "Telemetry and VM inspection support a stopped IIS app pool."
+elif [ "$TELEMETRY_CONFIRMED" = true ]; then
+  CONFIDENCE="medium"
+  write_stage "Hypothesis" "Telemetry supports a stopped IIS app pool, but VM inspection is unavailable."
+else
+  CONFIDENCE="low"
+  write_stage "Hypothesis" "Telemetry is incomplete; a stopped IIS app pool remains an unconfirmed hypothesis."
+fi
+
 write_stage "Propose" "Prepared remediation plan with confidence: $CONFIDENCE."
 write_stage "AwaitApproval" "Remediation execution requires explicit operator approval."
 write_stage "Execute" "Use invoke-approved-remediation.sh with a valid change ticket."

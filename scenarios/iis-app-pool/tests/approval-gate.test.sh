@@ -55,6 +55,19 @@ if ! grep -Fq "ChangeTicket must match CHG-12345 or INC-12345." <<<"$invalid_out
   exit 1
 fi
 
+if traversal_output=$(printf 'APPROVE\n' | "$FIXTURE/tools/invoke-approved-remediation.sh" \
+  --action '../start-iis-app-pool' \
+  --change-ticket CHG-12345 \
+  --resource-group rg-test \
+  --vm-name vm-test 2>&1); then
+  echo "path traversal action unexpectedly succeeded" >&2
+  exit 1
+fi
+if ! grep -Fq "Action must match lowercase kebab-case." <<<"$traversal_output"; then
+  echo "path traversal action did not report the expected validation error" >&2
+  exit 1
+fi
+
 if denied_output=$(run_gate "DENY" 2>&1); then
   echo "non-APPROVE input unexpectedly succeeded" >&2
   exit 1

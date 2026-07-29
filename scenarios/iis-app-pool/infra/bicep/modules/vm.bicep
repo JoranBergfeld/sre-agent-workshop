@@ -17,9 +17,15 @@ param adminPassword string
 @description('Subnet resource ID for VM NICs')
 param subnetId string
 
+@description('Data Collection Rule resource ID for IIS System event telemetry')
+param dataCollectionRuleId string
+
+// Windows computer names may not exceed 15 characters. This deterministic
+// prefix keeps resource and computer names short for every workload name.
+var vmNamePrefix = take(replace(workloadName, '-', ''), 10)
 var vmNames = [
-  '${workloadName}-vm01'
-  '${workloadName}-vm02'
+  '${vmNamePrefix}-01'
+  '${vmNamePrefix}-02'
 ]
 
 // ──────────────────────────────────────────────
@@ -130,6 +136,19 @@ resource amaExtension 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' 
     typeHandlerVersion: '1.20'
     autoUpgradeMinorVersion: true
   }
+}]
+
+// Associate the workspace-bound DCR with each AMA-enabled VM so the Event
+// table receives the System events queried by the IIS app-pool alert.
+resource iisEventCollectionAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = [for (vmName, i) in vmNames: {
+  name: 'iis-app-pool-events'
+  scope: vm[i]
+  properties: {
+    dataCollectionRuleId: dataCollectionRuleId
+  }
+  dependsOn: [
+    amaExtension[i]
+  ]
 }]
 
 resource dependencyAgent 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = [for (vmName, i) in vmNames: {

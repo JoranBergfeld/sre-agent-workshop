@@ -22,7 +22,7 @@ only the capsule-local approval gate. It requires a `CHG-<number>` or
 ./scenarios/iis-app-pool/tools/invoke-approved-remediation.sh \
   --action start-iis-app-pool \
   --resource-group rg-srelabiisapppool \
-  --vm-name srelabiisapppool-vm01 \
+  --vm-name srelabiisa-01 \
   --change-ticket CHG-12345
 ```
 

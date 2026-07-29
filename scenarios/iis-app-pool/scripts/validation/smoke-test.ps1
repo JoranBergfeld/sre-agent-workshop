@@ -1,6 +1,6 @@
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",
-    [string]$VmName = "srelabiisapppool-vm01",
+    [string]$VmName = "srelabiisa-01",
     [string]$BastionName = "srelabiisapppool-bas",
     [int]$LocalPort = 18080
 )

@@ -36,6 +36,49 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+// ──────────────────────────────────────────────
+// Azure Monitor Agent event collection for the IIS app-pool alert.
+// The associated VM resources are declared in the VM module.
+// ──────────────────────────────────────────────
+resource iisEventCollectionRule 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
+  name: '${workloadName}-iis-events-dcr'
+  location: location
+  tags: tags
+  properties: {
+    dataSources: {
+      windowsEventLogs: [
+        {
+          name: 'iisSystemEvents'
+          streams: [
+            'Microsoft-Event'
+          ]
+          xPathQueries: [
+            'System!*'
+          ]
+        }
+      ]
+    }
+    destinations: {
+      logAnalytics: [
+        {
+          name: 'logAnalytics'
+          workspaceResourceId: logAnalytics.id
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: [
+          'Microsoft-Event'
+        ]
+        destinations: [
+          'logAnalytics'
+        ]
+      }
+    ]
+  }
+}
+
 // ── Outputs ──────────────────────────────────
 @description('Log Analytics workspace resource ID')
 output logAnalyticsId string = logAnalytics.id
@@ -45,3 +88,6 @@ output logAnalyticsWorkspaceId string = logAnalytics.properties.customerId
 
 @description('Application Insights connection string')
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
+
+@description('Data Collection Rule resource ID for IIS System event telemetry')
+output dataCollectionRuleId string = iisEventCollectionRule.id

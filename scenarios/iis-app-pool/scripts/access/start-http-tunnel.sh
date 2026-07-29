@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RESOURCE_GROUP="rg-srelabiisapppool"
-VM_NAME="srelabiisapppool-vm01"
+VM_NAME="srelabiisa-01"
 BASTION_NAME="srelabiisapppool-bas"
 LOCAL_PORT=18080
 

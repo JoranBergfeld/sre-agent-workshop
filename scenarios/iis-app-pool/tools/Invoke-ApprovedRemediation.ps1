@@ -6,12 +6,16 @@
 param(
     [Parameter(Mandatory = $true)][string]$Action,
     [string]$ResourceGroup = "rg-srelabiisapppool",
-    [string]$VmName = "srelabiisapppool-vm01",
+    [string]$VmName = "srelabiisa-01",
     [Parameter(Mandatory = $true)][string]$ChangeTicket
 )
 
 if ($ChangeTicket -notmatch '^(CHG|INC)-[0-9]+$') {
     throw "ChangeTicket must match CHG-12345 or INC-12345."
+}
+
+if ($Action -notmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
+    throw "Action must match lowercase kebab-case."
 }
 
 $scriptPath = Join-Path $PSScriptRoot "..\scripts\remediation\$Action.ps1"

@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 ACTION=""
 RESOURCE_GROUP="rg-srelabiisapppool"
-VM_NAME="srelabiisapppool-vm01"
+VM_NAME="srelabiisa-01"
 CHANGE_TICKET=""
 
 while [ $# -gt 0 ]; do
@@ -30,6 +30,11 @@ done
 if [ -z "$ACTION" ]; then
   echo "Action is required." >&2
   exit 2
+fi
+
+if [[ ! "$ACTION" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+  echo "Action must match lowercase kebab-case." >&2
+  exit 1
 fi
 
 SCRIPT_PATH="$SCRIPT_DIR/../scripts/remediation/${ACTION}.sh"

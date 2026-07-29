@@ -20,8 +20,6 @@ descriptions contain `stopped` or `terminated`.
 
 When it fires, the SRE Agent investigates the local
 [`investigation/query.kql`](../investigation/query.kql) and records evidence.
-The required recovery is exact: a human creates or approves one issue assigned
-to `@copilot`; Copilot authors a PR; a human reviews, merges, and deploys the
-merged change. The capsule-local approval gate is a manual fallback only.
+The capsule-local approval gate is a manual fallback only.
 
-Next: inject the fault from the [scenario README](../README.md).
+Next: [04 Onboard the SRE Agent and GitHub](./04-onboard-sre-agent.md).

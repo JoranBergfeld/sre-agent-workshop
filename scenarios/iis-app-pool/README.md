@@ -10,12 +10,13 @@ Windows/IIS environment, monitoring, identity, network, and IIS app-pool alert.
 1. [00 Prerequisites](./docs/00-prerequisites.md)
 2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
 3. [02 Configure incident response](./docs/02-configure-incident-response.md)
-4. [90 Watch the SRE Agent](./docs/90-watch-agent-workflow.md)
-5. [99 Cleanup](./docs/99-cleanup.md)
+4. [04 Onboard the SRE Agent and GitHub](./docs/04-onboard-sre-agent.md)
+5. [90 Watch the SRE Agent](./docs/90-watch-agent-workflow.md)
+6. [99 Cleanup](./docs/99-cleanup.md)
 
 ## What breaks
 
-The injector stops `DefaultAppPool` on `srelabiisapppool-vm01`. IIS returns
+The injector stops `DefaultAppPool` on `srelabiisa-01`. IIS returns
 HTTP 503 and the capsule's `vm-iis-app-pool-failure` scheduled-query alert
 detects the stopped pool from Windows event telemetry.
 

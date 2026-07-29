@@ -1,7 +1,7 @@
 # Restarts an IIS application pool — paired with stop-iis-app-pool.ps1.
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",
-    [string]$VmName = "srelabiisapppool-vm01",
+    [string]$VmName = "srelabiisa-01",
     [string]$AppPoolName = "DefaultAppPool"
 )
 

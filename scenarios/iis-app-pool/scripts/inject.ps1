@@ -2,7 +2,7 @@
 # simulate a stopped backend; the scenario alert + agent flow take it from there.
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",
-    [string]$VmName = "srelabiisapppool-vm01",
+    [string]$VmName = "srelabiisa-01",
     [string]$AppPoolName = "DefaultAppPool"
 )
 

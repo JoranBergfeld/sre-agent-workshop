@@ -67,6 +67,7 @@ module vm 'modules/vm.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     subnetId: network.outputs.subnetId
+    dataCollectionRuleId: monitoring.outputs.dataCollectionRuleId
   }
 }
 
