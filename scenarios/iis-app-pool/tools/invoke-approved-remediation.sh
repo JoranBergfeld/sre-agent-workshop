@@ -71,19 +71,25 @@ append_audit() {
 
 finalize_audit() {
   local exit_status=$?
+  local terminal_audit_status=0
   if [ "$AUDIT_STARTED" = true ]; then
     if [ "$exit_status" -eq 0 ]; then
       if ! append_audit "succeeded"; then
         echo "Failed to write succeeded audit entry." >&2
+        terminal_audit_status=1
       fi
     else
       if ! append_audit "failed"; then
         echo "Failed to write failed audit entry." >&2
+        terminal_audit_status=1
       fi
     fi
   fi
   trap - EXIT
-  exit "$exit_status"
+  if [ "$exit_status" -ne 0 ]; then
+    exit "$exit_status"
+  fi
+  exit "$terminal_audit_status"
 }
 
 echo "========================================"
