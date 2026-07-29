@@ -1,0 +1,4 @@
+Perf
+| where ObjectName == "Processor" and CounterName == "% Processor Time" and InstanceName == "_Total"
+| where Computer has "{{VM_NAME}}"
+| top 5 by TimeGenerated desc
