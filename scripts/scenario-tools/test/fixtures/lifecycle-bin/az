@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case " $* " in
+  *" cosmosdb list "*)
+    printf 'cosmos-account\n'
+    ;;
+  *" identity show "*)
+    printf 'principal-id\n'
+    ;;
+  *" cosmosdb sql role assignment list "*)
+    printf 'matching-assignment\n'
+    ;;
+  *" cosmosdb sql role assignment create "*)
+    echo 'unexpected CosmosDB role assignment creation' >&2
+    exit 99
+    ;;
+  *)
+    echo "unexpected az command: $*" >&2
+    exit 98
+    ;;
+esac

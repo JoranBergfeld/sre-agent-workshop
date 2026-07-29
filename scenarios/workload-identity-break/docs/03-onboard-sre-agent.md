@@ -10,7 +10,7 @@ The Azure SRE Agent is an AI-powered operations teammate designed to help you ma
 
 **How it works:** The agent connects to your Azure resources, observability tools (like Azure Monitor and Log Analytics), and code repositories. It continuously monitors for anomalies, spikes in errors, and resource health issues. When something goes wrong, it doesn't just alert you — it automatically diagnoses the root cause by correlating logs, metrics, deployment changes, and code commits.
 
-**What makes it special:** Unlike traditional alerting, the SRE Agent learns from every interaction. It builds persistent knowledge about your environment, your architecture, your team's debugging patterns, and common failure modes. Over time, it gets smarter and faster at finding root causes. For your workshop app, it will understand the relationship between the Bicep deployment, the Kubernetes configuration, and the app's dependency on CosmosDB — allowing it to trace a connection failure back to a missing role assignment in minutes.
+**What makes it special:** Unlike traditional alerting, the SRE Agent learns from every interaction. It builds persistent knowledge about your environment, your architecture, your team's debugging patterns, and common failure modes. Over time, it gets smarter and faster at finding root causes. For this workshop app, it traces `AADSTS70021` token-acquisition failures back to a missing federated identity credential in minutes.
 
 > **Reference:** For more details, see [Azure SRE Agent overview](https://sre.azure.com/docs/overview)
 
@@ -71,7 +71,9 @@ For this workshop, the agent will read:
 - Your **application code** to understand dependencies and error patterns
 - Your **GitHub Actions workflows** to trace deployments and changes
 
-When we intentionally break the app in Module 5 by removing a role assignment from the Bicep code, the agent will identify that specific commit as the culprit.
+When we intentionally break the app in Module 5 by removing the federated
+identity credential from the Bicep code, the agent will identify that specific
+commit as the culprit.
 
 ## Logs (Optional — Skip for This Workshop)
 
@@ -146,7 +148,11 @@ When the agent asks, tell it about your workshop setup. For example:
 
 Then share a debugging hint that will be invaluable later:
 
-> "If the app can't connect to CosmosDB, the first thing to check is the managed identity role assignments. The app authenticates using DefaultAzureCredential with workload identity, which means it relies on a federated identity credential and a role assignment on the CosmosDB account. If either of those is missing or misconfigured, auth will fail."
+> "If `/items` returns 500 while `/health` remains green, check for
+> `AADSTS70021` or `No matching federated identity` in the container logs. The
+> app uses DefaultAzureCredential with workload identity, so it needs the
+> federated identity credential that maps `workshop-app` to the UAMI before it
+> can acquire a token for CosmosDB."
 
 ### The Agent's Memory
 
@@ -157,7 +163,10 @@ The agent saves everything you tell it during onboarding to persistent knowledge
 
 > **⚠️ Note:** The Team Onboarding conversation is the trigger to move the status of the Agent from `BuildingKnowledgeGraph` to `Running`. You can check the agent's state in the portal, it should transition to `Running` once onboarding is complete. This may take a while, so we are not going to wait for this in the workshop. In real-life scenarios it should be taken care of.
 
-**Tip:** The more specific and actionable your onboarding information, the faster the agent will diagnose issues in Module 6. Your debugging hint about role assignments will directly help when the agent investigates the fault we introduce in Module 5.
+**Tip:** The more specific and actionable your onboarding information, the
+faster the agent will diagnose issues in Module 6. Your debugging hint about
+federated identity credentials will directly help when the agent investigates
+the fault introduced in Module 5.
 
 ## Verify Setup
 

@@ -18,6 +18,16 @@ done
 COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)
 PRINCIPAL_ID=$(az identity show --name "${WORKLOAD}-id" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)
 
+EXISTING_ASSIGNMENT=$(az cosmosdb sql role assignment list \
+  --account-name "$COSMOS_ACCOUNT" --resource-group "$RESOURCE_GROUP" \
+  --query "[?principalId=='${PRINCIPAL_ID}' && contains(roleDefinitionId, '${ROLE_DEF_ID}') && scope=='/'].name | [0]" \
+  -o tsv)
+
+if [ -n "$EXISTING_ASSIGNMENT" ]; then
+  echo "CosmosDB role assignment '${EXISTING_ASSIGNMENT}' already exists for ${WORKLOAD}-id on $COSMOS_ACCOUNT. No changes made."
+  exit 0
+fi
+
 az cosmosdb sql role assignment create \
   --account-name "$COSMOS_ACCOUNT" --resource-group "$RESOURCE_GROUP" \
   --role-definition-id "$ROLE_DEF_ID" \

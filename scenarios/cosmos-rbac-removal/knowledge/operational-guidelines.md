@@ -20,6 +20,12 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 **Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `scenarios/cosmos-rbac-removal/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
 
+**Constrained manual fallback:** Only when the issue → Copilot PR → review →
+merge → deployment path cannot be used, an authorized operator may use the
+scenario-owned remediation script. It first verifies whether the matching
+assignment already exists; it is not the normal remediation path and does not
+replace the required Bicep correction.
+
 ## Architecture Overview
 
 - **AKS cluster** (`srelab-aks`): Hosts the web app in the `workshop` namespace

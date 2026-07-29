@@ -21,7 +21,7 @@ The workflow deploys the following Azure resources to your subscription. All res
 | Federated Identity Credential | Automatic | Maps Kubernetes ServiceAccount → Azure managed identity |
 | CosmosDB Role Assignment | Automatic | Grants the managed identity permission to read database data |
 | Alert Rule | `{workloadName}-container-restarts` | Monitors container restart count; triggers incident response in Module 4 |
-| Alert Rule | `{workloadName}-http-500-errors` | Monitors HTTP 500 errors in container logs; triggers incident response in Module 4 |
+| Alert Rule | `{workloadName}-workload-identity-auth-errors` | Monitors workload identity token-acquisition failures in container logs; triggers incident response in Module 4 |
 
 **Cluster Configuration:**
 - **Nodes:** 2× Standard_D2ads_v6 VMs (Linux system node pool)
@@ -406,7 +406,13 @@ Here's how the app will authenticate to CosmosDB in Module 2:
 - **OIDC Issuer:** AKS's built-in OpenID Connect server that issues tokens to workloads
 - **CosmosDB Role Assignment:** Grants the UAMI the "Cosmos DB Built-in Data Contributor" role on the database
 
-This chain is the foundation of what we'll break in **Module 5**. When we remove the CosmosDB role assignment in Module 5, the app will still be able to authenticate and get a token, but CosmosDB will reject the request with a 403 Forbidden error — the app is authorized to AKS but not authorized to CosmosDB.
+This chain is the foundation of what we'll break in **Module 5**. When we
+delete the `federatedCredential`, the pod cannot exchange its Kubernetes
+ServiceAccount token for a UAMI token. `/health` remains green because it does
+not call Azure, but `/items` returns HTTP 500 and the container logs report
+`AADSTS70021` / `No matching federated identity`. The scenario's
+`workload-identity-auth-errors` query and alert detect that token-acquisition
+failure before CosmosDB authorization is reached.
 
 ## Troubleshooting
 

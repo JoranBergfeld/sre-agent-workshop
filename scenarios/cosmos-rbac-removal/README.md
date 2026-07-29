@@ -12,6 +12,26 @@ selectable; it provisions, breaks, and recovers its own AKS workload.
 3. [02 Publish and deploy the application](./docs/02-deploy-application.md)
 4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
 5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+6. [90 Watch SRE Agent](./docs/90-watch-sre-agent.md)
+7. [99 Cleanup](./docs/99-cleanup.md)
+
+## Capsule commands
+
+Run the setup check and cleanup commands from the repository root:
+
+```bash
+./scenarios/cosmos-rbac-removal/scripts/setup.sh
+./scenarios/cosmos-rbac-removal/scripts/cleanup.sh --resource-group rg-srelab
+```
+
+```powershell
+./scenarios/cosmos-rbac-removal/scripts/setup.ps1
+./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -ResourceGroup rg-srelab
+```
+
+For a custom deployment name, use `--workload <name>` with Bash fault and
+manual-fallback scripts, or `-Workload <name>` with their PowerShell
+equivalents.
 
 # Module 5: Break It! 💥 (~20 min)
 
@@ -172,10 +192,24 @@ Your Azure Monitor alert will detect the spike in failed requests. The SRE Agent
 4. **Correlate with recent deployments** (find the Bicep change you just made)
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** missing role assignment
-7. **Propose a fix** and open a PR on your fork
-8. **If you configured it for Autonomous mode,** the agent will merge the PR — you then trigger the `Deploy Cosmos RBAC Removal Infrastructure` workflow to apply the fix
+7. **Record the diagnosis and evidence** for the missing role assignment
+8. **Follow the GitOps remediation flow below** to restore the assignment through code
 
-You don't need to fix this yourself. **Don't troubleshoot.** Don't manually restore the role assignment. Let the SRE Agent do its job. Head to Module 6 to watch it work.
+## Remediate through GitOps
+
+After the SRE Agent completes its investigation, do **not** restore the Cosmos
+role assignment directly in Azure. Create **one** GitHub issue describing the
+evidence and the required `cosmosRoleAssignment` Bicep restoration, then assign
+it to `@copilot` (the Copilot coding agent). Review the Copilot PR, merge it,
+and manually run **Deploy Cosmos RBAC Removal Infrastructure** if the
+deployment is required.
+
+`scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
+fallbacks only. Use them only when the normal issue → Copilot PR → review →
+merge → manual deployment path cannot be used.
+
+You don't need to fix this directly. Let the SRE Agent investigate, then
+preserve the issue-to-Copilot GitOps path. Head to Module 6 to watch it work.
 
 ## Optional: Add More Narrative
 

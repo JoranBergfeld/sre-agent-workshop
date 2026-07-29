@@ -27,10 +27,19 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 - **Managed Identity** (`srelab-id`): UAMI with federated credential linked to K8s ServiceAccount `workshop-app`
 - **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
 
-## Common Failure: CosmosDB RBAC
+## Common Failure: Workload Identity Federation
 
-If the app returns HTTP 500 with "RBAC permissions" errors on `/items`:
-- **Root cause**: The CosmosDB SQL role assignment for the UAMI is missing
-- **Where to fix**: `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` — the `cosmosRoleAssignment` resource block
-- **How to fix**: Create a GitHub issue with the title "Restore CosmosDB role assignment in identity.bicep" and assign it to `@copilot`
-- **Do NOT** run `az cosmosdb sql role assignment create` directly
+If `/items` returns HTTP 500 while `/health` remains green and ContainerLog
+contains `AADSTS70021` or `No matching federated identity`:
+- **Root cause**: The UAMI's federated identity credential for
+  `system:serviceaccount:workshop:workshop-app` is missing.
+- **Where to fix**:
+  `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` — the
+  `federatedCredential` resource block.
+- **How to fix**: After the SRE Agent investigation, create one GitHub issue
+  titled "Restore federated identity credential in identity.bicep", assign it
+  to `@copilot`, review and merge the PR, then manually run **Deploy Workload
+  Identity Break Infrastructure**.
+- **Manual fallback only**: `scripts/remediate.sh` and
+  `scripts/remediate.ps1` recreate the credential only when the GitOps path
+  cannot be used. Do not run `az identity federated-credential create` directly.

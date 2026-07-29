@@ -12,6 +12,26 @@ selectable; it provisions, breaks, and recovers its own AKS workload.
 3. [02 Publish and deploy the application](./docs/02-deploy-application.md)
 4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
 5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+6. [90 Watch SRE Agent](./docs/90-watch-sre-agent.md)
+7. [99 Cleanup](./docs/99-cleanup.md)
+
+## Capsule commands
+
+Run the setup check and cleanup commands from the repository root:
+
+```bash
+./scenarios/workload-identity-break/scripts/setup.sh
+./scenarios/workload-identity-break/scripts/cleanup.sh --resource-group rg-srelab
+```
+
+```powershell
+./scenarios/workload-identity-break/scripts/setup.ps1
+./scenarios/workload-identity-break/scripts/cleanup.ps1 -ResourceGroup rg-srelab
+```
+
+For a custom deployment name, use `--workload <name>` with Bash fault and
+manual-fallback scripts, or `-Workload <name>` with their PowerShell
+equivalents.
 
 # Break It: Workload Identity 💥 (~30 min)
 
@@ -186,10 +206,24 @@ Your Azure Monitor alert detects the authentication errors. The SRE Agent, which
 4. **Correlate with recent deployments** (find the `identity.bicep` change you just made)
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** the missing `federatedCredential`
-7. **Propose a fix** — restore the `federatedCredential` block — and open a PR on your fork
-8. **If you configured it for Autonomous mode,** the agent merges the PR; you then trigger the `Deploy Workload Identity Break Infrastructure` workflow to apply the fix
+7. **Record the diagnosis and evidence** for the missing `federatedCredential`
+8. **Follow the GitOps remediation flow below** to restore the credential through code
 
-You don't need to fix this yourself. **Don't troubleshoot.** Don't manually recreate the credential. Let the SRE Agent do its job.
+## Remediate through GitOps
+
+After the SRE Agent completes its investigation, do **not** recreate the
+federated credential directly in Azure. Create **one** GitHub issue describing
+the evidence and the required `federatedCredential` Bicep restoration, then
+assign it to `@copilot` (the Copilot coding agent). Review the Copilot PR,
+merge it, and manually run **Deploy Workload Identity Break Infrastructure** if
+the deployment is required.
+
+`scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
+fallbacks only. Use them only when the normal issue → Copilot PR → review →
+merge → manual deployment path cannot be used.
+
+You don't need to fix this directly. Let the SRE Agent investigate, then
+preserve the issue-to-Copilot GitOps path.
 
 ## Optional: Add More Narrative
 

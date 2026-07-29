@@ -99,9 +99,12 @@ Click **Save**
 
 You should now see your incident response plan listed in the **Incident response plans** section.
 
-## Verify Alert Rules Exist
+## Verify This Scenario's Alert Rule
 
-Your AKS cluster should already have alert rules from the Bicep deployment in Module 1. These are **log-based (scheduled query) alerts** that query the Log Analytics workspace — not metric-based alerts.
+This capsule's `infra/bicep/main.bicep` directly deploys this scenario's
+`modules/alert.bicep`. Its manifest names the alert
+**`workload-identity-auth-errors`**. It is a **log-based (scheduled query)
+alert** over the Log Analytics workspace, not a metric alert.
 
 ```bash
 # List scheduled query rules in the resource group
@@ -111,18 +114,15 @@ az resource list \
   --query "[].name" -o tsv
 ```
 
-What you see is the **base** alert plus **one alert per scenario** (each scenario wires its own alert through the generated aggregator):
-
-- **`srelab-container-restarts`** (base, always deployed) — fires when any container restarts more than 3 times in 5 minutes (queries `KubePodInventory`).
-- **One alert per scenario.** For example, `cosmos-rbac-removal` adds `srelab-http-500-errors` and `workload-identity-break` adds `srelab-workload-identity-auth-errors` (both query `ContainerLog`).
-
-This capsule's scenario is `workload-identity-break`; its alert contributes to the generated infrastructure for this standalone workshop.
+Look for **`srelab-workload-identity-auth-errors`**, whose display name is
+**Workload Identity Auth Errors**. It queries `ContainerLog` for
+`AADSTS70021` and `No matching federated identity` token-acquisition failures.
 
 > **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
 If the list is empty, re-run **Deploy Workload Identity Break Infrastructure**
 from Module 1 — the alerts are defined in
-`scenarios/workload-identity-break/infra/bicep/main.bicep`.
+`scenarios/workload-identity-break/infra/bicep/modules/alert.bicep`.
 
 ## How It All Connects
 
@@ -141,10 +141,17 @@ Here's the flow when something goes wrong:
    ↓
 6. Agent correlates log errors with recent commits
    ↓
-7. Agent proposes fix OR executes fix (based on autonomy level)
+7. Agent records its evidence and diagnosis for the GitOps remediation flow
 ```
 
-For example, when you run the `cosmos-rbac-removal` scenario in Module 5, the app starts failing to authenticate to CosmosDB and Azure Monitor detects the spike in errors. The SRE Agent picks up the alert, queries the app's logs, sees the authentication failures, checks the Bicep deployment history, finds the removed role assignment, and either proposes or automatically opens a PR to restore it.
+For example, when you run the `workload-identity-break` scenario in Module 5,
+pods cannot acquire a token after the federated credential is removed, so
+`/items` returns HTTP 500 while `/health` remains green. The SRE Agent finds
+`AADSTS70021` / `No matching federated identity` in the logs, checks the Bicep
+deployment history, and identifies the missing credential. After its
+investigation, create one GitHub issue assigned to `@copilot`; review and
+merge the resulting PR, then manually run the matching deployment workflow if
+required. Do not remediate directly in Azure.
 
 ## What Happens Next
 
