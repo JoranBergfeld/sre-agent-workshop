@@ -19,6 +19,10 @@ on:
         description: 'Windows VM admin username'
         type: string
         default: azureuser
+      sreAgentPrincipalId:
+        description: 'Object (principal) ID of the Azure SRE Agent managed identity to grant least-privilege investigation access'
+        required: true
+        type: string
 
 permissions:
   id-token: write
@@ -32,16 +36,21 @@ jobs:
       WORKLOAD: ${{ inputs.workloadName }}
       ADMIN_USERNAME: ${{ inputs.adminUsername }}
       ADMIN_PASSWORD: ${{ secrets.VM_ADMIN_PASSWORD }}
+      SRE_AGENT_PRINCIPAL_ID: ${{ inputs.sreAgentPrincipalId }}
       RESOURCE_GROUP: rg-${{ inputs.workloadName }}
-      SCENARIO_README: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/workshops/vm/scenarios/vm-size-retirement/README.md
+      SCENARIO_README: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/scenarios/vm-size-retirement/README.md
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate VM admin password secret
+      - name: Validate deployment credentials and SRE Agent principal
         run: |
           if [ -z "${ADMIN_PASSWORD}" ]; then
             echo "::error::Missing repository secret VM_ADMIN_PASSWORD"
+            exit 1
+          fi
+          if [ -z "${SRE_AGENT_PRINCIPAL_ID}" ]; then
+            echo "::error::sreAgentPrincipalId must be the object (principal) ID of the Azure SRE Agent managed identity"
             exit 1
           fi
 
@@ -62,12 +71,13 @@ jobs:
         run: |
           az deployment group create \
             --resource-group "${RESOURCE_GROUP}" \
-            --template-file workshops/vm/infra/bicep/main.bicep \
-            --parameters workshops/vm/infra/bicep/main.bicepparam \
+            --template-file scenarios/vm-size-retirement/infra/bicep/main.bicep \
+            --parameters scenarios/vm-size-retirement/infra/bicep/main.bicepparam \
               location="${LOCATION}" \
               workloadName="${WORKLOAD}" \
               adminUsername="${ADMIN_USERNAME}" \
               adminPassword="${ADMIN_PASSWORD}" \
+              sreAgentPrincipalId="${SRE_AGENT_PRINCIPAL_ID}" \
               tags='{"workshop":"sre-agent","environment":"demo","track":"vm","scenario":"vm-size-retirement"}' \
             --query 'properties.outputs' \
             -o json > vm-size-retirement-deployment-outputs.json
