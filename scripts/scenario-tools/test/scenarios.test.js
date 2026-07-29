@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import yaml from 'js-yaml';
 
@@ -53,6 +53,27 @@ test('scenarioCandidateDirs discovers all direct folders and scenarioDirs filter
 
   const dirs = scenarioDirs(resolve(repo, 'scenarios'));
   assert.deepEqual(dirs.map((dir) => basename(dir)), ['a-first', 'z-last']);
+});
+
+test('scenarioCandidateDirs rejects capsule roots symlinked outside scenarios', (t) => {
+  const repo = makeRepo([
+    ['local', { id: 'local', platform: 'Azure VM' }],
+  ]);
+  const external = resolve(repo, 'external-capsule');
+  mkdirSync(external, { recursive: true });
+  writeFileSync(
+    resolve(external, 'scenario.yaml'),
+    yaml.dump({ id: 'external', platform: 'Azure VM' })
+  );
+  symlinkSync(external, resolve(repo, 'scenarios', 'external'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+
+  const candidates = scenarioCandidateDirs(resolve(repo, 'scenarios'));
+  assert.deepEqual(candidates.map((dir) => basename(dir)), ['local']);
+  assert.deepEqual(
+    scenarioDirs(resolve(repo, 'scenarios')).map((dir) => basename(dir)),
+    ['local']
+  );
 });
 
 test('loadScenario derives the id from the folder and reads the manifest platform', (t) => {

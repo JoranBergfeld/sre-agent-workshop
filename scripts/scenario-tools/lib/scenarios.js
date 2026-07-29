@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import yaml from 'js-yaml';
 import { SCENARIOS_DIR } from './paths.js';
@@ -10,7 +10,7 @@ function directScenarioDirs(root) {
     .map((name) => resolve(root, name))
     .filter((dir) => {
       try {
-        return statSync(dir).isDirectory();
+        return lstatSync(dir).isDirectory();
       } catch {
         return false;
       }
