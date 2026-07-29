@@ -82,21 +82,20 @@ The wizard shows you past incidents that would have matched this plan. You might
 
 Click **Next** to continue
 
-### Step 3: Save and Set Autonomy
+### Step 3: Save and Set Review Mode
 
 This step is important — it controls how much the agent is allowed to do automatically.
 
-- **Agent autonomy level:** Select **Autonomous**
+- **Agent autonomy level:** Select **Review**
 
 | Autonomy Level | Behavior | Best For |
 |---|---|---|
-| **Review** | Agent investigates, identifies root cause, proposes fixes, and waits for human approval before taking action | Production systems, high-risk changes |
-| **Autonomous** | Agent investigates, identifies root cause, and automatically gathers approved diagnostic evidence; remediation still follows the human-approved issue → Copilot PR flow | Non-production, trusted automation |
+| **Review** | Agent investigates, identifies root cause, proposes fixes, and waits for human approval before taking action | This workshop's required issue → Copilot PR → merge flow |
+| **Autonomous** | Not used in this workshop; it would skip the required human approval gate. | Avoid for this scenario |
 
 For the workshop, use **Review** mode. The SRE Agent investigates and proposes
 remediation; a human creates or approves one issue assigned to `@copilot`,
-reviews and merges the Copilot PR, then manually runs the deployment. In
-production, retain this separation of investigation from remediation approval.
+reviews and merges the Copilot PR, then manually runs the deployment.
 
 Click **Save**
 

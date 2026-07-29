@@ -29,9 +29,15 @@ Run the setup check and cleanup commands from the repository root:
 ./scenarios/workload-identity-break/scripts/cleanup.ps1 -ResourceGroup rg-srelab
 ```
 
-For a custom deployment name, use `--workload <name>` with Bash fault and
-manual-fallback scripts, or `-Workload <name>` with their PowerShell
-equivalents.
+For a custom deployment name, run the injector with both required flags:
+
+```bash
+./scenarios/workload-identity-break/scripts/inject.sh --resource-group rg-srelab --workload myworkload
+```
+
+```powershell
+./scenarios/workload-identity-break/scripts/inject.ps1 -ResourceGroup rg-srelab -Workload myworkload
+```
 
 # Break It: Workload Identity 💥 (~30 min)
 
@@ -132,9 +138,10 @@ The deployment will **succeed**. The Bicep template is valid syntactically.
 ./scenarios/workload-identity-break/scripts/inject.ps1
 ```
 
-Pass `--resource-group` / `-ResourceGroup` if you chose a non-default workload
-name. The injector deletes the live federated credential, restarts the pods,
-and waits for the rollout to finish.
+Pass both `--resource-group <name>` and `--workload <name>` in Bash, or
+`-ResourceGroup <name>` and `-Workload <name>` in PowerShell. The injector
+deletes the live federated credential, restarts the pods, and waits for the
+rollout to finish.
 
 > **Why two steps?** This mirrors a real identity-cleanup-gone-wrong: the Bicep change removes the credential from the "desired state" (your code), and the CLI deletion simulates Azure catching up. When the SRE Agent investigates, it finds the credential missing from both the Bicep code *and* the live environment.
 
