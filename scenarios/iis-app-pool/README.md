@@ -10,7 +10,7 @@ Windows/IIS environment, monitoring, identity, network, and IIS app-pool alert.
 1. [00 Prerequisites](./docs/00-prerequisites.md)
 2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
 3. [02 Configure incident response](./docs/02-configure-incident-response.md)
-4. [04 Onboard the SRE Agent and GitHub](./docs/04-onboard-sre-agent.md)
+4. [04 Onboard the SRE Agent and GitHub context](./docs/04-onboard-sre-agent.md)
 5. [90 Watch the SRE Agent](./docs/90-watch-agent-workflow.md)
 6. [99 Cleanup](./docs/99-cleanup.md)
 
@@ -38,22 +38,12 @@ The investigation is local to this scenario and has no scenario selector. Its
 query is [`investigation/query.kql`](./investigation/query.kql); traces,
 postmortems, and approval audits are written to `output/`.
 
-## Required recovery model
+## Approved recovery model
 
-After the SRE Agent identifies the stopped pool, a human creates or explicitly
-approves exactly one GitHub issue with the evidence and recovery plan, then
-assigns it to `@copilot`. Copilot authors the pull request. A human reviews
-and merges that PR, then deploys the merged change.
-
-This is the normal incident → issue → Copilot PR → human merge → deployment
-path. Do not directly change the VM during routine remediation.
-
-## Manual approved fallback
-
-Only when the issue-to-Copilot path cannot be used, an authorized operator can
-run the capsule-local gate. It accepts only the local
-`start-iis-app-pool` remediation, requires a `CHG-` or `INC-` ticket and an
-exact `APPROVE`, and appends an audit entry:
+After the SRE Agent identifies the stopped pool, an authorized operator uses
+the capsule-local approval gate. It accepts only the local
+`start-iis-app-pool` remediation, requires a `CHG-<number>` or
+`INC-<number>` ticket, and prompts for exact `APPROVE` confirmation:
 
 ```bash
 ./scenarios/iis-app-pool/tools/invoke-approved-remediation.sh \
@@ -67,7 +57,10 @@ exact `APPROVE`, and appends an audit entry:
   -ChangeTicket CHG-12345
 ```
 
-Reconcile a fallback with the issue and Copilot pull request afterwards.
+At the prompt, type `APPROVE` exactly. The gate records the ticket, action,
+resource group, VM, timestamp, and execution status in
+`output/actions-audit.log`. An issue, code change, or external automation must
+not replace the CHG/INC approval, exact confirmation, and audit record.
 
 ## Validate recovery
 

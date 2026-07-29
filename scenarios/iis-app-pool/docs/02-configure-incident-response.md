@@ -20,6 +20,10 @@ descriptions contain `stopped` or `terminated`.
 
 When it fires, the SRE Agent investigates the local
 [`investigation/query.kql`](../investigation/query.kql) and records evidence.
-The capsule-local approval gate is a manual fallback only.
+The remediation path is the capsule-local approval gate: an authorized
+operator supplies a `CHG-<number>` or `INC-<number>` ticket and types
+`APPROVE` exactly at its prompt. The gate writes
+`output/actions-audit.log`; no external workflow substitutes for that ticket,
+confirmation, and audit trail.
 
-Next: [04 Onboard the SRE Agent and GitHub](./04-onboard-sre-agent.md).
+Next: [04 Onboard the SRE Agent and GitHub context](./04-onboard-sre-agent.md).

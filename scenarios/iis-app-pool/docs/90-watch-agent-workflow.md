@@ -9,17 +9,17 @@ App Pool Failure**. The SRE Agent should:
 4. identify the stopped app pool as the cause of HTTP 503 responses; and
 5. propose recovery with evidence.
 
-The normal remediation flow is:
+The required remediation flow is:
 
-1. A human creates or explicitly approves exactly one GitHub issue and assigns
-   it to `@copilot`.
-2. Copilot authors the pull request.
-3. A human reviews and merges the PR.
-4. That human deploys the merged change.
+1. An authorized operator records a `CHG-<number>` or `INC-<number>` ticket.
+2. The operator runs the capsule-local approval gate with
+   `start-iis-app-pool`.
+3. At the prompt, the operator types `APPROVE` exactly.
+4. The gate executes the constrained action and appends an audit entry to
+   `output/actions-audit.log`.
 
-When that flow is unavailable, an authorized operator may use
-`./scenarios/iis-app-pool/tools/invoke-approved-remediation.sh` with the
-`start-iis-app-pool` action, a valid `CHG-` or `INC-` ticket, and exact
-`APPROVE`. The gate records the execution in `output/actions-audit.log`.
+The approval gate is the remediation control; repository context or an
+external workflow must not replace its ticket, exact confirmation, and audit
+record.
 
 Validate recovery, then continue to [99 Cleanup](./99-cleanup.md).

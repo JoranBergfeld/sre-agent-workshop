@@ -16,7 +16,7 @@ dry_run_output="$("$CLEANUP" --dry-run)"
 grep -Fq "rg-srelabiisapppool" <<<"$dry_run_output"
 grep -Fq "Dry run: would delete resource group" <<<"$dry_run_output"
 
-FIXTURE="$ROOT/tests/.cleanup-fixture-$$"
+FIXTURE="$ROOT/output/.cleanup-fixture-$$"
 trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE/bin"
 

@@ -14,7 +14,7 @@ run_case() {
   local name="$1"
   local az_body="$2"
   local expected_message="$3"
-  local fixture="$ROOT/tests/.investigation-${name}-fixture-$$"
+  local fixture="$ROOT/output/.investigation-${name}-fixture-$$"
   FIXTURES+=("$fixture")
   mkdir -p "$fixture"/{bin,investigation,output,tools}
 

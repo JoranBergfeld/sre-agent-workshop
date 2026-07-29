@@ -1,8 +1,8 @@
-# Module 04: Onboard the SRE Agent and GitHub
+# Module 04: Onboard the SRE Agent and GitHub Context
 
 Run the Azure and GitHub setup from the repository root. This module connects
-the deployed IIS alert to an SRE Agent and defines the human-controlled GitHub
-handoff.
+the deployed IIS alert to an SRE Agent and provides optional repository context
+for the investigation.
 
 ## Connect Azure Monitor
 
@@ -32,17 +32,24 @@ az resource list \
    authorization for the repository that contains this capsule.
 2. Select that repository as the code context so the agent can inspect
    `scenarios/iis-app-pool/infra/bicep/` and the operational guidance.
-3. Confirm the connected GitHub identity can create issues and that Copilot is
-   enabled for the repository.
-4. When the agent finishes its investigation, a human creates or explicitly
-   approves exactly one issue containing the alert, evidence, affected VM, and
-   proposed change. Assign the issue to `@copilot`.
+3. Confirm the connected identity has read access to the repository. This
+   connection provides code and runbook context; it does not execute recovery.
 
-Copilot authors the pull request. A human reviews and merges it, then deploys
-the merged change. This is the normal incident → issue → Copilot PR → human
-merge → deployment path. Use
-`tools/invoke-approved-remediation.{sh,ps1}` only as the documented,
-ticketed, audited fallback when that path is unavailable.
+## Approve remediation
+
+After the agent records the evidence, an authorized operator runs the
+capsule-local approval gate with the only allowed action:
+
+```bash
+./scenarios/iis-app-pool/tools/invoke-approved-remediation.sh \
+  --action start-iis-app-pool \
+  --change-ticket CHG-12345
+```
+
+The ticket must match `CHG-<number>` or `INC-<number>`. At the prompt, type
+`APPROVE` exactly. The gate writes the ticket, action, resource group, VM,
+timestamp, and execution status to `output/actions-audit.log`. GitHub context
+does not replace this approval and audit process.
 
 Next: inject the fault from the [scenario README](../README.md), then follow
 [90 Watch the SRE Agent](./90-watch-agent-workflow.md).

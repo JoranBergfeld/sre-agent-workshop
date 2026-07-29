@@ -15,7 +15,7 @@ fi
 grep -Fq "Action must match lowercase kebab-case." <<<"$traversal_output"
 grep -Fq '$scriptPath = Join-Path $PSScriptRoot "..\scripts\remediation\$Action.ps1"' "$GATE"
 
-FIXTURE="$ROOT/tests/.powershell-safety-fixture-$$"
+FIXTURE="$ROOT/output/.powershell-safety-fixture-$$"
 trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE/bin"
 

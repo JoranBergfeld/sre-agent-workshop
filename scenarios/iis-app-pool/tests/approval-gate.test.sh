@@ -15,7 +15,7 @@ if [[ ! -x "$REMEDIATION" ]]; then
   exit 1
 fi
 
-FIXTURE="$ROOT/tests/.approval-gate-fixture-$$"
+FIXTURE="$ROOT/output/.approval-gate-fixture-$$"
 trap 'rm -rf "$FIXTURE"' EXIT
 mkdir -p "$FIXTURE"/{bin,output,scripts/remediation,tools}
 
