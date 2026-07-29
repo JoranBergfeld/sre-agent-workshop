@@ -50,11 +50,11 @@ jobs:
 
           case '${{ github.event.repository.owner.type }}' in
             User)
-              api_path="/user/packages/container/${encoded_package_name}/visibility"
+              api_path="/user/packages/container/${encoded_package_name}"
               ;;
             Organization)
               owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-              api_path="/orgs/${owner}/packages/container/${encoded_package_name}/visibility"
+              api_path="/orgs/${owner}/packages/container/${encoded_package_name}"
               ;;
             *)
               echo "::error::Unsupported repository owner type: ${{ github.event.repository.owner.type }}"
