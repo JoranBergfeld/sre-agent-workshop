@@ -1,17 +1,18 @@
 # Azure SRE Agent Workshop 🔧
 
-**The fastest path is a minimal App Service handover: trigger a known application
-failure, watch Azure SRE Agent diagnose it, then approve a GitHub issue for the
-Copilot coding agent to fix.**
+Learn Azure SRE Agent incident response through self-contained, reproducible
+scenario capsules. The generated catalog below is the canonical entry point:
+choose one incident, then use only that scenario's guide, scripts,
+infrastructure, and Codespaces configuration.
 
-The repository remains a multi-track workshop for learning incident response on
-Azure App Service, AKS, and VM-based enterprise workloads. Each track provisions
-real infrastructure, injects reproducible faults, and demonstrates a controlled
-path from investigation to remediation.
+Every scenario owns its full lifecycle—setup, fault injection, investigation,
+recovery guidance, validation, and cleanup. Their default resource-name
+prefixes are distinct, so the supplied scenarios can coexist without default
+resource-name collisions.
 
 ---
 
-## 🚀 Start here: App Service quickstart
+## 🚀 Start a scenario
 
 1. Select [**Use this template**](https://github.com/JoranBergfeld/sre-agent-workshop/generate).
 2. Create a repository you control, then clone it:
@@ -21,7 +22,11 @@ path from investigation to remediation.
    cd <repository>
    ```
 
-3. Run the App Service setup with Bash or PowerShell:
+3. Choose a scenario from the generated catalog and open its
+   `scenarios/<id>/README.md` guide. Follow its prerequisites before running
+   commands.
+4. Run that capsule's lifecycle scripts from the repository root. For example,
+   Cloud Agent Handover begins with:
 
    ```bash
    scenarios/cloud-agent-handover/scripts/setup.sh
@@ -31,15 +36,12 @@ path from investigation to remediation.
    ./scenarios/cloud-agent-handover/scripts/setup.ps1
    ```
 
-4. Follow the [Cloud Agent Handover scenario](scenarios/cloud-agent-handover/README.md).
-
-The App Service prerequisites include Azure and GitHub access, authenticated
-`az` and `gh` CLIs, .NET 10, and permission to create role assignments. The
-track guide covers these requirements and cleanup.
+   Use the selected guide's matching Bash or PowerShell commands for injection,
+   validation, and cleanup; prerequisites vary by scenario.
 
 ## Shared concepts
 
-These track-agnostic guides explain the service and incident-response model:
+These guides explain the shared service and incident-response model:
 
 1. [What is the SRE Agent?](docs/00-what-is-sre-agent.md)
 2. [Why use it?](docs/01-why-sre-agent.md)
@@ -66,45 +68,48 @@ Select one incident and follow its complete setup, exercise, recovery, and clean
 
 ## Open in Codespaces
 
-You can run a generated repository in a preconfigured
-[GitHub Codespace](https://docs.github.com/codespaces) instead of installing the
-toolchain locally. The Cloud Agent Handover quickstart uses
-`.devcontainer/cloud-agent-handover/` with Azure CLI + Bicep, PowerShell,
-GitHub CLI, Node.js, and its track-specific tools. The recommended Cloud Agent
-Handover configuration also includes .NET 10, `jq`, and `zip`; the AKS
-configuration adds Kubernetes tooling.
+Each listed scenario has its own
+[GitHub Codespaces](https://docs.github.com/codespaces) configuration at
+`.devcontainer/<scenario-id>/`. It installs the Azure, GitHub, PowerShell, and
+language tooling required by that capsule.
 
 1. In the repository created from the template, select **Code → Codespaces →
    New with options…**
-2. Under **Dev container configuration**, select **SRE Scenario — Cloud Agent Handover**
-   for the quickstart, or choose **SRE Workshop — AKS** / **SRE Workshop — VM**
-   for an advanced track.
+2. Under **Dev container configuration**, select the **SRE Scenario — …**
+   configuration whose scenario id matches the catalog entry you chose (for
+   example, `.devcontainer/cloud-agent-handover/`).
 3. Create the Codespace and wait for its setup commands to finish.
 4. Authenticate interactively with `az login` and `gh auth login` before running
-   the selected track's setup or deployment steps.
+   the selected scenario's setup or deployment steps.
 
 ## Contributing a scenario
 
 This repository is designed to grow. See [CONTRIBUTING.md](CONTRIBUTING.md) to
-add a self-contained scenario or register another track.
+add a self-contained scenario capsule. The catalog is generated from
+`scenario.yaml` manifests; do not edit its table by hand.
 
 ---
 
 ## 💰 Cost planning
 
-Azure resources incur costs only for the track you deploy. The recommended App
-Service quickstart does **not** provision AKS or VM resources. Pricing varies by
-region, currency, retention, traffic, and SRE Agent usage, so confirm current
-Azure pricing before deployment.
+Deploy only the scenario you are following. Its **Cost** value in the generated
+catalog is the planning signal; its guide identifies the Azure resources and
+scenario-specific prerequisites. Pricing varies by region, currency, retention,
+traffic, and SRE Agent usage, so confirm current Azure pricing before
+deployment and set a budget.
 
-| Track | Main cost drivers | Planning guidance |
-| --- | --- | --- |
-| **App Service** | B1 Linux App Service, Log Analytics, Application Insights, and SRE Agent usage | Usually the lowest-infrastructure-cost track; allow for usage-based monitoring and agent charges |
-| **AKS** | Two AKS worker nodes, Cosmos DB, Log Analytics, Application Insights, and SRE Agent usage | Cluster nodes run until cleanup and are typically the largest AKS-track cost |
-| **VM** | Windows VMs, Azure Bastion, Log Analytics, Application Insights, and SRE Agent usage | VM and Bastion runtime can make this track more expensive; auto-shutdown reduces but does not eliminate cost |
+Run the selected capsule's cleanup as soon as you finish:
 
-Set a budget and run the selected track's cleanup module as soon as you finish.
-Resources left deployed continue to incur charges.
+```bash
+./scenarios/<id>/scripts/cleanup.sh
+```
+
+```powershell
+./scenarios/<id>/scripts/cleanup.ps1
+```
+
+Follow the selected `scenarios/<id>/docs/99-cleanup.md` for its required
+parameters and checks. Resources left deployed continue to incur charges.
 
 ---
 
@@ -112,43 +117,31 @@ Resources left deployed continue to incur charges.
 
 ```text
 sre-agent-workshop/
-├── README.md                     # Multi-track landing and recommended quickstart
-├── CONTRIBUTING.md               # How to add scenarios and tracks
-├── docs/                         # Shared, track-agnostic concept layer
+├── README.md                     # Generated scenario catalog and entry point
+├── CONTRIBUTING.md               # How to add a scenario capsule
+├── docs/                         # Shared concept layer
 │   ├── 00-what-is-sre-agent.md
 │   ├── 01-why-sre-agent.md
 │   └── 02-how-it-works.md
 ├── scenarios/
-│   └── cloud-agent-handover/     # Beginner SRE Agent → Copilot handover
+│   └── <id>/                     # A self-contained incident capsule
 │       ├── README.md
-│       ├── docs/                # Scenario walkthroughs
-│       ├── infra/bicep/         # App Service, monitoring, identity, and alerts
-│       ├── knowledge/           # SRE Agent operational guidance
-│       ├── scripts/             # Bash and PowerShell setup / cleanup
-│       ├── src/                 # .NET 10 Blazor application
-│       └── tests/               # Application integration tests
-├── workshops/
-│   ├── aks/                      # Advanced cloud-native track
-│   │   ├── docs/
-│   │   ├── infra/bicep/
-│   │   ├── k8s/                  # Kubernetes manifests
-│   │   ├── knowledge/
-│   │   ├── scenarios/
-│   │   ├── scripts/
-│   │   └── src/app/              # Node.js application
-│   └── vm/                       # Advanced enterprise-migration track
-│       ├── docs/
-│       ├── infra/bicep/
-│       ├── scenarios/
-│       └── tools/                # Approval-gated remediation tooling
+│       ├── scenario.yaml         # Catalog and lifecycle contract
+│       ├── docs/                 # Scenario walkthroughs
+│       ├── infra/bicep/          # Scenario infrastructure and alerts
+│       ├── knowledge/            # SRE Agent operational guidance
+│       ├── scripts/              # Bash and PowerShell lifecycle scripts
+│       ├── src/                  # Optional application source
+│       └── tests/                # Optional scenario or application tests
+├── .devcontainer/
+│   └── <id>/                     # Codespaces configuration for one scenario
 ├── schemas/
 │   └── scenario.schema.json      # Scenario manifest contract
 ├── scripts/
 │   ├── new-scenario.sh           # Scaffold a scenario
 │   ├── validate-scenarios.sh     # Validate and regenerate derived artifacts
 │   └── scenario-tools/           # Node.js tooling behind the wrappers
-├── .devcontainer/                # Per-track Codespaces configurations
-└── .github/workflows/            # Per-track deploy/validate and scenario CI
+└── .github/workflows/            # Scenario validation and deployment CI
 ```
 
 ---
@@ -158,24 +151,26 @@ sre-agent-workshop/
 ### Regions
 
 Azure SRE Agent is available in **East US 2**, **Sweden Central**, and
-**Australia East**. Choose a supported region when provisioning a workshop
-environment.
+**Australia East**. Choose a supported region when provisioning a scenario.
 
 ### Network requirements
 
 - Allow outbound HTTPS to `*.azuresre.ai`.
 - If you use a corporate proxy, confirm that it does not block this domain.
 
-### AKS accessibility
+### AKS scenario accessibility
 
-The AKS track requires a public cluster so the SRE Agent can query cluster logs
-and metrics. This requirement does not apply to the App Service or VM track.
+The AKS scenarios require a public cluster so the SRE Agent can query cluster
+logs and metrics. This requirement does not apply to the App Service or VM
+scenarios.
 
 ### Cleanup is critical
 
-Every track creates billable resources. Run its **Cleanup** module when finished;
-AKS nodes, Windows VMs, Bastion, App Service, and monitoring resources can
-continue accruing charges while deployed.
+Every scenario creates billable resources. Run
+`scenarios/<id>/scripts/cleanup.sh` or `cleanup.ps1` and complete that
+scenario's `docs/99-cleanup.md` when finished. AKS nodes, Windows VMs, Bastion,
+App Service, and monitoring resources can continue accruing charges while
+deployed.
 
 ### Production use
 
@@ -189,7 +184,7 @@ and testing.
 
 - **[Azure SRE Agent Docs](https://sre.azure.com/docs/overview)** — SRE Agent documentation
 - **[Azure SRE Agent Portal](https://sre.azure.com)** — Create and monitor agents
-- **[Azure App Service Documentation](https://learn.microsoft.com/azure/app-service/)** — Recommended-track hosting platform
+- **[Azure App Service Documentation](https://learn.microsoft.com/azure/app-service/)** — App Service scenario hosting platform
 - **[AKS Workload Identity](https://learn.microsoft.com/azure/aks/workload-identity-overview)** — AKS identity details
 - **[Bicep Documentation](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)** — Infrastructure as code
 - **[Azure Monitor Alerts](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-overview)** — Alerting and incident response
@@ -200,7 +195,7 @@ and testing.
 
 Contributions are welcome:
 
-- **Report issues:** Open a GitHub issue with the track, module, error, and useful diagnostics.
+- **Report issues:** Open a GitHub issue with the scenario id, module, error, and useful diagnostics.
 - **Suggest improvements:** Create a branch in your repository and open a pull request.
 - **Ask questions:** Start a discussion in the relevant issue thread.
 
@@ -213,4 +208,4 @@ MIT License.
 ---
 
 **Ready to begin?** [Create a repository from the template](https://github.com/JoranBergfeld/sre-agent-workshop/generate)
-and follow the [Cloud Agent Handover scenario](scenarios/cloud-agent-handover/README.md).
+and choose a scenario from the generated catalog above.

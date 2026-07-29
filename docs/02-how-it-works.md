@@ -1,31 +1,50 @@
 # How the Azure SRE Agent works
 
-> Shared concept (track-agnostic). Watched by the docs-freshness workflow.
+> Shared concept layer. Watched by the docs-freshness workflow.
 
 ## The incident loop
 
-<!-- Signal (Azure Monitor alert) → Investigate (telemetry/KQL) → Hypothesize →
-     Propose → (autonomy gate) → Remediate (approved GitHub issue / Copilot PR) → Validate. -->
+1. Azure Monitor or another scenario signal identifies a potential incident.
+2. The SRE Agent investigates telemetry, repository context, and the
+   scenario's operational guidance.
+3. It presents the diagnosis, evidence, and proposed recovery.
+4. A human follows the scenario's approval and recovery route.
+5. The scenario validator confirms the expected healthy state.
 
-## Autonomy levels
+The agent does not apply remediation directly.
 
-<!-- Read-only / suggest / act-with-approval; how to configure per environment. -->
+## Approval and recovery routes
 
-## The GitHub loop
+The route belongs to the scenario, not to a platform directory:
 
-<!-- Agent creates an approved issue and assigns the track's Copilot coding actor.
-     A human reviews and merges the PR; the track's manual or automatic deployment applies it. -->
+- **VM scenarios:** the SRE Agent investigates and proposes the action. An
+  authorized operator uses the scenario-local approval gate with a `CHG-` or
+  `INC-` ticket and explicit `APPROVE`; the gate records an audit entry.
+- **AKS scenarios:** recovery follows GitOps: the SRE Agent creates an issue
+  assigned to `@copilot`, Copilot prepares a pull request, and a human reviews,
+  merges, and manually deploys the approved change.
+- **Cloud Agent Handover:** the SRE Agent first asks for approval to create one
+  issue assigned to `copilot-swe-agent`. Copilot opens the pull request; a
+  human reviews and merges it; **Deploy Cloud Agent Handover Application**
+  automatically deploys the merged application.
 
 ## Guardrails
 
-- The agent never makes silent direct changes → see the AKS track's [`operational-guidelines.md`](../workshops/aks/knowledge/operational-guidelines.md)
-- Per-track approval gates (e.g. VM `invoke-approved-remediation`)
-- Cloud Agent Handover issue approval and handover → [`operational-guidelines.md`](../scenarios/cloud-agent-handover/knowledge/operational-guidelines.md)
+- Do not make silent, direct Azure changes.
+- Use the capsule's Bash and PowerShell lifecycle scripts for setup, fault
+  injection, validation, and cleanup.
+- Read the capsule's `knowledge/operational-guidelines.md` before configuring
+  incident response.
+- Treat a successful validator as the recovery evidence, not merely a
+  completed deployment.
 
-## Where each track plugs in
+## Find the scenario-specific flow
 
-<!-- Point to workshops/<track>/docs/04-configure-incident-response for AKS, VM, and App Service. -->
+Start in the generated [scenario catalog](../README.md#choose-a-scenario), then
+follow the selected `scenarios/<id>/README.md` and its linked modules. The
+`platform` field in `scenario.yaml` describes the Azure service; it does not
+determine a directory hierarchy.
 
 ## Upstream references
 
-<!-- Link learn.microsoft.com pages describing the agent workflow + autonomy. -->
+- [Azure SRE Agent overview](https://learn.microsoft.com/azure/sre-agent/overview)
