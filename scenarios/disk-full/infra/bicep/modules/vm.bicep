@@ -17,9 +17,19 @@ param adminPassword string
 @description('Subnet resource ID for VM NICs')
 param subnetId string
 
+@description('Log Analytics workspace resource ID for disk capacity telemetry')
+param logAnalyticsResourceId string
+
 var vmNames = [
   '${workloadName}-vm01'
   '${workloadName}-vm02'
+]
+
+// Windows computer names are intentionally independent from ARM VM names.
+// Windows limits computerName to 15 characters, while workload names may be longer.
+var computerNames = [
+  'sredisk01'
+  'sredisk02'
 ]
 
 // ──────────────────────────────────────────────
@@ -59,7 +69,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = [for (vmName, i) in
       vmSize: 'Standard_B2s'
     }
     osProfile: {
-      computerName: vmName
+      computerName: computerNames[i]
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
@@ -145,6 +155,61 @@ resource dependencyAgent 'Microsoft.Compute/virtualMachines/extensions@2023-09-0
 }]
 
 // ──────────────────────────────────────────────
+// Disk capacity telemetry required by the Disk Full scheduled-query alert.
+// ──────────────────────────────────────────────
+resource diskFreeSpaceDcr 'Microsoft.Insights/dataCollectionRules@2022-06-01' = {
+  name: '${workloadName}-disk-free-space-dcr'
+  location: location
+  tags: tags
+  kind: 'Windows'
+  properties: {
+    dataSources: {
+      performanceCounters: [
+        {
+          name: 'diskFreeSpace'
+          streams: [
+            'Microsoft-Perf'
+          ]
+          samplingFrequencyInSeconds: 60
+          counterSpecifiers: [
+            '\\LogicalDisk(C:)\\% Free Space'
+          ]
+        }
+      ]
+    }
+    destinations: {
+      logAnalytics: [
+        {
+          name: 'logAnalytics'
+          workspaceResourceId: logAnalyticsResourceId
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: [
+          'Microsoft-Perf'
+        ]
+        destinations: [
+          'logAnalytics'
+        ]
+      }
+    ]
+  }
+}
+
+resource diskFreeSpaceDcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = [for (vmName, i) in vmNames: {
+  name: 'disk-free-space'
+  scope: vm[i]
+  properties: {
+    dataCollectionRuleId: diskFreeSpaceDcr.id
+  }
+  dependsOn: [
+    amaExtension[i]
+  ]
+}]
+
+// ──────────────────────────────────────────────
 // Daily auto-shutdown (UTC 19:00) — keeps lab cost contained
 // Schedule name pattern is required by Microsoft.DevTestLab
 // ──────────────────────────────────────────────
@@ -170,8 +235,14 @@ resource autoShutdownSchedule 'Microsoft.DevTestLab/schedules@2018-09-15' = [for
 @description('Workshop VM names')
 output vmNames array = vmNames
 
+@description('Windows computer names used by Log Analytics Perf records')
+output vmComputerNames array = computerNames
+
 @description('Workshop VM resource IDs')
 output vmIds array = [for (name, i) in vmNames: vm[i].id]
 
 @description('Workshop VM private IPs')
 output vmPrivateIps array = [for (name, i) in vmNames: nic[i].properties.ipConfigurations[0].properties.privateIPAddress]
+
+@description('Data collection rule that sends C: free-space telemetry to Log Analytics')
+output diskFreeSpaceDcrId string = diskFreeSpaceDcr.id

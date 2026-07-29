@@ -4,7 +4,8 @@
 param(
     [string]$WorkspaceId,
     [string]$ResourceGroup = "rg-srelabdiskfull",
-    [string]$VmName = "srelabdiskfull-vm01"
+    [string]$VmName = "srelabdiskfull-vm01",
+    [string]$ComputerName = "sredisk01"
 )
 
 $queryFile = Join-Path $PSScriptRoot "..\investigation\query.kql"
@@ -26,10 +27,10 @@ function Write-Stage {
     Add-Content -Path $tracePath -Value $line
 }
 
-Write-Stage "Observe" "Received C: disk-pressure alert on VM '$VmName'."
+Write-Stage "Observe" "Received C: disk-pressure alert on ARM VM '$VmName' (Windows computer '$ComputerName')."
 Write-Stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
-$kql = (Get-Content $queryFile -Raw).Replace('{{VM_NAME}}', $VmName)
+$kql = (Get-Content $queryFile -Raw).Replace('{{COMPUTER_NAME}}', $ComputerName)
 
 if ($WorkspaceId) {
     $queryResult = az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
@@ -56,6 +57,7 @@ $postmortem = @"
 - **Scenario:** disk-full
 - **Resource Group:** $ResourceGroup
 - **VM:** $VmName
+- **Windows computer:** $ComputerName
 - **Confidence:** $confidence
 - **Trace file:** $(Split-Path $tracePath -Leaf)
 

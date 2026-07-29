@@ -10,14 +10,16 @@ OUTPUT_DIR="$SCRIPT_DIR/../output"
 WORKSPACE_ID=""
 RESOURCE_GROUP="rg-srelabdiskfull"
 VM_NAME="srelabdiskfull-vm01"
+COMPUTER_NAME="sredisk01"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     -w|--workspace-id) WORKSPACE_ID="$2"; shift 2 ;;
     -g|--resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
     -n|--vm-name) VM_NAME="$2"; shift 2 ;;
+    -c|--computer-name) COMPUTER_NAME="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 [--workspace-id <id>] [--resource-group <rg>] [--vm-name <vm>]"
+      echo "Usage: $0 [--workspace-id <id>] [--resource-group <rg>] [--vm-name <arm-vm>] [--computer-name <windows-name>]"
       exit 0
       ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -45,10 +47,10 @@ write_stage() {
   echo "$line" >> "$TRACE_PATH"
 }
 
-write_stage "Observe" "Received C: disk-pressure alert on VM '$VM_NAME'."
+write_stage "Observe" "Received C: disk-pressure alert on ARM VM '$VM_NAME' (Windows computer '$COMPUTER_NAME')."
 write_stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
-KQL=$(sed "s/{{VM_NAME}}/$VM_NAME/g" "$QUERY_FILE")
+KQL=$(sed "s/{{COMPUTER_NAME}}/$COMPUTER_NAME/g" "$QUERY_FILE")
 
 if [ -n "$WORKSPACE_ID" ]; then
   if az monitor log-analytics query -w "$WORKSPACE_ID" --analytics-query "$KQL" -o json >/dev/null 2>&1; then
@@ -75,6 +77,7 @@ cat > "$POSTMORTEM_PATH" <<EOF
 - **Scenario:** disk-full
 - **Resource Group:** $RESOURCE_GROUP
 - **VM:** $VM_NAME
+- **Windows computer:** $COMPUTER_NAME
 - **Confidence:** $CONFIDENCE
 - **Trace file:** $TRACE_NAME
 

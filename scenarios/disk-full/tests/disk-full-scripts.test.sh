@@ -36,6 +36,14 @@ require_file() {
   [ -f "$1" ] || fail "missing required file: $1"
 }
 
+assert_stale_pid_reuse_is_safe() {
+  local cleanup_script="$1"
+  assert_contains "$cleanup_script" '$ownershipMatches ='
+  assert_contains "$cleanup_script" 'if ($ownershipMatches) {'
+  assert_contains "$cleanup_script" "left process untouched."
+  assert_not_contains "$cleanup_script" 'if ($workloadPid) { Stop-Process'
+}
+
 mkdir -p "$FAKE_BIN" "$FIXTURE_DIR/output"
 cp -R "$CAPSULE_DIR/scripts" "$FIXTURE_DIR/scripts"
 cp -R "$CAPSULE_DIR/tools" "$FIXTURE_DIR/tools"
@@ -58,11 +66,16 @@ chmod +x "$FAKE_BIN/az"
 for path in \
   "$CAPSULE_DIR/scenario.yaml" \
   "$CAPSULE_DIR/infra/bicep/main.bicep" \
+  "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" \
   "$CAPSULE_DIR/scripts/cleanup.sh" \
+  "$CAPSULE_DIR/scripts/inject.sh" \
+  "$CAPSULE_DIR/scripts/inject.ps1" \
   "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" \
   "$CAPSULE_DIR/tools/invoke-vm-investigation.sh" \
   "$CAPSULE_DIR/scripts/remediation/cleanup-disk.sh" \
-  "$CAPSULE_DIR/scripts/remediation/cleanup-temp.sh"; do
+  "$CAPSULE_DIR/scripts/remediation/cleanup-temp.sh" \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-disk.ps1" \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-temp.ps1"; do
   require_file "$path"
 done
 
@@ -72,6 +85,36 @@ assert_contains "$CAPSULE_DIR/scenario.yaml" "bash: scripts/remediation/cleanup-
 assert_contains "$CAPSULE_DIR/infra/bicep/main.bicep" "module scenarioAlert 'modules/alert.bicep'"
 assert_contains "$CAPSULE_DIR/infra/bicep/main.bicep" "scopeResourceId: monitoring.outputs.logAnalyticsId"
 assert_not_contains "$CAPSULE_DIR/infra/bicep/main.bicep" "scenario-alerts.bicep"
+assert_contains "$CAPSULE_DIR/infra/bicep/main.bicep" "logAnalyticsResourceId: monitoring.outputs.logAnalyticsId"
+assert_contains "$CAPSULE_DIR/infra/bicep/main.bicep" "output vmComputerNames array"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "var computerNames = ["
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "computerName: computerNames[i]"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "'sredisk01'"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "'sredisk02'"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "resource diskFreeSpaceDcr"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "resource diskFreeSpaceDcrAssociation"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "dataCollectionRuleId: diskFreeSpaceDcr.id"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "scope: vm[i]"
+assert_contains "$CAPSULE_DIR/infra/bicep/modules/vm.bicep" "counterSpecifiers"
+assert_contains "$CAPSULE_DIR/scripts/inject.sh" "diskfill.owner.json"
+assert_contains "$CAPSULE_DIR/scripts/inject.ps1" "diskfill.owner.json"
+assert_contains "$CAPSULE_DIR/scripts/inject.sh" "encodedCommand"
+assert_contains "$CAPSULE_DIR/scripts/inject.ps1" "encodedCommand"
+assert_contains "$CAPSULE_DIR/scripts/inject.sh" "finally {"
+assert_contains "$CAPSULE_DIR/scripts/inject.ps1" "finally {"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-disk.sh" "Get-CimInstance Win32_Process"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-temp.sh" "Get-CimInstance Win32_Process"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-disk.ps1" "Get-CimInstance Win32_Process"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-temp.ps1" "Get-CimInstance Win32_Process"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-disk.sh" "Safe condition: process PID"
+assert_contains "$CAPSULE_DIR/scripts/remediation/cleanup-temp.sh" "Safe condition: process PID"
+for cleanup_script in \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-disk.sh" \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-temp.sh" \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-disk.ps1" \
+  "$CAPSULE_DIR/scripts/remediation/cleanup-temp.ps1"; do
+  assert_stale_pid_reuse_is_safe "$cleanup_script"
+done
 assert_contains "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" 'scripts/remediation/${ACTION}.sh'
 assert_not_contains "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" 'scenarios/*'
 assert_contains "$CAPSULE_DIR/tools/invoke-vm-investigation.sh" 'investigation/query.kql'

@@ -9,7 +9,10 @@ single scheduled-query alert that detects C: free-space pressure.
 The default workload is `srelabdiskfull`. For a separate deployment, choose a
 unique workload name such as `srelabdiskfulljordan`; use that same name in every
 command and derive VM and Bastion names from it (`<workload>-vm01` and
-`<workload>-bas`). Do not reuse the previous VM workshop workload name.
+`<workload>-bas`). The ARM VM names are deliberately separate from the
+Windows computer names: VM 01 reports Perf data as `sredisk01` and VM 02 as
+`sredisk02`, both within Windows' 15-character computer-name limit. Do not
+reuse the previous VM workshop workload name.
 
 ## Module index
 

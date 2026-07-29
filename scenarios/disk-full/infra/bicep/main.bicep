@@ -67,6 +67,7 @@ module vm 'modules/vm.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     subnetId: network.outputs.subnetId
+    logAnalyticsResourceId: monitoring.outputs.logAnalyticsId
   }
 }
 
@@ -102,6 +103,9 @@ output vmNames array = vm.outputs.vmNames
 
 @description('Workshop VM private IPs')
 output vmPrivateIps array = vm.outputs.vmPrivateIps
+
+@description('Windows computer names used by Log Analytics Perf records')
+output vmComputerNames array = vm.outputs.vmComputerNames
 
 @description('Log Analytics workspace ID (GUID)')
 output logAnalyticsWorkspaceId string = monitoring.outputs.logAnalyticsWorkspaceId
