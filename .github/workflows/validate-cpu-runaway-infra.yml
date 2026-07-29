@@ -1,0 +1,25 @@
+name: Validate CPU Runaway Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cpu-runaway/infra/**'
+      - '.github/workflows/validate-cpu-runaway-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/cpu-runaway/infra/**'
+      - '.github/workflows/validate-cpu-runaway-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate CPU Runaway Bicep syntax
+        run: az bicep build --file scenarios/cpu-runaway/infra/bicep/main.bicep --stdout >/dev/null
