@@ -120,7 +120,9 @@ This capsule's scenario is `cosmos-rbac-removal`; its alert contributes to the g
 
 > **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
-If the list is empty, re-run the **Deploy AKS Infrastructure** workflow from Module 1 — the alerts are defined in `scenarios/cosmos-rbac-removal/infra/bicep/main.bicep`.
+If the list is empty, re-run **Deploy Cosmos RBAC Removal Infrastructure** from
+Module 1 — the alerts are defined in
+`scenarios/cosmos-rbac-removal/infra/bicep/main.bicep`.
 
 ## How It All Connects
 

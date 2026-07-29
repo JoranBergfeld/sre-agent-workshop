@@ -1,3 +1,18 @@
+# Scenario: CosmosDB RBAC Removal
+
+> Scenario: `cosmos-rbac-removal` · AKS
+
+Run every command below from the repository root. This capsule is directly
+selectable; it provisions, breaks, and recovers its own AKS workload.
+
+## Follow the workshop modules
+
+1. [00 Prerequisites](./docs/00-prerequisites.md)
+2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
+3. [02 Publish and deploy the application](./docs/02-deploy-application.md)
+4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
+5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+
 # Module 5: Break It! 💥 (~20 min)
 
 ## Overview
@@ -68,43 +83,32 @@ git commit -m "cleanup: remove unused CosmosDB role assignment"
 git push origin main
 ```
 
-When you push, the `Validate AKS Infrastructure` workflow runs automatically — it checks Bicep syntax and shows a what-if preview of the changes. But it doesn't deploy anything. To actually deploy the broken infrastructure:
+When you push, the `Validate Cosmos RBAC Removal Infrastructure` workflow runs automatically — it checks Bicep syntax. But it doesn't deploy anything. To actually deploy the broken infrastructure:
 
 1. **Go to GitHub** → your fork → **Actions** tab
-2. **Select "Deploy AKS Infrastructure"** in the left sidebar
+2. **Select "Deploy Cosmos RBAC Removal Infrastructure"** in the left sidebar
 3. **Click "Run workflow"** → choose your region and workload name → **Run workflow**
 4. **Watch it complete** (~3–5 minutes)
 
 The deployment will **succeed**. The Bicep template is valid syntactically. No errors. No warnings. Just a silent infrastructure change.
 
-> **⚠️ Important:** Azure Resource Manager uses **incremental deployment mode** by default, which means removing a resource from the Bicep template does **not** automatically delete it in Azure — it only stops managing it. The Bicep deployment alone won't break the app. To actually trigger the fault, you need to manually delete the role assignment after the deployment completes:
+> **⚠️ Important:** Azure Resource Manager uses **incremental deployment mode** by default, which means removing a resource from the Bicep template does **not** automatically delete it in Azure — it only stops managing it. The Bicep deployment alone won't break the app. To trigger the fault after the deployment completes, run the capsule injector:
 
+**Bash**
 ```bash
-# First, get the CosmosDB account name (includes random suffix)
-COSMOS_ACCOUNT=$(az cosmosdb list --resource-group rg-srelab --query "[0].name" -o tsv)
-
-# Get the role assignment name (the GUID)
-ASSIGNMENT_NAME=$(az cosmosdb sql role assignment list \
-  --account-name $COSMOS_ACCOUNT \
-  --resource-group rg-srelab \
-  --query "[0].name" -o tsv)
-
-# Delete it
-az cosmosdb sql role assignment delete \
-  --account-name $COSMOS_ACCOUNT \
-  --resource-group rg-srelab \
-  --role-assignment-id "$ASSIGNMENT_NAME" \
-  --yes
+./scenarios/cosmos-rbac-removal/scripts/inject.sh
 ```
+
+**PowerShell 7**
+```powershell
+./scenarios/cosmos-rbac-removal/scripts/inject.ps1
+```
+
+Pass `--resource-group` / `-ResourceGroup` if you chose a non-default workload
+name. The injector deletes the live role assignment, restarts the pods, and
+waits for the rollout to finish.
 
 > **Why two steps?** This mirrors what happens in production with Bicep `complete` mode or when a team actively cleans up stale role assignments. The Bicep change removes it from the "desired state" (your code), and the CLI deletion simulates Azure catching up. When the SRE Agent investigates, it'll find the role assignment is missing from both the Bicep code *and* the live Azure environment — exactly like a real cleanup-gone-wrong scenario.
-
-After deleting the role assignment, **restart the pods** to clear any cached credentials:
-
-```bash
-kubectl rollout restart deployment/web-app -n workshop
-kubectl rollout status deployment/web-app -n workshop --timeout=60s
-```
 
 ## Watch It Break
 
@@ -169,7 +173,7 @@ Your Azure Monitor alert will detect the spike in failed requests. The SRE Agent
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** missing role assignment
 7. **Propose a fix** and open a PR on your fork
-8. **If you configured it for Autonomous mode,** the agent will merge the PR — you then trigger the `Deploy AKS Infrastructure` workflow to apply the fix
+8. **If you configured it for Autonomous mode,** the agent will merge the PR — you then trigger the `Deploy Cosmos RBAC Removal Infrastructure` workflow to apply the fix
 
 You don't need to fix this yourself. **Don't troubleshoot.** Don't manually restore the role assignment. Let the SRE Agent do its job. Head to Module 6 to watch it work.
 
@@ -186,3 +190,15 @@ If you're running this workshop with a group, this is a great moment for storyte
 → **[Module 6: Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
 In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow. You'll see it correlate logs, read your code, and open a PR with the fix. This is where the magic happens.
+
+After recovery, run the capsule validator:
+
+```bash
+./scenarios/cosmos-rbac-removal/scripts/validate.sh
+```
+
+```powershell
+./scenarios/cosmos-rbac-removal/scripts/validate.ps1
+```
+
+Finish with [99 Cleanup](./docs/99-cleanup.md).

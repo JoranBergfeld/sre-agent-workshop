@@ -1,3 +1,18 @@
+# Scenario: Workload Identity Break
+
+> Scenario: `workload-identity-break` · AKS
+
+Run every command below from the repository root. This capsule is directly
+selectable; it provisions, breaks, and recovers its own AKS workload.
+
+## Follow the workshop modules
+
+1. [00 Prerequisites](./docs/00-prerequisites.md)
+2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
+3. [02 Publish and deploy the application](./docs/02-deploy-application.md)
+4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
+5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+
 # Break It: Workload Identity 💥 (~30 min)
 
 ## Overview
@@ -76,33 +91,32 @@ git commit -m "identity cleanup: remove stale federated credential"
 git push origin main
 ```
 
-When you push, the `Validate AKS Infrastructure` workflow runs automatically — it checks Bicep syntax and shows a what-if preview, but it doesn't deploy anything. To actually deploy the broken infrastructure:
+When you push, the `Validate Workload Identity Break Infrastructure` workflow runs automatically — it checks Bicep syntax, but it doesn't deploy anything. To actually deploy the broken infrastructure:
 
 1. **Go to GitHub** → your fork → **Actions** tab
-2. **Select "Deploy AKS Infrastructure"** in the left sidebar
+2. **Select "Deploy Workload Identity Break Infrastructure"** in the left sidebar
 3. **Click "Run workflow"** → choose your region and workload name → **Run workflow**
 4. **Watch it complete** (~3–5 minutes)
 
 The deployment will **succeed**. The Bicep template is valid syntactically.
 
-> **⚠️ Important:** Azure Resource Manager uses **incremental deployment mode** by default, so removing the federated credential from the Bicep template does **not** automatically delete it in Azure — it only stops managing it. To actually trigger the fault, delete the live credential after the deployment completes:
+> **⚠️ Important:** Azure Resource Manager uses **incremental deployment mode** by default, so removing the federated credential from the Bicep template does **not** automatically delete it in Azure — it only stops managing it. To trigger the fault after the deployment completes, run the capsule injector:
 
+**Bash**
 ```bash
-az identity federated-credential delete \
-  --name srelab-fed-cred \
-  --identity-name srelab-id \
-  --resource-group rg-srelab \
-  --yes
+./scenarios/workload-identity-break/scripts/inject.sh
 ```
+
+**PowerShell 7**
+```powershell
+./scenarios/workload-identity-break/scripts/inject.ps1
+```
+
+Pass `--resource-group` / `-ResourceGroup` if you chose a non-default workload
+name. The injector deletes the live federated credential, restarts the pods,
+and waits for the rollout to finish.
 
 > **Why two steps?** This mirrors a real identity-cleanup-gone-wrong: the Bicep change removes the credential from the "desired state" (your code), and the CLI deletion simulates Azure catching up. When the SRE Agent investigates, it finds the credential missing from both the Bicep code *and* the live environment.
-
-After deleting the credential, **restart the pods** so they attempt a fresh (now-failing) token exchange:
-
-```bash
-kubectl rollout restart deployment/web-app -n workshop
-kubectl rollout status deployment/web-app -n workshop --timeout=90s
-```
 
 ## Watch It Break
 
@@ -173,7 +187,7 @@ Your Azure Monitor alert detects the authentication errors. The SRE Agent, which
 5. **Read the Bicep code** to understand what changed
 6. **Identify the root cause:** the missing `federatedCredential`
 7. **Propose a fix** — restore the `federatedCredential` block — and open a PR on your fork
-8. **If you configured it for Autonomous mode,** the agent merges the PR; you then trigger the `Deploy AKS Infrastructure` workflow to apply the fix
+8. **If you configured it for Autonomous mode,** the agent merges the PR; you then trigger the `Deploy Workload Identity Break Infrastructure` workflow to apply the fix
 
 You don't need to fix this yourself. **Don't troubleshoot.** Don't manually recreate the credential. Let the SRE Agent do its job.
 
@@ -190,3 +204,15 @@ If you're running this workshop with a group, this is a great moment for storyte
 → **[Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
 In the next module, you'll navigate to the SRE Agent portal and observe its full investigation and remediation flow — correlating logs, reading your code, and opening a PR that restores the federated credential.
+
+After recovery, run the capsule validator:
+
+```bash
+./scenarios/workload-identity-break/scripts/validate.sh
+```
+
+```powershell
+./scenarios/workload-identity-break/scripts/validate.ps1
+```
+
+Finish with [99 Cleanup](./docs/99-cleanup.md).

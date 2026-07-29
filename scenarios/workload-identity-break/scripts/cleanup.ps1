@@ -1,7 +1,8 @@
 # Tears down all Azure resources created by the workshop.
-# Usage: .\scripts\cleanup.ps1
-#        .\scripts\cleanup.ps1 -ResourceGroup rg-myworkshop
-#        .\scripts\cleanup.ps1 -ResourceGroup rg-srelab -Yes
+# Usage from repository root:
+#   .\scenarios\workload-identity-break\scripts\cleanup.ps1
+#   .\scenarios\workload-identity-break\scripts\cleanup.ps1 -ResourceGroup rg-myworkshop
+#   .\scenarios\workload-identity-break\scripts\cleanup.ps1 -ResourceGroup rg-srelab -Yes
 
 param(
     [string]$ResourceGroup = "rg-srelab",

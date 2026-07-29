@@ -8,7 +8,9 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 1. **Create a GitHub issue** describing the root cause, affected resources, and the required Bicep change
 2. **Assign the issue to `@copilot`** (the Copilot coding agent) — it will pick up the issue, create a branch, make the fix, and open a PR automatically
-3. After the PR is merged, an operator manually triggers the **Deploy AKS Infrastructure** workflow to apply the change (deployment is intentionally manual via `workflow_dispatch`, not automatic on merge)
+3. After the PR is merged, an operator manually triggers **Deploy Cosmos RBAC
+   Removal Infrastructure** to apply the change (deployment is intentionally
+   manual via `workflow_dispatch`, not automatic on merge)
 
 **Do NOT:**
 - Run `az` CLI commands to directly create, modify, or delete Azure resources

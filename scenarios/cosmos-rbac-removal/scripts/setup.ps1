@@ -1,6 +1,7 @@
 # Pre-workshop validation — checks that required tools and config are in place.
-# Usage: .\scripts\setup.ps1
-#        .\scripts\setup.ps1 -Location swedencentral
+# Usage from repository root:
+#   .\scenarios\cosmos-rbac-removal\scripts\setup.ps1
+#   .\scenarios\cosmos-rbac-removal\scripts\setup.ps1 -Location swedencentral
 
 param(
     [string]$Location = "eastus2"

@@ -4,7 +4,8 @@ set -euo pipefail
 # Manual fallback fix: recreate the federated identity credential that binds the
 # workshop-app ServiceAccount to the UAMI via the AKS OIDC issuer, then restart
 # pods. The primary remediation in the workshop is the @copilot PR restoring the
-# federatedCredential block in identity.bicep + a Deploy AKS Infrastructure run.
+# federatedCredential block in identity.bicep + a Deploy Workload Identity Break
+# Infrastructure run.
 RESOURCE_GROUP="rg-srelab"
 WORKLOAD="srelab"
 NAMESPACE="workshop"

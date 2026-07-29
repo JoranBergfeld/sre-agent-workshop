@@ -88,7 +88,9 @@ This is where it gets interesting — the agent asks: *"What changed?"*
 
 The agent will:
 - **Check deployment history** — queries GitHub Actions for recent workflow runs
-- **Find the Bicep deployment** — identifies `deploy-aks-infra.yml` and the exact run that deployed the change
+- **Find the Bicep deployment** — identifies
+  `.github/workflows/deploy-workload-identity-break-infra.yml` and the exact
+  run that deployed the change
 - **Trace to the commit** — connects the workflow run to the specific commit (the one that removed the role assignment)
 - **Read the commit diff** — examines what changed in `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep`
 
@@ -282,7 +284,8 @@ Click on the **"Files changed"** tab:
 
 ### Step 2: Deploy the fix
 1. Go to your repository's **Actions** tab
-2. Select **"Deploy AKS Infrastructure"** in the left sidebar
+2. Select **"Deploy Workload Identity Break Infrastructure"** in the left
+   sidebar
 3. Click **"Run workflow"** → choose your region and workload name → **Run workflow**
    - This deploys the Bicep changes (with the restored role assignment) to Azure
 4. Wait for the workflow to complete (~3–5 minutes)
@@ -406,8 +409,8 @@ Module 5 — 14:32:15
   └─ Push to main
 
 Module 5 — 14:32:47
-  └─ Validate AKS Infrastructure workflow runs (syntax + what-if)
-  └─ You: Manually trigger Deploy AKS Infrastructure workflow
+  └─ Validate Workload Identity Break Infrastructure runs (Bicep syntax)
+  └─ You: Manually trigger Deploy Workload Identity Break Infrastructure
   └─ Bicep deploys infrastructure WITHOUT role assignment
   └─ CosmosDB still exists, but managed identity has no permission
 
@@ -448,7 +451,7 @@ Module 6 — 14:39:15 (Your Action)
   └─ You: Confirm merge
 
 Module 6 — 14:39:22 (Redeployment)
-  └─ You: Manually trigger Deploy AKS Infrastructure workflow
+  └─ You: Manually trigger Deploy Workload Identity Break Infrastructure
   └─ Bicep deploys infrastructure WITH role assignment restored
   └─ CosmosDB role assignment is recreated
   └─ Managed identity regains permission
@@ -483,7 +486,7 @@ What you just experienced is the **full incident lifecycle**, compressed into 10
 | **Diagnosis** | Synthesize findings into incident post-mortem (next day) | Synthesized during incident response (minutes) |
 | **Fix proposal** | Senior engineer codes a fix during incident (error-prone) | Automated code fix based on diagnosis |
 | **Code review** | Peer review process (standard PR flow) | You review SRE Agent PR |
-| **Deployment** | CI/CD runs automatically post-merge | You trigger Deploy AKS Infrastructure after merging |
+| **Deployment** | CI/CD runs automatically post-merge | You trigger Deploy Workload Identity Break Infrastructure after merging |
 | **Verification** | Manual spot-checking, "Is it fixed?" | Automated health check validation |
 | **Incident closure** | Manual investigation report written next day | Incident marked resolved with full analysis attached |
 | **MTTR** | 30–60+ minutes | 5–10 minutes |

@@ -158,7 +158,7 @@ Your fork needs the service principal credentials as a GitHub Actions secret. An
 
 ## Step 4: Configure Repository Variables (Optional)
 
-Repository variables provide default values for your workflows and the validation what-if preview. While deploy workflows always let you pick the region and workload name explicitly, setting these variables means the `Validate AKS Infrastructure` workflow (which runs on push and PRs) can show an accurate what-if preview against your actual environment.
+Repository variables provide defaults for the scenario workflows. While deployment workflows always let you pick the region and workload name explicitly, setting these variables keeps the scenario defaults aligned with your environment.
 
 **Steps:**
 
@@ -172,7 +172,7 @@ Repository variables provide default values for your workflows and the validatio
 | `WORKLOAD_NAME` | Your chosen workload name (e.g., `srelab`) | Used in resource naming — should match what you used in Module 1 |
 | `AZURE_LOCATION` | Your chosen Azure region (e.g., `eastus2`) | Should match the region used in Module 1 |
 
-> **Why this matters:** The `Validate AKS Infrastructure` workflow runs automatically when you push Bicep changes or open a PR. It validates Bicep syntax and shows a what-if preview of what the deployment would change. Without these variables, the what-if preview targets the default `srelab` / `eastus2`, which may not match your actual deployment.
+> **Why this matters:** `Validate Workload Identity Break Infrastructure` runs automatically when you push Bicep changes or open a PR. It validates the capsule's Bicep syntax. `Deploy Workload Identity Break Infrastructure` uses these variables as defaults when you manually run it.
 
 ## Step 5: Verify Your Setup
 
