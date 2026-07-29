@@ -1,0 +1,25 @@
+name: Validate IIS App Pool Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/iis-app-pool/infra/**'
+      - '.github/workflows/validate-iis-app-pool-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/iis-app-pool/infra/**'
+      - '.github/workflows/validate-iis-app-pool-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate IIS App Pool Bicep syntax
+        run: az bicep build --file scenarios/iis-app-pool/infra/bicep/main.bicep --stdout >/dev/null
