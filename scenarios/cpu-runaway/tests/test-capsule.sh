@@ -83,6 +83,10 @@ assert_contains "dataCollectionRuleId: monitoring.outputs.cpuDataCollectionRuleI
 assert_contains "Microsoft.Insights/dataCollectionRules" "$CAPSULE_DIR/infra/bicep/modules/monitoring.bicep"
 assert_contains "Microsoft-Perf" "$CAPSULE_DIR/infra/bicep/modules/monitoring.bicep"
 assert_contains "\\\\Processor(_Total)\\\\% Processor Time" "$CAPSULE_DIR/infra/bicep/modules/monitoring.bicep"
+assert_contains "dimensions:" "$CAPSULE_DIR/infra/bicep/modules/alert.bicep"
+assert_contains "name: 'Computer'" "$CAPSULE_DIR/infra/bicep/modules/alert.bicep"
+assert_contains "operator: 'Include'" "$CAPSULE_DIR/infra/bicep/modules/alert.bicep"
+assert_contains "'*'" "$CAPSULE_DIR/infra/bicep/modules/alert.bicep"
 assert_contains "dataCollectionRuleId string" "$CAPSULE_DIR/infra/bicep/modules/vm.bicep"
 assert_contains "dataCollectionRuleAssociations" "$CAPSULE_DIR/infra/bicep/modules/vm.bicep"
 assert_contains "var vmComputerNames" "$CAPSULE_DIR/infra/bicep/modules/vm.bicep"
@@ -93,6 +97,8 @@ assert_contains "output vmComputerNames array" "$CAPSULE_DIR/infra/bicep/modules
 assert_contains "output vmComputerNames array" "$CAPSULE_DIR/infra/bicep/main.bicep"
 assert_contains "[Math]::Max(2, [Environment]::ProcessorCount)" "$CAPSULE_DIR/scripts/inject.sh"
 assert_contains "[Math]::Max(2, [Environment]::ProcessorCount)" "$CAPSULE_DIR/scripts/inject.ps1"
+assert_contains 'param([Parameter(Mandatory = $true)][string]$Marker)' "$CAPSULE_DIR/scripts/inject.ps1"
+assert_contains 'while ($true) {' "$CAPSULE_DIR/scripts/inject.ps1"
 assert_contains "cpu-runaway-state.json" "$CAPSULE_DIR/scripts/remediation/stop-cpu-runaway.sh"
 assert_contains "cpu-runaway-state.json" "$CAPSULE_DIR/scripts/remediation/stop-cpu-runaway.ps1"
 assert_contains "sre-cpu-runaway-v1" "$CAPSULE_DIR/scripts/remediation/stop-cpu-runaway.sh"
@@ -120,6 +126,21 @@ if command -v pwsh >/dev/null 2>&1; then
     }
     if ($failed) { exit 1 }
   ' || fail "PowerShell parser rejected a capsule script"
+
+  CAPSULE_DIR="$CAPSULE_DIR" pwsh -NoProfile -NonInteractive -Command '
+    $source = Get-Content -Path (Join-Path $env:CAPSULE_DIR "scripts/inject.ps1") -Raw
+    $pattern = "(?s)\`$workerScript = @\(.*?\) -join \[Environment\]::NewLine"
+    $workerAssignment = [regex]::Match($source, $pattern).Value
+    if (-not $workerAssignment) { throw "CPU worker script assignment was not found." }
+    Invoke-Expression $workerAssignment
+    $tokens = $null
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseInput($workerScript, [ref]$tokens, [ref]$errors) | Out-Null
+    if ($errors.Count) {
+      $errors | ForEach-Object { Write-Error $_.Message }
+      exit 1
+    }
+  ' || fail "generated CPU worker script did not parse"
 fi
 
 if grep -R -F --exclude-dir=tests --include='*.sh' --include='*.ps1' --include='*.bicep' --include='*.bicepparam' --include='*.yaml' --include='*.md' \
@@ -148,6 +169,12 @@ case "${1:-} ${2:-} ${3:-}" in
         printf '{}\n'
         ;;
     esac
+    ;;
+  "group delete "*)
+    if [ "${AZ_GROUP_DELETE_MODE:-success}" = "failure" ]; then
+      printf 'Deletion request failed\n' >&2
+      exit 1
+    fi
     ;;
   "vm run-command invoke")
     printf '%s\n' '{"value":[{"code":"ComponentStatus/StdOut/succeeded","message":"simulated VM command"}]}'
@@ -211,6 +238,13 @@ if PATH="$MOCK_BIN:$PATH" AZ_LOG="$AZ_LOG" AZ_GROUP_SHOW_MODE=auth-failure \
 fi
 assert_contains "Please run az login" "$WORK_DIR/bash-auth-failure.log"
 
+if PATH="$MOCK_BIN:$PATH" AZ_LOG="$AZ_LOG" AZ_GROUP_DELETE_MODE=failure \
+  bash "$CAPSULE_DIR/scripts/cleanup.sh" --yes >"$WORK_DIR/bash-delete-failure.log" 2>&1; then
+  fail "Bash cleanup reported success after Azure deletion failed"
+fi
+assert_contains "Deletion request failed" "$WORK_DIR/bash-delete-failure.log"
+assert_not_contains "Deletion started." "$WORK_DIR/bash-delete-failure.log"
+
 if command -v pwsh >/dev/null 2>&1; then
   : > "$AZ_LOG"
   PATH="$MOCK_BIN:$PATH" AZ_LOG="$AZ_LOG" \
@@ -231,6 +265,12 @@ if command -v pwsh >/dev/null 2>&1; then
     fail "PowerShell cleanup treated Azure authentication failure as a missing resource group"
   fi
   assert_contains "Please run az login" "$WORK_DIR/powershell-auth-failure.log"
+
+  if PATH="$MOCK_BIN:$PATH" AZ_LOG="$AZ_LOG" AZ_GROUP_DELETE_MODE=failure \
+    pwsh -NoProfile -File "$CAPSULE_DIR/scripts/cleanup.ps1" --yes >"$WORK_DIR/powershell-delete-failure.log" 2>&1; then
+    fail "PowerShell cleanup reported success after Azure deletion failed"
+  fi
+  assert_contains "Azure CLI failed to start deletion" "$WORK_DIR/powershell-delete-failure.log"
 fi
 
 echo "PASS: CPU Runaway capsule tests"

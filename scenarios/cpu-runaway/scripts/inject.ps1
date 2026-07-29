@@ -20,12 +20,12 @@ Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
   } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
-$workerScript = @"
-param([Parameter(Mandatory = $true)][string]$Marker)
-while ($true) {
-  [System.Threading.Thread]::SpinWait(50000000)
-}
-"@
+$workerScript = @(
+  'param([Parameter(Mandatory = $true)][string]$Marker)'
+  'while ($true) {'
+  '  [System.Threading.Thread]::SpinWait(50000000)'
+  '}'
+) -join [Environment]::NewLine
 Set-Content -Path $workerScriptPath -Value $workerScript -Encoding ASCII
 
 $workerCount = [Math]::Max(2, [Environment]::ProcessorCount)

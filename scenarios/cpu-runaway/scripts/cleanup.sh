@@ -52,5 +52,10 @@ if [ "$YES" = false ]; then
   fi
 fi
 
-az group delete --name "$RESOURCE_GROUP" --yes --no-wait
-echo "Deletion started."
+if DELETE_OUTPUT=$(az group delete --name "$RESOURCE_GROUP" --yes --no-wait 2>&1); then
+  echo "Deletion started."
+else
+  status=$?
+  printf '%s\n' "$DELETE_OUTPUT" >&2
+  exit "$status"
+fi

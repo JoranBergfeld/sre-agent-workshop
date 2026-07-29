@@ -40,6 +40,15 @@ resource cpuRunawayAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-prev
             numberOfEvaluationPeriods: 1
             minFailingPeriodsToAlert: 1
           }
+          dimensions: [
+            {
+              name: 'Computer'
+              operator: 'Include'
+              values: [
+                '*'
+              ]
+            }
+          ]
         }
       ]
     }
