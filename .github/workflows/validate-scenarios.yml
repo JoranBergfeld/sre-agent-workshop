@@ -41,6 +41,10 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Install scenario-tools
         working-directory: scripts/scenario-tools
         run: npm ci
@@ -51,6 +55,62 @@ jobs:
 
       - name: Validate scenarios (schema + drift)
         run: scripts/validate-scenarios.sh
+
+      - name: Run scenario capsule tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r -d '' manifest; do
+            scenario_dir="$(dirname "$manifest")"
+            scenario_id="$(basename "$scenario_dir")"
+            [[ "$scenario_id" == _* || "$scenario_id" == .* ]] && continue
+
+            if ! test_target="$(node scripts/scenario-tools/bin/print-test-target.js "$manifest")"; then
+              exit 1
+            fi
+            [ -n "$test_target" ] || continue
+
+            recognized=0
+            while IFS= read -r -d '' test_file; do
+              test_name="$(basename -- "$test_file")"
+              case "$test_name" in
+                # test-*.sh retains the existing CPU capsule test convention.
+                *.test.sh|test-*.sh)
+                  if [ ! -x "$test_file" ]; then
+                    echo "::error file=$test_file::Bash scenario tests must be executable"
+                    exit 1
+                  fi
+                  echo "Running Bash test $test_file"
+                  bash "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.test.js)
+                  echo "Running Node test $test_file"
+                  node --test "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.csproj)
+                  echo "Running .NET test project $test_file"
+                  dotnet test "$test_file"
+                  recognized=$((recognized + 1))
+                  ;;
+                *.test.ps1|test-*.ps1)
+                  echo "::error file=$test_file::PowerShell scenario tests are not supported on ubuntu-latest"
+                  exit 1
+                  ;;
+                *.test.*|test-*.*)
+                  echo "::error file=$test_file::Unsupported scenario test extension"
+                  exit 1
+                  ;;
+              esac
+            done < <(find "$test_target" -type f -print0 | sort -z)
+
+            if [ "$recognized" -eq 0 ]; then
+              echo "::error file=$manifest::No recognized test files under declared tests path $test_target"
+              exit 1
+            fi
+          done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0 | sort -z)
 
       - name: Set up Bicep
         run: az bicep install
