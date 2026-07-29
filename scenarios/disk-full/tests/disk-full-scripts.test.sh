@@ -4,12 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CAPSULE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRATCH_DIR="$SCRIPT_DIR/.disk-full-test-$$"
+FIXTURE_DIR="$SCRATCH_DIR/capsule"
 FAKE_BIN="$SCRATCH_DIR/bin"
-AUDIT_LOG="$CAPSULE_DIR/output/actions-audit.log"
+AUDIT_LOG="$FIXTURE_DIR/output/actions-audit.log"
 
 cleanup() {
   rm -rf "$SCRATCH_DIR"
-  rm -f "$AUDIT_LOG"
 }
 trap cleanup EXIT
 
@@ -36,7 +36,10 @@ require_file() {
   [ -f "$1" ] || fail "missing required file: $1"
 }
 
-mkdir -p "$FAKE_BIN"
+mkdir -p "$FAKE_BIN" "$FIXTURE_DIR/output"
+cp -R "$CAPSULE_DIR/scripts" "$FIXTURE_DIR/scripts"
+cp -R "$CAPSULE_DIR/tools" "$FIXTURE_DIR/tools"
+cp -R "$CAPSULE_DIR/investigation" "$FIXTURE_DIR/investigation"
 cat > "$FAKE_BIN/az" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,30 +79,35 @@ assert_contains "$CAPSULE_DIR/tools/invoke-vm-investigation.sh" 'investigation/q
 export PATH="$FAKE_BIN:$PATH"
 export AZ_CALL_LOG="$SCRATCH_DIR/az-calls.log"
 
-if "$CAPSULE_DIR/scripts/cleanup.sh" --yes=false >"$SCRATCH_DIR/cleanup-invalid.out" 2>&1; then
+case "$AUDIT_LOG" in
+  "$SCRATCH_DIR"/*) ;;
+  *) fail "audit log must be isolated under the test scratch directory" ;;
+esac
+
+if "$FIXTURE_DIR/scripts/cleanup.sh" --yes=false >"$SCRATCH_DIR/cleanup-invalid.out" 2>&1; then
   fail "--yes=false must be rejected; --yes is a boolean flag"
 fi
 [ ! -e "$AZ_CALL_LOG" ] || fail "invalid cleanup arguments must not call az"
 
-"$CAPSULE_DIR/scripts/cleanup.sh" --yes >"$SCRATCH_DIR/cleanup.out" 2>&1
+"$FIXTURE_DIR/scripts/cleanup.sh" --yes >"$SCRATCH_DIR/cleanup.out" 2>&1
 assert_contains "$AZ_CALL_LOG" "group delete --name rg-srelabdiskfull --yes --no-wait"
 
 : > "$AZ_CALL_LOG"
-if printf 'APPROVE\n' | "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" \
+if printf 'APPROVE\n' | "$FIXTURE_DIR/tools/invoke-approved-remediation.sh" \
   --action cleanup-disk --change-ticket BAD-123 >"$SCRATCH_DIR/ticket.out" 2>&1; then
   fail "invalid ticket must be rejected"
 fi
 [ ! -s "$AZ_CALL_LOG" ] || fail "invalid ticket must not execute remediation"
 [ ! -e "$AUDIT_LOG" ] || fail "invalid ticket must not create an audit entry"
 
-if printf 'approve\n' | "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" \
+if printf 'approve\n' | "$FIXTURE_DIR/tools/invoke-approved-remediation.sh" \
   --action cleanup-disk --change-ticket CHG-123 >"$SCRATCH_DIR/nonapproval.out" 2>&1; then
   fail "non-exact approval must be rejected"
 fi
 [ ! -s "$AZ_CALL_LOG" ] || fail "nonapproval must not execute remediation"
 [ ! -e "$AUDIT_LOG" ] || fail "nonapproval must not create an audit entry"
 
-printf 'APPROVE\n' | "$CAPSULE_DIR/tools/invoke-approved-remediation.sh" \
+printf 'APPROVE\n' | "$FIXTURE_DIR/tools/invoke-approved-remediation.sh" \
   --action cleanup-disk --change-ticket INC-456 >"$SCRATCH_DIR/approval.out" 2>&1
 assert_contains "$AZ_CALL_LOG" "vm run-command invoke --resource-group rg-srelabdiskfull --name srelabdiskfull-vm01"
 require_file "$AUDIT_LOG"
@@ -107,7 +115,7 @@ assert_contains "$AUDIT_LOG" '"ticket":"INC-456"'
 assert_contains "$AUDIT_LOG" '"action":"cleanup-disk"'
 assert_contains "$AUDIT_LOG" '"status":"executed"'
 
-if "$CAPSULE_DIR/tools/invoke-vm-investigation.sh" --scenario disk-full >"$SCRATCH_DIR/investigation.out" 2>&1; then
+if "$FIXTURE_DIR/tools/invoke-vm-investigation.sh" --scenario disk-full >"$SCRATCH_DIR/investigation.out" 2>&1; then
   fail "the local investigation tool must not accept a scenario selector"
 fi
 
