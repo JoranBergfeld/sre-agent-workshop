@@ -7,7 +7,8 @@ capture the CPU signal and write an investigation trace:
 ./scenarios/cpu-runaway/tools/invoke-vm-investigation.sh \
   --workspace-id <log-analytics-workspace-id> \
   --resource-group rg-srelabcpurunaway \
-  --vm-name srelabcpurunaway-vm01
+  --vm-name srelabcpurunaway-vm01 \
+  --computer-name srecpu01
 ```
 
 The tooling records these stages in `scenarios/cpu-runaway/output/`:
@@ -16,14 +17,15 @@ The tooling records these stages in `scenarios/cpu-runaway/output/`:
 2. Investigate
 3. Correlate
 4. Form a hypothesis
-5. Propose the GitOps change
+5. Propose the approved `stop-cpu-runaway` action
 6. Await human approval
-7. Validate recovery after the controlled deployment
-8. Generate a postmortem
+7. Execute through the approval gate after `APPROVE`
+8. Validate recovery
+9. Generate a postmortem
 
-The intended handoff is human-approved: one issue assigned to `@copilot`,
-Copilot authors a pull request, a human merges it, and a human performs the
-controlled deployment. The SRE Agent never directly remediates the VM.
+The approval gate is the normal remediation path: an authorized human supplies
+a valid ticket and exact `APPROVE` confirmation. The SRE Agent never directly
+remediates the VM.
 
-The approval-gated `stop-cpu-runaway` command remains a manual fallback for an
-authorized human when the normal handoff cannot be completed.
+GitHub issues and Copilot may assist with the investigation record or
+documentation, but cannot replace the gate or run remediation directly.

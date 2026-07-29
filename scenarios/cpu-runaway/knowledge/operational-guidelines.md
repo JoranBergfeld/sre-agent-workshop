@@ -2,25 +2,24 @@
 
 ## Recovery policy
 
-The SRE Agent investigates the `vm-cpu-runaway` alert and proposes a
-repository change. It must not directly remediate the VM.
+The SRE Agent investigates the `vm-cpu-runaway` alert and proposes the
+approved action. It must not directly remediate the VM.
 
-1. A human creates or explicitly approves exactly one GitHub issue with the
-   diagnosis and assigns it to `@copilot`.
-2. Copilot authors the pull request.
-3. A human reviews and merges the pull request.
-4. A human performs the controlled deployment and validates recovery.
+1. The agent presents evidence and the `stop-cpu-runaway` recommendation.
+2. An authorized human supplies a `CHG-` or `INC-` ticket and types exact
+   `APPROVE` at the approval gate.
+3. The gate runs only the scenario-owned action and records the execution.
+4. The operator validates recovery before closing the incident.
 
-This preserves traceability from incident through deployment. Do not make
-unreviewed Azure portal or CLI changes during normal incident response.
+The approval gate is the normal remediation path. Do not allow the SRE Agent
+to run the action directly.
 
-## Approved manual fallback
+## Optional collaboration
 
-When the issue → Copilot pull request → human merge → controlled deploy path
-cannot be used, an authorized human may invoke the scenario-owned
-`stop-cpu-runaway` remediation through its approval gate. The gate requires a
-valid `CHG-` or `INC-` ticket, the exact `APPROVE` confirmation, and records
-the action in `scenarios/cpu-runaway/output/actions-audit.log`.
+GitHub issues and Copilot may assist with diagnosis or documentation, but they
+do not replace the approval gate and cannot directly run remediation. The gate
+requires a valid `CHG-` or `INC-` ticket, exact `APPROVE` confirmation, and
+records the action in `scenarios/cpu-runaway/output/actions-audit.log`.
 
-The fallback stops only the CPU workload started by this scenario. It does not
+The action stops only the CPU workers started by this scenario. It does not
 authorize broad process termination or any direct action by the SRE Agent.

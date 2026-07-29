@@ -38,8 +38,14 @@ if ($approval -ne "APPROVE") {
 
 & $scriptPath -ResourceGroup $ResourceGroup -VmName $VmName
 
-if (-not (Test-Path "$PSScriptRoot\..\output")) {
-    New-Item -Path "$PSScriptRoot\..\output" -ItemType Directory | Out-Null
+if ($env:CPU_RUNAWAY_OUTPUT_DIR) {
+    $outputDirectory = $env:CPU_RUNAWAY_OUTPUT_DIR
+} else {
+    $outputDirectory = Join-Path $PSScriptRoot '..\output'
+}
+
+if (-not (Test-Path $outputDirectory)) {
+    New-Item -Path $outputDirectory -ItemType Directory | Out-Null
 }
 
 $auditEntry = [PSCustomObject]@{
@@ -51,5 +57,5 @@ $auditEntry = [PSCustomObject]@{
     status = "executed"
 }
 
-$auditEntry | ConvertTo-Json -Compress | Add-Content -Path "$PSScriptRoot\..\output\actions-audit.log"
+$auditEntry | ConvertTo-Json -Compress | Add-Content -Path (Join-Path $outputDirectory 'actions-audit.log')
 Write-Host "Approved remediation completed and audited."

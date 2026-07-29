@@ -36,6 +36,50 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+// ──────────────────────────────────────────────
+// Azure Monitor Agent CPU collection
+// ──────────────────────────────────────────────
+resource cpuPerfDataCollectionRule 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
+  name: '${workloadName}-cpu-perf-dcr'
+  location: location
+  tags: tags
+  kind: 'Windows'
+  properties: {
+    dataSources: {
+      performanceCounters: [
+        {
+          name: 'processorTime'
+          streams: [
+            'Microsoft-Perf'
+          ]
+          samplingFrequencyInSeconds: 60
+          counterSpecifiers: [
+            '\\Processor(_Total)\\% Processor Time'
+          ]
+        }
+      ]
+    }
+    destinations: {
+      logAnalytics: [
+        {
+          name: 'logAnalytics'
+          workspaceResourceId: logAnalytics.id
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: [
+          'Microsoft-Perf'
+        ]
+        destinations: [
+          'logAnalytics'
+        ]
+      }
+    ]
+  }
+}
+
 // ── Outputs ──────────────────────────────────
 @description('Log Analytics workspace resource ID')
 output logAnalyticsId string = logAnalytics.id
@@ -45,3 +89,6 @@ output logAnalyticsWorkspaceId string = logAnalytics.properties.customerId
 
 @description('Application Insights connection string')
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
+
+@description('CPU performance counter data collection rule resource ID')
+output cpuDataCollectionRuleId string = cpuPerfDataCollectionRule.id

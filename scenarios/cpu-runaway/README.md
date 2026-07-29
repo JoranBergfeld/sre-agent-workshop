@@ -16,9 +16,9 @@ resource names do not collide.
 
 ## What breaks
 
-The injector starts a sustained, hidden PowerShell workload on the first
-Windows VM. CPU stays above 85 percent, starving the IIS workload until an
-approved operator stops only that workload.
+The injector starts one controlled PowerShell worker per logical processor
+(at least two) on the first Windows VM. CPU stays above 85 percent, starving
+the IIS workload until an approved operator stops only those marked workers.
 
 ## Inject the fault
 
@@ -36,19 +36,15 @@ approved operator stops only that workload.
 
 ## Investigate and recover
 
-The SRE Agent investigates the `vm-cpu-runaway` alert and proposes the
-evidence-backed change. It does **not** run remediation directly.
+The SRE Agent investigates the `vm-cpu-runaway` alert and supplies
+evidence. It does **not** run remediation directly.
 
-1. A human creates or explicitly approves one GitHub issue and assigns it to
-   `@copilot`.
-2. Copilot authors a pull request containing the reviewed scenario or
-   infrastructure fix.
-3. A human reviews and merges the pull request, then performs the controlled
-   deployment through the approved deployment process.
+## Approved remediation
 
-The direct remediation script is an approved manual fallback only when that
-GitOps path cannot be used. An authorized operator must supply a `CHG-` or
-`INC-` ticket and type the exact word `APPROVE` at the approval gate:
+The approval gate is the normal remediation path. An authorized operator
+reviews the evidence, supplies a `CHG-` or `INC-` ticket, and types the exact
+word `APPROVE`. The gate runs only the scenario-owned action and writes an
+audit entry:
 
 ```bash
 ./scenarios/cpu-runaway/tools/invoke-approved-remediation.sh \
@@ -60,6 +56,9 @@ GitOps path cannot be used. An authorized operator must supply a `CHG-` or
 
 The gate records successful manual actions in
 `scenarios/cpu-runaway/output/actions-audit.log`.
+
+GitHub issues and Copilot may assist with diagnosis or documentation, but they
+do not replace this approval gate and cannot run remediation directly.
 
 ## Validate recovery
 

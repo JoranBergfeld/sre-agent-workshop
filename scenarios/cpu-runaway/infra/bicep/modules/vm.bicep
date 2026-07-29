@@ -17,9 +17,17 @@ param adminPassword string
 @description('Subnet resource ID for VM NICs')
 param subnetId string
 
+@description('Data collection rule resource ID for CPU performance counters')
+param dataCollectionRuleId string
+
 var vmNames = [
   '${workloadName}-vm01'
   '${workloadName}-vm02'
+]
+
+var vmComputerNames = [
+  'srecpu01'
+  'srecpu02'
 ]
 
 // ──────────────────────────────────────────────
@@ -59,7 +67,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = [for (vmName, i) in
       vmSize: 'Standard_B2s'
     }
     osProfile: {
-      computerName: vmName
+      computerName: vmComputerNames[i]
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
@@ -132,6 +140,14 @@ resource amaExtension 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' 
   }
 }]
 
+resource cpuPerfDataCollectionRuleAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = [for (vmName, i) in vmNames: {
+  name: 'cpu-perf'
+  scope: vm[i]
+  properties: {
+    dataCollectionRuleId: dataCollectionRuleId
+  }
+}]
+
 resource dependencyAgent 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = [for (vmName, i) in vmNames: {
   parent: vm[i]
   name: 'DependencyAgentWindows'
@@ -169,6 +185,9 @@ resource autoShutdownSchedule 'Microsoft.DevTestLab/schedules@2018-09-15' = [for
 // ── Outputs ──────────────────────────────────
 @description('Scenario VM names')
 output vmNames array = vmNames
+
+@description('Windows computer names used by CPU performance telemetry')
+output vmComputerNames array = vmComputerNames
 
 @description('Scenario VM resource IDs')
 output vmIds array = [for (name, i) in vmNames: vm[i].id]

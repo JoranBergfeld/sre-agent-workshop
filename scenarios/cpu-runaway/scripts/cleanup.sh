@@ -3,6 +3,7 @@ set -uo pipefail
 
 RESOURCE_GROUP="rg-srelabcpurunaway"
 YES=false
+DRY_RUN=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -15,7 +16,8 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     -y|--yes) YES=true; shift ;;
-    -h|--help) echo "Usage: $0 [--resource-group <rg>] [--yes]"; exit 0 ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    -h|--help) echo "Usage: $0 [--resource-group <rg>] [--yes] [--dry-run]"; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -25,9 +27,21 @@ echo "  CPU Runaway Scenario — Cleanup"
 echo "========================================"
 echo "Resource group: $RESOURCE_GROUP"
 
-if ! az group show --name "$RESOURCE_GROUP" >/dev/null 2>&1; then
-  echo "Resource group not found. Nothing to delete."
+if [ "$DRY_RUN" = true ]; then
+  echo "Dry run: would delete resource group '$RESOURCE_GROUP'."
   exit 0
+fi
+
+if GROUP_SHOW_OUTPUT=$(az group show --name "$RESOURCE_GROUP" 2>&1); then
+  :
+else
+  status=$?
+  if printf '%s' "$GROUP_SHOW_OUTPUT" | grep -qiE 'ResourceGroupNotFound|could not be found'; then
+    echo "Resource group not found. Nothing to delete."
+    exit 0
+  fi
+  printf '%s\n' "$GROUP_SHOW_OUTPUT" >&2
+  exit "$status"
 fi
 
 if [ "$YES" = false ]; then

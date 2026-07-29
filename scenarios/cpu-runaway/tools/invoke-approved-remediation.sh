@@ -70,7 +70,7 @@ fi
 
 bash "$SCRIPT_PATH" --resource-group "$RESOURCE_GROUP" --vm-name "$VM_NAME"
 
-OUTPUT_DIR="$SCRIPT_DIR/../output"
+OUTPUT_DIR="${CPU_RUNAWAY_OUTPUT_DIR:-$SCRIPT_DIR/../output}"
 mkdir -p "$OUTPUT_DIR"
 
 TS=$(date -u '+%Y-%m-%dT%H:%M:%S.%3NZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')

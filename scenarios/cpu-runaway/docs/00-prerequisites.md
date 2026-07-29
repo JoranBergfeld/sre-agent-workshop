@@ -1,7 +1,11 @@
 # 00 Prerequisites
 
-Run commands from the repository root. You need an Azure subscription with
-Contributor access, Azure CLI, GitHub CLI, and a supported region:
+Run commands from the repository root. You need an Azure subscription with a
+deployment role such as Contributor **and** permission to create the
+scenario's managed-identity role assignments:
+`Microsoft.Authorization/roleAssignments/write`. Owner or User Access
+Administrator provides the required role-assignment permission. You also need
+Azure CLI, GitHub CLI, and a supported region:
 `eastus2`, `swedencentral`, or `australiaeast`. Azure Bastion tunneling must
 be available in your Azure CLI installation.
 

@@ -4,7 +4,8 @@
 param(
     [string]$WorkspaceId,
     [string]$ResourceGroup = "rg-srelabcpurunaway",
-    [string]$VmName = "srelabcpurunaway-vm01"
+    [string]$VmName = "srelabcpurunaway-vm01",
+    [string]$ComputerName = "srecpu01"
 )
 
 $queryFile = Join-Path $PSScriptRoot "..\investigation\query.kql"
@@ -26,10 +27,10 @@ function Write-Stage {
     Add-Content -Path $tracePath -Value $line
 }
 
-Write-Stage "Observe" "Received CPU Runaway alert on VM '$VmName'."
+Write-Stage "Observe" "Received CPU Runaway alert on VM '$VmName' (Windows computer '$ComputerName')."
 Write-Stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
-$kql = (Get-Content $queryFile -Raw).Replace('{{VM_NAME}}', $VmName)
+$kql = (Get-Content $queryFile -Raw).Replace('{{VM_NAME}}', $ComputerName)
 
 if ($WorkspaceId) {
     $queryResult = az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
@@ -44,10 +45,10 @@ if ($WorkspaceId) {
 
 Write-Stage "Hypothesis" "The CPU saturation symptom matches the expected runaway process failure mode."
 $confidence = "high"
-Write-Stage "Propose" "Prepared a GitOps change proposal with confidence: $confidence."
-Write-Stage "AwaitApproval" "A human must approve one issue assigned to @copilot."
-Write-Stage "Execute" "Copilot authors a PR; a human merges and performs the controlled deployment."
-Write-Stage "Validate" "Run the scenario validation script after recovery to confirm service health."
+Write-Stage "Propose" "Prepared the approved stop-cpu-runaway action with confidence: $confidence."
+Write-Stage "AwaitApproval" "An authorized human must provide a CHG/INC ticket and exact APPROVE confirmation."
+Write-Stage "Execute" "The approval gate runs the scenario-owned remediation and records an audit entry."
+Write-Stage "Validate" "Run the scenario validation script after approved remediation to confirm service health."
 Write-Stage "Postmortem" "Generating markdown postmortem artifact."
 
 $postmortem = @"
@@ -55,7 +56,8 @@ $postmortem = @"
 
 - **Scenario:** cpu-runaway
 - **Resource Group:** $ResourceGroup
-- **VM:** $VmName
+- **VM Resource:** $VmName
+- **Windows Computer:** $ComputerName
 - **Confidence:** $confidence
 - **Trace file:** $(Split-Path $tracePath -Leaf)
 
@@ -63,11 +65,11 @@ $postmortem = @"
 
 See $(Split-Path $tracePath -Leaf) for the stage-by-stage reasoning chain:
 
-Observe → Investigate → Correlate → Hypothesis → Propose remediation → Await approval → Execute → Validate → Postmortem
+Observe → Investigate → Correlate → Hypothesis → Propose remediation → Await approval → Execute through gate → Validate → Postmortem
 
 ## Proposed Remediation
 
-Use the constrained remediation wrapper only as an authorized manual fallback:
+Use the constrained remediation wrapper as the normal approved remediation path:
 
 ~~~powershell
 .\scenarios\cpu-runaway\tools\Invoke-ApprovedRemediation.ps1 -Action stop-cpu-runaway -ResourceGroup $ResourceGroup -VmName $VmName -ChangeTicket CHG-12345

@@ -67,6 +67,7 @@ module vm 'modules/vm.bicep' = {
     adminUsername: adminUsername
     adminPassword: adminPassword
     subnetId: network.outputs.subnetId
+    dataCollectionRuleId: monitoring.outputs.cpuDataCollectionRuleId
   }
 }
 
@@ -99,6 +100,9 @@ module alert 'modules/alert.bicep' = {
 // ── Outputs ──────────────────────────────────
 @description('Scenario VM names')
 output vmNames array = vm.outputs.vmNames
+
+@description('Windows computer names for CPU performance telemetry')
+output vmComputerNames array = vm.outputs.vmComputerNames
 
 @description('Scenario VM private IPs')
 output vmPrivateIps array = vm.outputs.vmPrivateIps

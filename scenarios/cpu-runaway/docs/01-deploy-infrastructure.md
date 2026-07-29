@@ -24,8 +24,16 @@ az deployment group create \
   --parameters workloadName=srelabcpurunaway adminPassword='<secure-password>'
 ```
 
-Record the deployment outputs: VM names, Bastion host name, and Log Analytics
-workspace ID. The first VM is `srelabcpurunaway-vm01` with the defaults.
+Record the deployment outputs: VM resource names, Windows computer names,
+Bastion host name, and Log Analytics workspace ID. With the defaults, the
+first VM ARM resource is `srelabcpurunaway-vm01` and its Windows computer name
+is the deterministic short name `srecpu01`. The computer names are used by
+the `Perf` query; Azure CLI and Bastion commands use the longer ARM resource
+name.
+
+The deployment associates both Azure Monitor Agent VMs with the CPU data
+collection rule. It sends `\Processor(_Total)\% Processor Time` to the
+scenario Log Analytics workspace for the `vm-cpu-runaway` alert.
 
 Use an Azure Bastion tunnel rather than exposing public RDP or HTTP endpoints:
 

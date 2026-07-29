@@ -10,14 +10,16 @@ OUTPUT_DIR="$SCRIPT_DIR/../output"
 WORKSPACE_ID=""
 RESOURCE_GROUP="rg-srelabcpurunaway"
 VM_NAME="srelabcpurunaway-vm01"
+COMPUTER_NAME="srecpu01"
 
 while [ $# -gt 0 ]; do
   case "$1" in
     -w|--workspace-id) WORKSPACE_ID="$2"; shift 2 ;;
     -g|--resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
     -n|--vm-name) VM_NAME="$2"; shift 2 ;;
+    -c|--computer-name) COMPUTER_NAME="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 [--workspace-id <id>] [--resource-group <rg>] [--vm-name <vm>]"
+      echo "Usage: $0 [--workspace-id <id>] [--resource-group <rg>] [--vm-name <vm>] [--computer-name <windows-computer>]"
       exit 0
       ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
@@ -45,10 +47,10 @@ write_stage() {
   echo "$line" >> "$TRACE_PATH"
 }
 
-write_stage "Observe" "Received CPU Runaway alert on VM '$VM_NAME'."
+write_stage "Observe" "Received CPU Runaway alert on VM '$VM_NAME' (Windows computer '$COMPUTER_NAME')."
 write_stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtime state."
 
-KQL=$(sed "s/{{VM_NAME}}/$VM_NAME/g" "$QUERY_FILE")
+KQL=$(sed "s/{{VM_NAME}}/$COMPUTER_NAME/g" "$QUERY_FILE")
 
 if [ -n "$WORKSPACE_ID" ]; then
   if az monitor log-analytics query -w "$WORKSPACE_ID" --analytics-query "$KQL" -o json >/dev/null 2>&1; then
@@ -62,10 +64,10 @@ fi
 
 write_stage "Hypothesis" "The CPU saturation symptom matches the expected runaway process failure mode."
 CONFIDENCE="high"
-write_stage "Propose" "Prepared a GitOps change proposal with confidence: $CONFIDENCE."
-write_stage "AwaitApproval" "A human must approve one issue assigned to @copilot."
-write_stage "Execute" "Copilot authors a PR; a human merges and performs the controlled deployment."
-write_stage "Validate" "Run the scenario validation script after recovery to confirm service health."
+write_stage "Propose" "Prepared the approved stop-cpu-runaway action with confidence: $CONFIDENCE."
+write_stage "AwaitApproval" "An authorized human must provide a CHG/INC ticket and exact APPROVE confirmation."
+write_stage "Execute" "The approval gate runs the scenario-owned remediation and records an audit entry."
+write_stage "Validate" "Run the scenario validation script after approved remediation to confirm service health."
 write_stage "Postmortem" "Generating markdown postmortem artifact."
 
 TRACE_NAME=$(basename "$TRACE_PATH")
@@ -74,7 +76,8 @@ cat > "$POSTMORTEM_PATH" <<EOF
 
 - **Scenario:** cpu-runaway
 - **Resource Group:** $RESOURCE_GROUP
-- **VM:** $VM_NAME
+- **VM Resource:** $VM_NAME
+- **Windows Computer:** $COMPUTER_NAME
 - **Confidence:** $CONFIDENCE
 - **Trace file:** $TRACE_NAME
 
@@ -82,11 +85,11 @@ cat > "$POSTMORTEM_PATH" <<EOF
 
 See \`$TRACE_NAME\` for the stage-by-stage reasoning chain:
 
-Observe → Investigate → Correlate → Hypothesis → Propose remediation → Await approval → Execute → Validate → Postmortem
+Observe → Investigate → Correlate → Hypothesis → Propose remediation → Await approval → Execute through gate → Validate → Postmortem
 
 ## Proposed Remediation
 
-Use the constrained remediation wrapper only as an authorized manual fallback:
+Use the constrained remediation wrapper as the normal approved remediation path:
 
 \`\`\`bash
 ./scenarios/cpu-runaway/tools/invoke-approved-remediation.sh --action stop-cpu-runaway --resource-group $RESOURCE_GROUP --vm-name $VM_NAME --change-ticket CHG-12345

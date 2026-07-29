@@ -2,26 +2,24 @@
 
 Configure the SRE Agent to observe the `vm-cpu-runaway` Azure Monitor alert
 and investigate the `Perf` CPU signal. The SRE Agent may diagnose and propose
-a change, but it must not run direct remediation.
+the approved action, but it must not run direct remediation.
 
 ## Required approval and recovery flow
 
 1. The SRE Agent collects alert and VM evidence, then presents its diagnosis.
-2. A human creates or explicitly approves exactly one GitHub issue and assigns
-   it to `@copilot`.
-3. Copilot authors the pull request.
-4. A human reviews and merges the pull request.
-5. A human performs the controlled deployment and validates recovery.
+2. An authorized human invokes the approval gate with a `CHG-<number>` or
+   `INC-<number>` ticket and types the exact confirmation `APPROVE`.
+3. The gate runs only `stop-cpu-runaway` and writes an audit entry.
+4. The operator validates recovery and closes the incident.
 
-This preserves an auditable GitOps trail. Do not use Azure CLI, the portal, or
-an SRE Agent action to make an unreviewed production change.
+The approval gate is the normal remediation path. Do not allow an SRE Agent
+to run the action directly.
 
-## Approved manual fallback
+## Optional collaboration
 
-Only when the issue → Copilot pull request → human merge → controlled deploy
-path cannot be used, an authorized human may run the constrained fallback.
-The approval gate accepts only `CHG-<number>` or `INC-<number>` tickets and
-requires the exact confirmation `APPROVE`.
+GitHub issues and Copilot can help record the diagnosis, improve
+documentation, or prepare a reviewed infrastructure change. They cannot
+replace the approval gate or directly run remediation.
 
 ```powershell
 .\scenarios\cpu-runaway\tools\Invoke-ApprovedRemediation.ps1 `
@@ -31,5 +29,5 @@ requires the exact confirmation `APPROVE`.
   -ChangeTicket CHG-12345
 ```
 
-The manual fallback stops only the recorded CPU workload and writes an audit
-entry under `scenarios/cpu-runaway/output/`.
+The gate stops only the recorded CPU workers and writes an audit entry under
+`scenarios/cpu-runaway/output/`.
