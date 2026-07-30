@@ -53,6 +53,32 @@ gh auth refresh -s read:org,repo
 
 The GitHub scopes required by your organization may vary with its policy.
 
+### Codespaces GitHub authentication
+
+Codespaces can expose an integration token through `GITHUB_TOKEN`. `GH_TOKEN`
+and `GITHUB_TOKEN` take precedence over the credential saved by `gh auth
+login`, so `gh auth status` can succeed without verifying your saved user
+credential. The setup scripts remove these overrides before writing repository
+variables.
+
+In a Bash Codespace, create and verify the saved credential with:
+
+```bash
+env -u GH_TOKEN -u GITHUB_TOKEN gh auth login
+env -u GH_TOKEN -u GITHUB_TOKEN gh auth refresh -s read:org,repo
+env -u GH_TOKEN -u GITHUB_TOKEN gh auth status
+```
+
+In a PowerShell Codespace, remove the overrides for the current terminal
+session, then authenticate:
+
+```powershell
+Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
+gh auth login
+gh auth refresh -s read:org,repo
+gh auth status
+```
+
 If you plan to reproduce the changed-line coverage gate locally, verify `uv`
 in the shell you use:
 
@@ -76,7 +102,8 @@ Choose one:
 
 - [ ] The current clone is the repository created with **Use this template**.
 - [ ] `az account show` returns the intended subscription.
-- [ ] `gh auth status` succeeds for the intended GitHub account.
+- [ ] `gh auth status` succeeds for the intended GitHub account; in Codespaces,
+      run it with `GH_TOKEN` and `GITHUB_TOKEN` removed as shown above.
 - [ ] `dotnet --version` reports 10.x.
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
 - [ ] You have role-assignment permission for the scenario resource group.

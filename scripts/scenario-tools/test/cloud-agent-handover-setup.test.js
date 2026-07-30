@@ -28,3 +28,21 @@ test('Cloud Agent Handover onboarding makes manual SRE Agent creation explicit',
   assert.match(onboardingGuide, /does \*\*not\*\*\s+deploy an SRE Agent/i);
   assert.match(onboardingGuide, /Create an SRE Agent manually/i);
 });
+
+test('Cloud Agent Handover documentation distinguishes Codespaces tokens from saved GitHub CLI auth', () => {
+  const rootReadme = readFileSync(resolve(repositoryRoot, 'README.md'), 'utf8');
+  const prerequisites = readFileSync(
+    resolve(repositoryRoot, 'scenarios/cloud-agent-handover/docs/00-prerequisites.md'),
+    'utf8'
+  );
+  const deploymentGuide = readFileSync(
+    resolve(repositoryRoot, 'scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md'),
+    'utf8'
+  );
+
+  assert.match(rootReadme, /env -u GH_TOKEN -u GITHUB_TOKEN gh auth login/);
+  assert.match(prerequisites, /Codespaces can expose an integration token through `GITHUB_TOKEN`/);
+  assert.match(prerequisites, /GH_TOKEN[\s\S]*GITHUB_TOKEN[\s\S]*take precedence/i);
+  assert.match(prerequisites, /Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN/);
+  assert.match(deploymentGuide, /gh auth status[\s\S]*integration\s+token/i);
+});

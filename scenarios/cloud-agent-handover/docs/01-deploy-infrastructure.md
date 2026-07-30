@@ -78,11 +78,13 @@ account or organization policy permits issue assignment. Then rerun setup.
 
 ### GitHub Actions variables are denied
 
-In Codespaces, setup ignores any injected `GH_TOKEN` or `GITHUB_TOKEN` and
-uses the user credential saved by `gh auth login`. Run the authentication steps
-in [Prerequisites](./00-prerequisites.md#tools) again, then rerun setup. The
-authenticated GitHub user needs permission to manage Actions variables in the
-generated repository.
+In Codespaces, `gh auth status` can succeed using the Codespaces integration
+token rather than the user credential saved by `gh auth login`. Setup removes
+the injected `GH_TOKEN` and `GITHUB_TOKEN`, then requires that saved user
+credential to write repository variables. Follow [Codespaces GitHub
+authentication](./00-prerequisites.md#codespaces-github-authentication), then
+rerun setup. The authenticated GitHub user needs permission to manage Actions
+variables in the generated repository.
 
 ### Role assignment is denied
 

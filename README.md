@@ -79,8 +79,16 @@ language tooling required by that capsule.
    configuration whose scenario id matches the catalog entry you chose (for
    example, `.devcontainer/cloud-agent-handover/`).
 3. Create the Codespace and wait for its setup commands to finish.
-4. Authenticate interactively with `az login` and `gh auth login` before running
-   the selected scenario's setup or deployment steps.
+4. Authenticate before running the selected scenario's setup or deployment
+   steps. Codespaces provides a `GITHUB_TOKEN` that takes precedence over the
+   GitHub CLI credential saved by interactive login, so use:
+
+   ```bash
+   az login
+   env -u GH_TOKEN -u GITHUB_TOKEN gh auth login
+   env -u GH_TOKEN -u GITHUB_TOKEN gh auth refresh -s read:org,repo
+   env -u GH_TOKEN -u GITHUB_TOKEN gh auth status
+   ```
 
 ## Contributing a scenario
 
