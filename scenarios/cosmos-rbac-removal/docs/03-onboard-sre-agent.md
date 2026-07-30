@@ -128,7 +128,7 @@ This creates a full audit trail: incident → investigation → issue → PR →
 For the SRE Agent to inspect repository evidence during an investigation,
 connect the GitHub **connector**.
 
-Follow **[Connect GitHub to the SRE Agent → Set up the GitHub connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-connector)**, then verify the connection per that guide.
+Follow **[Connect GitHub to the SRE Agent → Set up the GitHub connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-connector-with-a-pat)**, then verify the connection per that guide.
 
 > **Why this matters:** With the GitHub connector, the agent can correlate
 > repository evidence with the incident. The governed remediation loop is: SRE

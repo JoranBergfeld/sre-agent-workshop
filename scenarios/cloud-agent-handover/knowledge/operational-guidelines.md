@@ -5,7 +5,7 @@
 Use an approval-gated handoff from the Azure SRE Agent to the GitHub Copilot
 coding agent. The SRE Agent investigates and proposes the handoff. Explicit
 operator approval gates issue creation, and the operator retains control of
-review, merge, and recovery.
+issue assignment, review, merge, and recovery.
 
 ## Incident policy
 
@@ -15,9 +15,10 @@ review, merge, and recovery.
 3. Do not make direct Azure changes or edit code during incident response.
 4. Present the diagnosis and ask for explicit operator approval before creating
    a GitHub issue.
-5. After approval, create exactly one issue and assign it to
+5. After approval, create exactly one issue without an assignee.
+6. The learner reviews the created issue, then assigns
    `copilot-swe-agent`.
-6. The SRE Agent must not create a branch or pull request, merge changes, or
+7. The SRE Agent must not create a branch or pull request, merge changes, or
    deploy the application. Those steps belong to the Copilot coding agent and
    operator.
 
@@ -36,8 +37,9 @@ The issue must state:
 
 ## Recovery and closure
 
-1. The operator reviews and merges the Copilot pull request.
-2. The merge triggers the OIDC-based **Deploy Cloud Agent Handover Application**
+1. The learner assigns the reviewed issue to `copilot-swe-agent`.
+2. The operator reviews and merges the Copilot pull request.
+3. The merge triggers the OIDC-based **Deploy Cloud Agent Handover Application**
    workflow.
-3. Validate the endpoint and health check after deployment. Close the issue and
+4. Validate the endpoint and health check after deployment. Close the issue and
    incident only after recovery is confirmed.

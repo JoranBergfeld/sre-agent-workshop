@@ -25,7 +25,8 @@ than expecting a fixed timeline.
 5. Review the diagnosis. When the agent asks, explicitly approve creation of
    the handover issue.
 6. Open `https://github.com/<owner>/<repository>/issues`. Confirm that one
-   issue contains the expected HTTP 200 contract and is assigned to **Copilot**
+   unassigned issue contains the expected HTTP 200 contract.
+7. Review the issue, then manually assign it to **Copilot**
    (`copilot-swe-agent`).
 
 Continue at [Review the Copilot pull request](#review-the-copilot-pull-request).
@@ -61,9 +62,10 @@ the handoff or substitute a human assignee.
    application code.
 5. Review and merge the pull request to `main`.
 
-The SRE Agent or learner creates the approved issue; neither writes the fix nor
-opens the pull request. Repository and App Service Copilot instructions guide
-the coding agent, while CI provides an independent merge gate.
+The SRE Agent creates the approved issue without an assignee; the learner
+reviews it and assigns Copilot. Neither writes the fix nor opens the pull
+request. Repository and App Service Copilot instructions guide the coding
+agent, while CI provides an independent merge gate.
 
 ## Observe deployment
 

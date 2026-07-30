@@ -58,7 +58,8 @@ The platform is scenario metadata, not a directory hierarchy.
    local approval gate with a `CHG-`/`INC-` ticket, explicit `APPROVE`, and an
    audit record. AKS scenarios use the GitOps route: an issue assigned to
    `@copilot`, a Copilot pull request, and human deployment after merge. The
-   Cloud Agent Handover scenario requires approval before an issue assigned to
+   Cloud Agent Handover scenario requires approval before the SRE Agent creates
+   one unassigned issue. A learner reviews it and assigns
    `copilot-swe-agent`; a human merges the pull request and the application
    deployment runs automatically.
 

@@ -44,8 +44,9 @@ Add this repository file as a knowledge source:
 
 [`scenarios/cloud-agent-handover/knowledge/operational-guidelines.md`](../knowledge/operational-guidelines.md)
 
-It tells the SRE Agent to investigate first, request explicit approval before
-creating an issue, assign the approved issue to `copilot-swe-agent`, and leave
-coding, pull-request creation, merge, and deployment to the correct actors.
+It tells the SRE Agent to investigate first and request explicit approval
+before creating an unassigned issue. The learner reviews that issue and assigns
+`copilot-swe-agent`; coding, pull-request creation, merge, and deployment
+remain with the correct actors.
 
 Next: [Configure incident response](./04-configure-incident-response.md).

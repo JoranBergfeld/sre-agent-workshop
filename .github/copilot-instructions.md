@@ -73,9 +73,10 @@ the manifest instead.
   assigned to `@copilot`; Copilot creates a pull request; a human reviews and
   merges it; an operator manually deploys the approved change.
 - **Cloud Agent Handover:** the SRE Agent asks for approval before creating one
-  issue assigned to `copilot-swe-agent`. A human reviews and merges Copilot's
-  pull request; **Deploy Cloud Agent Handover Application** automatically
-  deploys qualifying changes pushed to `main`.
+  unassigned issue. A learner reviews it and assigns `copilot-swe-agent`; a
+  human reviews and merges Copilot's pull request; **Deploy Cloud Agent
+  Handover Application** automatically deploys qualifying changes pushed to
+  `main`.
 
 The Cloud Agent Handover app intentionally starts with an unfinished
 `POST /api/feature`. The fixed endpoint contract is exactly:

@@ -24,9 +24,10 @@ The route belongs to the scenario, not to a platform directory:
   assigned to `@copilot`, Copilot prepares a pull request, and a human reviews,
   merges, and manually deploys the approved change.
 - **Cloud Agent Handover:** the SRE Agent first asks for approval to create one
-  issue assigned to `copilot-swe-agent`. Copilot opens the pull request; a
-  human reviews and merges it; **Deploy Cloud Agent Handover Application**
-  automatically deploys the merged application.
+  unassigned issue. The learner reviews it and assigns
+  `copilot-swe-agent`; Copilot opens the pull request; a human reviews and
+  merges it; **Deploy Cloud Agent Handover Application** automatically deploys
+  the merged application.
 
 ## Guardrails
 

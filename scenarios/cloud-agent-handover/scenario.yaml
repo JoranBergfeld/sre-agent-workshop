@@ -2,7 +2,7 @@ id: cloud-agent-handover
 title: SRE Agent to Copilot Handover
 platform: Azure App Service
 incidentType: Application HTTP 500
-summary: Blazor app ships one unfinished endpoint; button burst 500 alerts SRE Agent; after learner approval issue assigned to Copilot.
+summary: Blazor app ships one unfinished endpoint; button burst 500 alerts SRE Agent; after approval, learner assigns the created issue to Copilot.
 severity: 2
 estimatedMinutes: 20
 difficulty: beginner

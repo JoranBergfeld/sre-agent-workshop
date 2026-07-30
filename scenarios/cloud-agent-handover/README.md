@@ -67,7 +67,8 @@ The Azure and GitHub-only paths converge when Copilot is assigned:
 
 There is no manual kill switch or remediation script. The pull request is the
 intended recovery path. When using Azure, the SRE Agent must still investigate,
-request approval, and create the issue before this common flow begins.
+request approval, and create the issue without an assignee. The learner reviews
+the issue and assigns Copilot before this common flow begins.
 
 Continue with [90 Watch the handover](./docs/90-watch-sre-agent.md).
 
