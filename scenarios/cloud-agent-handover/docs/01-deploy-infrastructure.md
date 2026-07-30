@@ -76,6 +76,14 @@ generated repository. Current setup output says:
 Enable GitHub Copilot coding agent for the repository and confirm that your
 account or organization policy permits issue assignment. Then rerun setup.
 
+### GitHub Actions variables are denied
+
+In Codespaces, setup ignores any injected `GH_TOKEN` or `GITHUB_TOKEN` and
+uses the user credential saved by `gh auth login`. Run the authentication steps
+in [Prerequisites](./00-prerequisites.md#tools) again, then rerun setup. The
+authenticated GitHub user needs permission to manage Actions variables in the
+generated repository.
+
 ### Role assignment is denied
 
 An error containing `Microsoft.Authorization/roleAssignments/write` means the

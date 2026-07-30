@@ -1,8 +1,18 @@
 # Module 3: Onboard the SRE Agent
 
-Open [sre.azure.com](https://sre.azure.com), then create or select an agent for
-the scenario. Portal labels can change, so use the current setup experience
-rather than relying on an exact screen layout.
+Setup deploys the Azure resources and the application, but it does **not**
+deploy an SRE Agent. Create an SRE Agent manually in
+[sre.azure.com](https://sre.azure.com) before continuing:
+
+1. Select the subscription that contains `rg-<workload>`.
+2. Create an agent for this scenario, then select `rg-<workload>` when the
+   portal asks which resources the agent can access.
+3. Continue with the current portal setup experience to connect Azure,
+   monitoring, and the generated repository.
+
+Portal labels can change, so use the current setup experience rather than
+relying on an exact screen layout. You can select an existing agent only when
+it is scoped to this scenario resource group.
 
 ## Connect Azure
 
