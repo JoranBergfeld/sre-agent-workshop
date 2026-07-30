@@ -55,11 +55,14 @@ the handoff or substitute a human assignee.
 
 1. Wait for the GitHub Copilot coding agent to open a pull request.
 2. Confirm that changes stay within App Service source and tests.
-3. Open **Validate Cloud Agent Handover Application** and confirm that endpoint tests
-   pass and changed-line coverage is 100%.
+3. Open **Validate Cloud Agent Handover Application** and **CodeQL Cloud Agent
+   Handover**. Confirm that endpoint tests pass, changed-line coverage is 100%,
+   and CodeQL reports no new alerts.
 4. If coverage fails, review the uncovered lines printed by `diff-cover` and
-   request behavior-focused tests. Do not weaken assertions or exclude
-   application code.
+   request behavior-focused tests. If CodeQL reports an alert, resolve it or
+   document why it is a false positive before merging. Do not weaken
+   assertions, exclude application code, or dismiss a CodeQL alert without
+   evidence.
 5. Review and merge the pull request to `main`.
 
 The SRE Agent creates the approved issue without an assignee; the learner

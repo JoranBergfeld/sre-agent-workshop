@@ -1,0 +1,68 @@
+name: CodeQL Cloud Agent Handover
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cloud-agent-handover/src/**'
+      - '.github/workflows/codeql-cloud-agent-handover.yml'
+      - '.github/workflows/validate-appservice-app.yml'
+      - '.github/workflows/deploy-appservice-app.yml'
+      - '.github/codeql/codeql-cloud-agent-handover.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scenarios/cloud-agent-handover/src/**'
+      - '.github/workflows/codeql-cloud-agent-handover.yml'
+      - '.github/workflows/validate-appservice-app.yml'
+      - '.github/workflows/deploy-appservice-app.yml'
+      - '.github/codeql/codeql-cloud-agent-handover.yml'
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze-csharp:
+    name: Analyze C#
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          build-mode: autobuild
+          config-file: .github/codeql/codeql-cloud-agent-handover.yml
+
+      - name: Build application for CodeQL
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze C#
+        uses: github/codeql-action/analyze@v3
+
+  analyze-actions:
+    name: Analyze GitHub Actions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: actions
+          config-file: .github/codeql/codeql-cloud-agent-handover.yml
+
+      - name: Analyze GitHub Actions
+        uses: github/codeql-action/analyze@v3

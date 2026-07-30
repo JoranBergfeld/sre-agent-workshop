@@ -12,10 +12,19 @@ reviewable, testable code change.
 | Endpoint tests | Protects the public HTTP contracts learners review. |
 | Pull-request CI | Blocks merging when the application tests or quality gate fail. |
 | Changed-line coverage | Requires every changed executable application line to be exercised without demanding 100% legacy coverage. |
+| CodeQL code scanning | Detects security vulnerabilities in the C# application and its deployment workflows. |
 
 The coverage gate applies to changed C# application lines under
 `scenarios/cloud-agent-handover/src`. Generated Razor code, test code, documentation, and
 unchanged application lines are not part of the 100% threshold.
+
+**CodeQL Cloud Agent Handover** analyzes only
+`scenarios/cloud-agent-handover/src` and the CodeQL, validation, and deployment
+workflows for this scenario. It runs C# and GitHub Actions scans in parallel
+with the application validation workflow for relevant pull requests and `main`
+pushes. It also scans weekly so new CodeQL checks apply even when the
+application does not change. Review a clean CodeQL result with the endpoint
+tests and changed-line coverage before merging.
 
 ## Run the tests
 
