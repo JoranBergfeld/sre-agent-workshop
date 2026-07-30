@@ -78,9 +78,6 @@ for required_command in az gh dotnet zip jq; do
   fi
 done
 
-# Codespaces can inject an integration token that cannot manage Actions variables.
-unset GH_TOKEN GITHUB_TOKEN
-
 if ! az account show >/dev/null 2>&1; then
   echo "Azure CLI is not authenticated. Run 'az login' and try again." >&2
   exit 1

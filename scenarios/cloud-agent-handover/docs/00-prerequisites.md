@@ -43,7 +43,7 @@ You need:
 | Bash path | `zip` and `jq` |
 | PowerShell path | PowerShell 7 |
 
-Authenticate before running setup:
+Outside Codespaces, authenticate before running setup:
 
 ```bash
 az login
@@ -55,27 +55,11 @@ The GitHub scopes required by your organization may vary with its policy.
 
 ### Codespaces GitHub authentication
 
-Codespaces can expose an integration token through `GITHUB_TOKEN`. `GH_TOKEN`
-and `GITHUB_TOKEN` take precedence over the credential saved by `gh auth
-login`, so `gh auth status` can succeed without verifying your saved user
-credential. The setup scripts remove these overrides before writing repository
-variables.
-
-In a Bash Codespace, create and verify the saved credential with:
+In Codespaces, setup uses the authenticated `GITHUB_TOKEN` supplied to GitHub
+CLI. Do not unset `GH_TOKEN` or `GITHUB_TOKEN`. Confirm the active credential
+before setup:
 
 ```bash
-env -u GH_TOKEN -u GITHUB_TOKEN gh auth login
-env -u GH_TOKEN -u GITHUB_TOKEN gh auth refresh -s read:org,repo
-env -u GH_TOKEN -u GITHUB_TOKEN gh auth status
-```
-
-In a PowerShell Codespace, remove the overrides for the current terminal
-session, then authenticate:
-
-```powershell
-Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
-gh auth login
-gh auth refresh -s read:org,repo
 gh auth status
 ```
 
@@ -102,8 +86,7 @@ Choose one:
 
 - [ ] The current clone is the repository created with **Use this template**.
 - [ ] `az account show` returns the intended subscription.
-- [ ] `gh auth status` succeeds for the intended GitHub account; in Codespaces,
-      run it with `GH_TOKEN` and `GITHUB_TOKEN` removed as shown above.
+- [ ] `gh auth status` succeeds for the active GitHub credential.
 - [ ] `dotnet --version` reports 10.x.
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
 - [ ] You have role-assignment permission for the scenario resource group.

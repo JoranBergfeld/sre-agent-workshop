@@ -43,9 +43,6 @@ foreach ($requiredCommand in @("az", "gh", "dotnet")) {
     }
 }
 
-# Codespaces can inject an integration token that cannot manage Actions variables.
-Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN -ErrorAction SilentlyContinue
-
 try {
     $accountJson = (Invoke-NativeCommand -Command "az" -Arguments @(
         "account", "show", "--output", "json"
