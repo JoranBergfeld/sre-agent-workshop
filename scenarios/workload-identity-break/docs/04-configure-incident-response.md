@@ -111,53 +111,33 @@ After connecting, verify that the SRE Agent can see your resources: Confirm that
 > **permissions complete**. Then repeat the read-only identity check above and
 > verify **Monitoring Contributor** at subscription scope.
 
-## Create an Incident Response Plan
+## Create the Scenario Response Plan
 
-An incident response plan tells the agent *which* alerts to respond to and *how* to respond (investigate only, or investigate + remediate).
+This response plan targets only this capsule's **Workload Identity Auth
+Errors** alert. It sends that alert to the selected scenario custom agent for a
+governed investigation and review flow.
 
-### Start the Wizard
+If a default `quickstart` response plan exists, open **Builder -> Incident
+response plans**, switch to **Table view**, and delete it so the same alert is
+not routed twice.
 
-- In the SRE Agent portal, navigate to **Builder** → **Incident response plans** 
-- Click **New incident response plan**
+1. Open **Builder -> Agent Canvas**.
+2. Select **Create**, then **Trigger -> Incident response plan**.
+3. Name the plan `workload-identity-break-review`.
+4. Select the custom agent configured for this scenario.
+5. Set **Severity** to **Sev3**.
+6. Set **Title contains** to `Workload Identity Auth Errors`.
+7. Set **Agent autonomy level** to **Review**.
+8. Keep **Reinvestigation cooldown** enabled at the default three hours.
+9. Select **Next**, review the incident preview, then select **Create**.
+10. In the response-plan grid, confirm the plan is **On** and shows the
+    expected custom agent, **Sev3** severity, title filter, **Review** autonomy,
+    and three-hour cooldown.
 
-### Step 1: Set Up Filters
-
-The filter defines which alerts trigger this plan.
-
-- **Name:** Enter `workshop-all-incidents`
-- **Severity:** Select **All severity levels**
-
-In a production environment, you might create separate plans for Critical, Warning, and Info alerts with different response strategies. For this workshop, we want to catch *everything* so you can observe the agent in action.
-
-Click **Next**
-
-### Step 2: Preview Matching Incidents
-
-The wizard shows you past incidents that would have matched this plan. You might see:
-- No previous incidents (if this is your first time setting up monitoring), this is fine
-- Some historical alerts from your AKS cluster which may be generated during deployment, this shows your rule will match real incidents
-
-Click **Next** to continue
-
-### Step 3: Save and Set Review Mode
-
-This step is important — it controls how much the agent is allowed to do automatically.
-
-- **Agent autonomy level:** Select **Review**
-
-| Autonomy Level | Behavior | Best For |
-|---|---|---|
-| **Review** | Agent investigates, identifies root cause, proposes fixes, and waits for human approval before taking action | This workshop's required issue → Copilot PR → merge flow |
-| **Autonomous** | Not used in this workshop; it would skip the required human approval gate. | Avoid for this scenario |
-
-For the workshop, use **Review** mode. The SRE Agent investigates and proposes
-remediation; after a human approves issue creation, the SRE Agent creates one
-issue assigned to `@copilot`. A human reviews and merges the Copilot PR, then
-manually runs the deployment.
-
-Click **Save**
-
-You should now see your incident response plan listed in the **Incident response plans** section.
+With **Review** autonomy, the SRE Agent investigates and proposes remediation.
+After a human approves issue creation, the SRE Agent creates one issue assigned
+to `@copilot`. Copilot creates the pull request, a human reviews and merges it,
+and an operator manually deploys the approved change.
 
 ## Verify This Scenario's Alert Rule
 

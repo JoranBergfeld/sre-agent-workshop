@@ -186,6 +186,24 @@ for (const scenario of aksScenarios) {
   });
 }
 
+test('AKS response plans use the current Agent Canvas flow', () => {
+  for (const id of aksScenarios) {
+    const responsePlan = readFileSync(
+      resolve(scenariosRoot, id, 'docs/04-configure-incident-response.md'),
+      'utf8',
+    );
+
+    assert.match(responsePlan, /Builder.*Agent Canvas/s);
+    assert.match(responsePlan, /Trigger.*Incident response plan/s);
+    assert.match(responsePlan, /quickstart.*Table view.*delete/is);
+    assert.match(responsePlan, /Reinvestigation cooldown/);
+    assert.match(responsePlan, /three hours/i);
+    assert.match(responsePlan, /Title contains/);
+    assert.doesNotMatch(responsePlan, /Click \*\*New incident response plan\*\*/);
+    assert.doesNotMatch(responsePlan, /workshop-all-incidents/);
+  }
+});
+
 test('GitHub integration guide uses current OAuth connector terminology and policy', () => {
   const guide = readFileSync(resolve(REPO_ROOT, 'docs', 'connect-github-to-sre-agent.md'), 'utf8');
 
