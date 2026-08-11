@@ -42,8 +42,8 @@ incident response. After the SRE Agent investigates and proposes remediation:
 2. Copilot authors the pull request.
 3. A human reviews and merges the pull request when it correctly restores the
    credential.
-4. That human manually runs **Deploy Workload Identity Break Infrastructure** to apply the
-   merged Bicep change when deployment is required.
+4. An operator manually deploys the merged Bicep change by running **Deploy
+   Workload Identity Break Infrastructure** when deployment is required.
 5. Verify `/health` and `/items`, then confirm the alert resolves.
 
 This preserves the operational contract: no direct Azure mutation for routine

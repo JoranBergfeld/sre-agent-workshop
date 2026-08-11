@@ -6,19 +6,22 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 **When the SRE Agent identifies a fix:**
 
-1. A human **creates or explicitly approves exactly one GitHub issue** describing
-   the root cause, affected resources, and required Bicep change, then assigns
-   it to `@copilot` (the Copilot coding agent).
-2. Copilot authors the pull request; a human reviews and merges it.
-3. That human manually triggers **Deploy Workload Identity Break Infrastructure**
-   to apply the change (deployment is intentionally manual via
+1. The SRE Agent investigates the root cause and presents the supporting
+   evidence and required Bicep change.
+2. The SRE Agent requests explicit human approval before creating an issue.
+3. After approval, the SRE Agent creates exactly **one** GitHub issue and
+   assigns it to `copilot-swe-agent` (`@copilot`).
+4. Copilot authors the pull request; a human reviews and merges it.
+5. An operator manually deploys the change by triggering **Deploy Workload
+   Identity Break Infrastructure** (deployment is intentionally manual via
    `workflow_dispatch`, not automatic on merge).
 
 **Do NOT:**
 - Run `az` CLI commands to directly create, modify, or delete Azure resources
 - Use the Azure portal to make manual changes
 - Apply temporary fixes outside of version control
-- Create branches or PRs yourself — delegate to `@copilot` via GitHub issues
+- The SRE Agent must never create a branch or pull request, modify repository
+  code or Azure resources, merge a pull request, or deploy a change
 
 **Why:** This team follows GitOps principles. All infrastructure state is defined in Bicep templates under `scenarios/workload-identity-break/infra/bicep/`. Direct changes create drift between code and reality, making future incidents harder to diagnose. Using GitHub issues with `@copilot` ensures full traceability from incident → issue → PR → deployment.
 
@@ -38,10 +41,11 @@ contains `AADSTS70021` or `No matching federated identity`:
 - **Where to fix**:
   `scenarios/workload-identity-break/infra/bicep/modules/identity.bicep` — the
   `federatedCredential` resource block.
-- **How to fix**: After the SRE Agent investigation, create one GitHub issue
-  titled "Restore federated identity credential in identity.bicep", assign it
-  to `@copilot`, review and merge the PR, then manually run **Deploy Workload
-  Identity Break Infrastructure**.
+- **How to fix**: After explicit human approval, the SRE Agent creates exactly
+  one GitHub issue titled "Restore federated identity credential in
+  identity.bicep" and assigns it to `copilot-swe-agent` (`@copilot`). A human
+  reviews and merges Copilot's PR, then an operator manually runs **Deploy
+  Workload Identity Break Infrastructure**.
 - **Manual fallback only**: `scripts/remediate.sh` and
   `scripts/remediate.ps1` recreate the credential only when the GitOps path
   cannot be used. Do not run `az identity federated-credential create` directly.

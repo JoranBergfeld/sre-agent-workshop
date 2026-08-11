@@ -115,8 +115,8 @@ The operational guidelines tell the agent to **always fix through code** —
 never make direct Azure changes. When it identifies a root cause, it proposes
 remediation. After a human approves issue creation, the SRE Agent creates
 exactly one GitHub issue assigned to **`@copilot`** (the Copilot coding agent).
-A human then reviews and merges the PR Copilot authors before manually
-deploying the fix.
+A human then reviews and merges the PR Copilot authors before an operator
+manually deploys the fix.
 
 This creates a full audit trail: incident → investigation → issue → PR → deployment.
 
@@ -132,8 +132,8 @@ agent can list repository issues.
 
 The governed remediation loop remains: the SRE Agent investigates and proposes
 remediation → a human approves issue creation → the SRE Agent creates one issue
-assigned to `@copilot` → Copilot authors the PR → a human reviews, merges, and
-deploys the fix.
+assigned to `@copilot` → Copilot authors the PR → a human reviews and merges →
+an operator manually deploys the fix.
 
 ## Finish setup
 

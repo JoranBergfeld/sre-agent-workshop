@@ -110,8 +110,8 @@ your Azure credentials, and run deployments against your Azure subscription.
    cd {GENERATED_REPOSITORY}
    ```
 
-Copilot will author pull requests in this generated repository after a human
-assigns an approved issue.
+Copilot will author pull requests in this generated repository after the SRE
+Agent receives approval, creates one issue, and assigns it to `@copilot`.
 
 ## Step 2: Create a Service Principal for GitHub Actions
 

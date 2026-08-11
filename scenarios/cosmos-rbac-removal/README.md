@@ -165,7 +165,7 @@ Confirm the complete incident state before continuing:
    Cosmos DB authorization error.
 4. Azure Monitor fires the scenario's HTTP 5xx alert. The SRE Agent should
    find the missing live and Bicep role assignment and propose the approved
-   issue → Copilot PR → human review and deployment route.
+   issue → Copilot PR → human review → operator deployment route.
 
 If the endpoint command returns no value, open the AKS service in the Azure
 portal and copy its external IP. You can also run `scripts/validate.sh` or
@@ -243,12 +243,13 @@ Your Azure Monitor alert will detect the spike in failed requests. The SRE Agent
 ## Remediate through GitOps
 
 After the SRE Agent investigates and proposes remediation, do **not** restore
-the Cosmos role assignment directly in Azure. A human creates or explicitly
-approves exactly **one** GitHub issue describing the evidence and required
-`cosmosRoleAssignment` Bicep restoration, then assigns it to `@copilot` (the
-Copilot coding agent). Copilot authors the PR; a human reviews and merges it,
-then manually runs **Deploy Cosmos RBAC Removal Infrastructure** if deployment
-is required.
+the Cosmos role assignment directly in Azure. The SRE Agent presents its
+evidence and requests explicit human approval. After approval, the SRE Agent
+creates exactly **one** GitHub issue describing the required
+`cosmosRoleAssignment` Bicep restoration and assigns it to
+`copilot-swe-agent` (`@copilot`). Copilot authors the PR; a human reviews and
+merges it, then an operator manually runs **Deploy Cosmos RBAC Removal
+Infrastructure** if deployment is required.
 
 `scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
 fallbacks only. Use them only when the normal issue → Copilot PR → review →
@@ -270,8 +271,8 @@ If you're running this workshop with a group, this is a great moment for storyte
 → **[Module 6: Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
 In the next module, you'll see the SRE Agent correlate logs, read your code,
-and propose remediation. A human then uses the single-issue GitOps flow for
-Copilot to author the PR and deploys the merged fix.
+propose remediation, and request approval before creating the single issue for
+Copilot. A human reviews and merges the PR; an operator deploys the merged fix.
 
 After recovery, run the capsule validator:
 

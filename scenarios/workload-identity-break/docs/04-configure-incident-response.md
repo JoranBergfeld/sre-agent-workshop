@@ -229,8 +229,8 @@ pods cannot acquire a token after the federated credential is removed, so
 deployment history, and identifies the missing credential. After it proposes
 remediation, a human approves issue creation. The SRE Agent creates exactly one
 GitHub issue assigned to `@copilot`; a human reviews and merges the resulting
-PR, then manually runs the matching deployment workflow. Do not remediate
-directly in Azure.
+PR, then an operator manually runs the matching deployment workflow. Do not
+remediate directly in Azure.
 
 ## What Happens Next
 

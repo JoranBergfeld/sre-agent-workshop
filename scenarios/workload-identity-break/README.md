@@ -239,12 +239,12 @@ Your Azure Monitor alert detects the authentication errors. The SRE Agent, which
 ## Remediate through GitOps
 
 After the SRE Agent investigates and proposes remediation, do **not** recreate
-the federated credential directly in Azure. A human creates or explicitly
-approves exactly **one** GitHub issue describing the evidence and required
-`federatedCredential` Bicep restoration, then assigns it to `@copilot` (the
-Copilot coding agent). Copilot authors the PR; a human reviews and merges it,
-then manually runs **Deploy Workload Identity Break Infrastructure** if
-deployment is required.
+the federated credential directly in Azure. The SRE Agent presents its evidence
+and requests explicit human approval. After approval, the SRE Agent creates
+exactly **one** GitHub issue describing the required `federatedCredential`
+Bicep restoration and assigns it to `copilot-swe-agent` (`@copilot`). Copilot
+authors the PR; a human reviews and merges it, then an operator manually runs
+**Deploy Workload Identity Break Infrastructure** if deployment is required.
 
 `scripts/remediate.sh` and `scripts/remediate.ps1` are constrained manual
 fallbacks only. Use them only when the normal issue → Copilot PR → review →
@@ -266,8 +266,8 @@ If you're running this workshop with a group, this is a great moment for storyte
 → **[Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
 
 In the next module, you'll see the SRE Agent correlate logs, read your code,
-and propose remediation. A human then uses the single-issue GitOps flow for
-Copilot to author the PR and deploys the merged fix.
+propose remediation, and request approval before creating the single issue for
+Copilot. A human reviews and merges the PR; an operator deploys the merged fix.
 
 After recovery, run the capsule validator:
 

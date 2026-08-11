@@ -31,6 +31,8 @@ const aksResponsePlanExpectations = {
 const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
 const canonicalTemplateLink = `[**Use this template**](${canonicalTemplateUrl})`;
 const githubOAuthAnchor = '#configure-the-github-oauth-connector-for-issue-handoff';
+const humanIssueCreator =
+  /(?:a human|the human|you)\s+(?:creates?|opens?|assigns?)(?:\s+or explicitly approves)?\s+(?:(?:exactly\s+)?(?:\*\*)?one(?:\*\*)?|an?|an approved|the approved)\s+(?:GitHub\s+)?issue/i;
 const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_'))
   .map((entry) => entry.name)
@@ -62,6 +64,29 @@ function assertCostGuidance(guide, costProfile) {
 }
 
 for (const scenario of aksScenarios) {
+  test(`${scenario} knowledge enforces the approved AKS issue handoff`, () => {
+    const knowledge = readFileSync(
+      resolve(scenariosRoot, scenario, 'knowledge', 'operational-guidelines.md'),
+      'utf8',
+    );
+
+    assert.match(knowledge, /investigat[\s\S]*evidence/i);
+    assert.match(
+      knowledge,
+      /request[\s\S]*explicit human approval[\s\S]*after approval[\s\S]*SRE Agent creates exactly (?:\*\*)?one(?:\*\*)? GitHub issue/i,
+    );
+    assert.match(knowledge, /assign(?:ed|s)?[\s\S]*`?(?:copilot-swe-agent|@copilot)`?/i);
+    assert.match(
+      knowledge,
+      /never[\s\S]*create (?:a )?(?:branch or )?(?:pull request|PR)[\s\S]*modify[\s\S]*(?:repository code|code)[\s\S]*Azure[\s\S]*merge[\s\S]*deploy/i,
+    );
+    assert.match(knowledge, /human reviews and merges[\s\S]*operator manually deploys/i);
+    assert.doesNotMatch(
+      knowledge,
+      humanIssueCreator,
+    );
+  });
+
   test(`${scenario} learner documentation uses generated repository terminology`, () => {
     const scenarioRoot = resolve(scenariosRoot, scenario);
     const learnerDocumentation = [
@@ -80,10 +105,24 @@ for (const scenario of aksScenarios) {
       );
       assert.doesNotMatch(
         document.content,
-        /a human creates or explicitly approves.*GitHub issue/i,
+        humanIssueCreator,
         `${document.path} assigns AKS issue creation to the human instead of the SRE Agent`,
       );
     }
+  });
+
+  test(`${scenario} response guide preserves the approved AKS issue handoff`, () => {
+    const responseGuide = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '90-watch-sre-agent.md'),
+      'utf8',
+    );
+
+    assert.match(
+      responseGuide,
+      /human approves issue creation[\s\S]*SRE Agent creates exactly (?:\*\*)?one(?:\*\*)?[\s\S]*GitHub issue/i,
+    );
+    assert.match(responseGuide, /assign(?:ed|s)?[\s\S]*`?(?:copilot-swe-agent|@copilot)`?/i);
+    assert.match(responseGuide, /human reviews and merges[\s\S]*manually deploy/i);
   });
 
   test(`${scenario} prerequisites define canonical workload variables`, () => {

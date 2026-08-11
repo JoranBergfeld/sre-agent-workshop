@@ -149,7 +149,7 @@ Over the course of this workshop, you:
 3. **Onboarded the Azure SRE Agent** and saw it build a knowledge base of your application architecture, deployment pipelines, and monitoring
 4. **Simulated a real operational failure** — a seemingly innocent identity cleanup (removing a federated credential) that prevented token acquisition and broke `/items` while `/health` stayed green
 5. **Observed AI-powered incident response** — the SRE Agent detected the failure, investigated logs and metrics, correlated the issue to a recent deployment, identified the root cause, and proposed a fix
-6. **Practiced governed remediation** — after the SRE Agent investigation, you created one issue assigned to `@copilot`, reviewed and merged its PR, then manually deployed the Bicep fix
+6. **Practiced governed remediation** — after approval, the SRE Agent created one issue assigned to `@copilot`; you reviewed and merged its PR, and an operator manually deployed the Bicep fix
 
 This is exactly what the Azure SRE Agent does in production environments: detect anomalies, investigate root cause, and recommend or execute fixes — dramatically reducing the time your team spends on incident triage and recovery.
 

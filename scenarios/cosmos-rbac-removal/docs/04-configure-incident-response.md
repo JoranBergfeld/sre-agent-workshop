@@ -225,8 +225,8 @@ the spike in errors. The SRE Agent picks up the alert, queries the app's logs,
 checks the Bicep deployment history, and identifies the removed role
 assignment. After it proposes remediation, a human approves issue creation.
 The SRE Agent creates exactly one GitHub issue assigned to `@copilot`; a human
-reviews and merges the resulting PR, then manually runs the matching deployment
-workflow. Do not remediate directly in Azure.
+reviews and merges the resulting PR, then an operator manually runs the
+matching deployment workflow. Do not remediate directly in Azure.
 
 ## What Happens Next
 
