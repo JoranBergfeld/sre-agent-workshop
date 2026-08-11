@@ -111,6 +111,37 @@ After connecting, verify that the SRE Agent can see your resources: Confirm that
 > **permissions complete**. Then repeat the read-only identity check above and
 > verify **Monitoring Contributor** at subscription scope.
 
+## Create the Scenario Custom Agent
+
+Response plans require a configured custom agent. Create one specifically for
+this capsule before creating its response plan:
+
+1. Open **Builder -> Agent Canvas**.
+2. Select **Create -> Custom Agent**.
+3. Set **Name** to `cosmos-rbac-investigator`.
+4. In **Instructions**, enter:
+
+   > Investigate the Cosmos RBAC removal incident. Correlate the exact failure
+   > evidence—`Failed to read items from CosmosDB`, RBAC or `Forbidden`
+   > messages, and HTTP 500 responses—with connected Azure resources and
+   > logs, indexed repository source, and GitHub history. Identify whether the
+   > Cosmos DB role assignment was removed. Never directly change Azure
+   > resources or repository code. Propose only the governed recovery route:
+   > after human approval, create one issue for Copilot to produce a pull
+   > request; require human review and merge, followed by manual deployment.
+
+5. Set **Handoff Description** to `Investigate the Cosmos DB RBAC removal incident`.
+6. Under **Knowledge**, enable the already indexed
+   `scenarios/cosmos-rbac-removal/knowledge/operational-guidelines.md` file
+   source.
+7. Under **Tools**, select only the read/investigation tools needed for
+   connected Azure resources and logs, repository source, and GitHub history.
+   Do not select or grant Azure modification tools or pull request creation
+   tools.
+8. Save the custom agent.
+9. Return to **Builder -> Agent Canvas**, switch to **Table view**, and verify
+   that `cosmos-rbac-investigator` appears before continuing.
+
 ## Create the Scenario Response Plan
 
 This response plan targets only this capsule's **HTTP 500 Errors Detected**
@@ -124,15 +155,18 @@ not routed twice.
 1. Open **Builder -> Agent Canvas**.
 2. Select **Create**, then **Trigger -> Incident response plan**.
 3. Name the plan `cosmos-rbac-removal-review`.
-4. Select the custom agent configured for this scenario.
+4. Select custom agent `cosmos-rbac-investigator`.
 5. Set **Severity** to **Sev3**.
 6. Set **Title contains** to `HTTP 500 Errors Detected`.
 7. Set **Agent autonomy level** to **Review**.
 8. Keep **Reinvestigation cooldown** enabled at the default three hours.
 9. Select **Next**, review the incident preview, then select **Create**.
-10. In the response-plan grid, confirm the plan is **On** and shows the
-    expected custom agent, **Sev3** severity, title filter, **Review** autonomy,
-    and three-hour cooldown.
+10. In the response-plan grid, confirm the plan is **On** and shows custom
+    agent `cosmos-rbac-investigator`, **Sev3** severity, the exact
+    **HTTP 500 Errors Detected** title filter, and **Review** autonomy.
+11. Reopen the saved plan in its edit view and confirm that the
+    **Reinvestigation cooldown** remains enabled at three hours. Cooldown is
+    not a response-plan grid column.
 
 With **Review** autonomy, the SRE Agent investigates and proposes remediation.
 After a human approves issue creation, the SRE Agent creates one issue assigned

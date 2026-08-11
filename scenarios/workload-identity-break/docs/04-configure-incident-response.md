@@ -111,6 +111,39 @@ After connecting, verify that the SRE Agent can see your resources: Confirm that
 > **permissions complete**. Then repeat the read-only identity check above and
 > verify **Monitoring Contributor** at subscription scope.
 
+## Create the Scenario Custom Agent
+
+Response plans require a configured custom agent. Create one specifically for
+this capsule before creating its response plan:
+
+1. Open **Builder -> Agent Canvas**.
+2. Select **Create -> Custom Agent**.
+3. Set **Name** to `workload-identity-investigator`.
+4. In **Instructions**, enter:
+
+   > Investigate the workload identity authentication incident. Correlate the
+   > exact failure evidence—`AADSTS70021`, `No matching federated identity`,
+   > token-acquisition failures, and `/items` HTTP 500 responses while
+   > `/health` remains healthy—with connected Azure resources and logs,
+   > indexed repository source, and GitHub history. Identify whether the
+   > federated identity credential was removed or misconfigured. Never
+   > directly change Azure resources or repository code. Propose only the
+   > governed recovery route: after human approval, create one issue for
+   > Copilot to produce a pull request; require human review and merge,
+   > followed by manual deployment.
+
+5. Set **Handoff Description** to `Investigate the workload identity authentication incident`.
+6. Under **Knowledge**, enable the already indexed
+   `scenarios/workload-identity-break/knowledge/operational-guidelines.md` file
+   source.
+7. Under **Tools**, select only the read/investigation tools needed for
+   connected Azure resources and logs, repository source, and GitHub history.
+   Do not select or grant Azure modification tools or pull request creation
+   tools.
+8. Save the custom agent.
+9. Return to **Builder -> Agent Canvas**, switch to **Table view**, and verify
+   that `workload-identity-investigator` appears before continuing.
+
 ## Create the Scenario Response Plan
 
 This response plan targets only this capsule's **Workload Identity Auth
@@ -124,15 +157,18 @@ not routed twice.
 1. Open **Builder -> Agent Canvas**.
 2. Select **Create**, then **Trigger -> Incident response plan**.
 3. Name the plan `workload-identity-break-review`.
-4. Select the custom agent configured for this scenario.
+4. Select custom agent `workload-identity-investigator`.
 5. Set **Severity** to **Sev3**.
 6. Set **Title contains** to `Workload Identity Auth Errors`.
 7. Set **Agent autonomy level** to **Review**.
 8. Keep **Reinvestigation cooldown** enabled at the default three hours.
 9. Select **Next**, review the incident preview, then select **Create**.
-10. In the response-plan grid, confirm the plan is **On** and shows the
-    expected custom agent, **Sev3** severity, title filter, **Review** autonomy,
-    and three-hour cooldown.
+10. In the response-plan grid, confirm the plan is **On** and shows custom
+    agent `workload-identity-investigator`, **Sev3** severity, the exact
+    **Workload Identity Auth Errors** title filter, and **Review** autonomy.
+11. Reopen the saved plan in its edit view and confirm that the
+    **Reinvestigation cooldown** remains enabled at three hours. Cooldown is
+    not a response-plan grid column.
 
 With **Review** autonomy, the SRE Agent investigates and proposes remediation.
 After a human approves issue creation, the SRE Agent creates one issue assigned

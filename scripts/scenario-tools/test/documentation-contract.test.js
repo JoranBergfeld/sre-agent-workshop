@@ -8,6 +8,26 @@ import { REPO_ROOT } from '../lib/paths.js';
 
 const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
+const aksResponsePlanExpectations = {
+  'cosmos-rbac-removal': {
+    customAgentName: 'cosmos-rbac-investigator',
+    handoffDescription: 'Investigate the Cosmos DB RBAC removal incident',
+    planName: 'cosmos-rbac-removal-review',
+    severity: 'Sev3',
+    titleContains: 'HTTP 500 Errors Detected',
+    autonomy: 'Review',
+    failureEvidence: /Failed to read items from CosmosDB[\s\S]*Forbidden[\s\S]*HTTP 500/i,
+  },
+  'workload-identity-break': {
+    customAgentName: 'workload-identity-investigator',
+    handoffDescription: 'Investigate the workload identity authentication incident',
+    planName: 'workload-identity-break-review',
+    severity: 'Sev3',
+    titleContains: 'Workload Identity Auth Errors',
+    autonomy: 'Review',
+    failureEvidence: /AADSTS70021[\s\S]*No matching federated identity[\s\S]*\/items[\s\S]*\/health/i,
+  },
+};
 const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
 const canonicalTemplateLink = `[**Use this template**](${canonicalTemplateUrl})`;
 const githubOAuthAnchor = '#configure-the-github-oauth-connector-for-issue-handoff';
@@ -188,17 +208,52 @@ for (const scenario of aksScenarios) {
 
 test('AKS response plans use the current Agent Canvas flow', () => {
   for (const id of aksScenarios) {
+    const expected = aksResponsePlanExpectations[id];
     const responsePlan = readFileSync(
       resolve(scenariosRoot, id, 'docs/04-configure-incident-response.md'),
       'utf8',
     );
 
     assert.match(responsePlan, /Builder.*Agent Canvas/s);
+    assert.match(responsePlan, /Create.*Custom Agent/s);
+    assert.match(responsePlan, /Name[\s\S]*Instructions[\s\S]*Handoff Description/i);
+    assert.ok(responsePlan.includes(expected.customAgentName));
+    assert.ok(responsePlan.includes(expected.handoffDescription));
+    assert.match(responsePlan, expected.failureEvidence);
+    assert.match(responsePlan, /connected Azure resources and logs[\s\S]*repository source[\s\S]*GitHub history/i);
+    assert.match(responsePlan, /Never[\s\S]*directly change Azure[\s\S]*repository code/i);
+    assert.match(responsePlan, /governed recovery route[\s\S]*issue[\s\S]*Copilot[\s\S]*pull request/i);
+    assert.match(responsePlan, /operational-guidelines\.md[\s\S]*knowledge/i);
+    assert.match(responsePlan, /Tools[\s\S]*only the read\/investigation tools/i);
+    assert.match(responsePlan, /do not (?:select|grant|enable)[\s\S]*Azure modification/i);
+    assert.match(responsePlan, /do not (?:select|grant|enable)[\s\S]*pull request creation/i);
+    assert.match(responsePlan, /Agent Canvas[\s\S]*Table view[\s\S]*appears/i);
     assert.match(responsePlan, /Trigger.*Incident response plan/s);
+    assert.ok(responsePlan.includes(expected.planName));
+    assert.match(
+      responsePlan,
+      new RegExp(`custom agent[^\\n]*${expected.customAgentName}`, 'i'),
+    );
+    assert.match(responsePlan, new RegExp(`Severity[^\\n]*${expected.severity}`));
+    assert.match(
+      responsePlan,
+      new RegExp(`Title contains[^\\n]*${expected.titleContains}`),
+    );
+    assert.match(
+      responsePlan,
+      new RegExp(`Agent autonomy level[^\\n]*${expected.autonomy}`),
+    );
     assert.match(responsePlan, /quickstart.*Table view.*delete/is);
     assert.match(responsePlan, /Reinvestigation cooldown/);
     assert.match(responsePlan, /three hours/i);
     assert.match(responsePlan, /Title contains/);
+    assert.match(
+      responsePlan,
+      /grid[\s\S]*On[\s\S]*custom\s+agent[\s\S]*Sev3[\s\S]*title[\s\S]*Review/i,
+    );
+    assert.match(responsePlan, /reopen|edit/i);
+    assert.match(responsePlan, /(?:reopen|edit)[\s\S]*three hours/i);
+    assert.doesNotMatch(responsePlan, /grid[^.]*cooldown/i);
     assert.doesNotMatch(responsePlan, /Click \*\*New incident response plan\*\*/);
     assert.doesNotMatch(responsePlan, /workshop-all-incidents/);
   }
