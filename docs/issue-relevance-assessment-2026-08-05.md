@@ -1,83 +1,62 @@
-# Issue relevance assessment
+# GitHub issue disposition
 
-Assessment date: 2026-08-05
+Disposition date: 2026-08-11
 
 ## Scope
 
-This assessment covers every GitHub issue filed in this repository by
-`bram-boer` and `verboompj`. Each issue is evaluated against the current
-`scenarios/cloud-agent-handover` documentation because that capsule reflects
-the latest workshop flow.
+This is the final repository-wide disposition of the reviewed GitHub issues.
+It assesses the current scenario capsules, shared documentation, lifecycle
+scripts, generated catalog, and contract tests. It supersedes the 2026-08-05
+handover-only, author-limited assessment and corrects its false conclusion
+that all 15 issues it reviewed were irrelevant. Several reports identified
+real gaps that were subsequently fixed.
 
-Decisions use the following meanings:
+## Final disposition
 
-- **Relevant**: the reported problem is still present in the current handover
-  documentation.
-- **Partially relevant**: the original scenario or terminology is obsolete,
-  but the current handover documentation still has the same underlying gap.
-- **Not relevant**: the current handover documentation addresses or avoids the
-  reported problem.
+| Issues | Final disposition |
+| --- | --- |
+| #1, #8, #19 | Already closed before this audit |
+| #14, #15, #18, #20, #21, #25 | Closed after confirming current repository behavior |
+| #7 | Resolved by scenario cost guidance and documentation contract coverage |
+| #9, #10, #12, #16 | Resolved by the AKS setup and onboarding refresh |
+| #13, #17 | Resolved by the current Agent Canvas response-plan flow |
+| #22, #23 | Resolved by template-repository and workload-name consistency |
 
-## Summary
+## Issue-specific evidence
 
-| Decision | Count |
-| --- | ---: |
-| Relevant | 0 |
-| Partially relevant | 0 |
-| Not relevant | 15 |
+| Issue | Current evidence |
+| --- | --- |
+| [#1](https://github.com/JoranBergfeld/sre-agent-workshop/issues/1) | Closed before the audit. The required Cosmos DB data-plane assignment exists as `cosmosRoleAssignment` in [`scenarios/cosmos-rbac-removal/infra/bicep/modules/identity.bicep`](../scenarios/cosmos-rbac-removal/infra/bicep/modules/identity.bicep), and the governed restoration is documented in that capsule's [`knowledge/operational-guidelines.md`](../scenarios/cosmos-rbac-removal/knowledge/operational-guidelines.md). |
+| [#8](https://github.com/JoranBergfeld/sre-agent-workshop/issues/8) | Closed before the audit. Both AKS onboarding guides use **Builder → Knowledge base**, add the scenario-local `operational-guidelines.md` file, and wait for **Indexed**: [`cosmos-rbac-removal/docs/03-onboard-sre-agent.md`](../scenarios/cosmos-rbac-removal/docs/03-onboard-sre-agent.md) and [`workload-identity-break/docs/03-onboard-sre-agent.md`](../scenarios/workload-identity-break/docs/03-onboard-sre-agent.md). |
+| [#19](https://github.com/JoranBergfeld/sre-agent-workshop/issues/19) | Closed before the audit. AKS setup now fails clearly without Azure CLI authentication and reports the active account in both [`cosmos-rbac-removal/scripts/setup.sh`](../scenarios/cosmos-rbac-removal/scripts/setup.sh) and [`workload-identity-break/scripts/setup.sh`](../scenarios/workload-identity-break/scripts/setup.sh); the matching prerequisites explain account selection and validation. |
+| [#14](https://github.com/JoranBergfeld/sre-agent-workshop/issues/14) | Each AKS capsule owns one scenario-specific alert instead of asserting a shared alert-rule count: [`cosmos-rbac-removal/infra/bicep/modules/alert.bicep`](../scenarios/cosmos-rbac-removal/infra/bicep/modules/alert.bicep) and [`workload-identity-break/infra/bicep/modules/alert.bicep`](../scenarios/workload-identity-break/infra/bicep/modules/alert.bicep). |
+| [#15](https://github.com/JoranBergfeld/sre-agent-workshop/issues/15) | The same two current onboarding guides cited for #8 give the persistent Knowledge base path, exact scenario-local file, source type, and **Indexed** checkpoint. The `onboarding follows the current agent setup flow` cases in [`documentation-contract.test.js`](../scripts/scenario-tools/test/documentation-contract.test.js) enforce this. |
+| [#18](https://github.com/JoranBergfeld/sre-agent-workshop/issues/18) | Azure lifecycle scripts select and display an explicit subscription. [`azure-subscription-context.test.js`](../scripts/scenario-tools/test/azure-subscription-context.test.js) checks every Azure-touching Bash and PowerShell lifecycle path for `az account set` and `az account show`. |
+| [#20](https://github.com/JoranBergfeld/sre-agent-workshop/issues/20) | The AKS capsule READMEs explain each fault, visible impact, alert, inject/validate commands, and recovery route: [`cosmos-rbac-removal/README.md`](../scenarios/cosmos-rbac-removal/README.md) and [`workload-identity-break/README.md`](../scenarios/workload-identity-break/README.md). Their scenario-local `scripts/inject.sh`, `scripts/inject.ps1`, `scripts/validate.sh`, and `scripts/validate.ps1` paths provide repeat-safe injection and direct workload checks. |
+| [#21](https://github.com/JoranBergfeld/sre-agent-workshop/issues/21) | Current onboarding separates resource creation permissions from managed-identity access through **Full setup → Azure Resources**, then continues with **Done and go to agent**. This is documented in both AKS `docs/03-onboard-sre-agent.md` files and enforced by the onboarding contract test. |
+| [#25](https://github.com/JoranBergfeld/sre-agent-workshop/issues/25) | Tool and access prerequisites are scenario-specific rather than duplicated at repository root. [`cosmos-rbac-removal/docs/00-prerequisites.md`](../scenarios/cosmos-rbac-removal/docs/00-prerequisites.md), [`workload-identity-break/docs/00-prerequisites.md`](../scenarios/workload-identity-break/docs/00-prerequisites.md), [`.devcontainer/cosmos-rbac-removal/devcontainer.json`](../.devcontainer/cosmos-rbac-removal/devcontainer.json), and [`.devcontainer/workload-identity-break/devcontainer.json`](../.devcontainer/workload-identity-break/devcontainer.json) provide the applicable setup. |
+| [#7](https://github.com/JoranBergfeld/sre-agent-workshop/issues/7) | Every scenario entry guide now has a **Cost profile** and scenario-specific **dominant cost drivers**, sourced from `scenario.yaml`. The per-scenario `guide documents its cost profile` cases and unresolved-placeholder test in [`documentation-contract.test.js`](../scripts/scenario-tools/test/documentation-contract.test.js) enforce the contract. |
+| [#9](https://github.com/JoranBergfeld/sre-agent-workshop/issues/9) | Both AKS onboarding guides explicitly say that **Done and go to agent** opens Team Onboarding as a pinned favorite and identify the next navigation point; the onboarding contract test covers the current flow. |
+| [#10](https://github.com/JoranBergfeld/sre-agent-workshop/issues/10) | The refreshed AKS prerequisites, infrastructure, application, onboarding, response-plan, and watch modules now explain resource mapping, telemetry, repository indexing, alert evidence, and the governed recovery route. The exact module sets are under [`scenarios/cosmos-rbac-removal/docs`](../scenarios/cosmos-rbac-removal/docs) and [`scenarios/workload-identity-break/docs`](../scenarios/workload-identity-break/docs). |
+| [#12](https://github.com/JoranBergfeld/sre-agent-workshop/issues/12) | The [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/docs/00-prerequisites.md) and [`workload-identity-break`](../scenarios/workload-identity-break/docs/00-prerequisites.md) prerequisite guides define tools, account checks, canonical variables, and deployment/access-management roles; their `docs/04-configure-incident-response.md` guides repeat the shell and portal checks. The prerequisite and incident-prerequisite contract tests enforce them. |
+| [#16](https://github.com/JoranBergfeld/sre-agent-workshop/issues/16) | [`docs/connect-github-to-sre-agent.md`](./connect-github-to-sre-agent.md) and both AKS onboarding guides use the current GitHub OAuth connector path and distinguish code indexing from issue operations. `GitHub integration guide uses current OAuth connector terminology and policy` prevents regression. |
+| [#13](https://github.com/JoranBergfeld/sre-agent-workshop/issues/13) | The [`cosmos-rbac-removal`](../scenarios/cosmos-rbac-removal/docs/04-configure-incident-response.md) and [`workload-identity-break`](../scenarios/workload-identity-break/docs/04-configure-incident-response.md) response-plan guides use **Builder → Agent Canvas**, create a custom agent, and configure the capsule-specific trigger in table view. `AKS response plans use the current Agent Canvas flow` verifies the fields and rejects the obsolete flow. |
+| [#17](https://github.com/JoranBergfeld/sre-agent-workshop/issues/17) | The same current response-plan guides retain **Review** autonomy, a three-hour reinvestigation cooldown, capsule-specific Sev3/title filters, and reopen/edit guidance; the Agent Canvas contract test enforces each item. |
+| [#22](https://github.com/JoranBergfeld/sre-agent-workshop/issues/22) | Both AKS `docs/00-prerequisites.md` files define `WORKLOAD_NAME` and derive `RESOURCE_GROUP`, while their lifecycle commands preserve those values. The `prerequisites define canonical workload variables` cases in [`documentation-contract.test.js`](../scripts/scenario-tools/test/documentation-contract.test.js) enforce Bash and PowerShell consistency. |
+| [#23](https://github.com/JoranBergfeld/sre-agent-workshop/issues/23) | Both AKS prerequisite guides link directly to the canonical **Use this template** generator and learner documentation consistently says generated repository, not fork. The template-link and generated-repository terminology tests enforce this, while [`docs/connect-github-to-sre-agent.md`](./connect-github-to-sre-agent.md) defines the required connector permissions. |
 
-## Issue assessments
+## Authoritative AKS handoff policy
 
-| Issue | Author | Decision | Reason |
-| --- | --- | --- | --- |
-| [#23 GitHub Repo prereqs for PR's to work?](https://github.com/JoranBergfeld/sre-agent-workshop/issues/23) | `bram-boer` | **Not relevant** | The current handover scenario requires a repository created with **Use this template**, not a fork. Its prerequisites require Copilot cloud agent to be enabled and assignable, setup stops when `copilot-swe-agent` is unavailable, and the GitHub-only path explains how to diagnose disabled issues or unavailable assignment. GitHub Docs confirms that availability depends on the user's plan and repository or organization policy. |
-| [#22 AKS Track - Environment Variable WORKLOAD_NAME not applied consistently as variable](https://github.com/JoranBergfeld/sre-agent-workshop/issues/22) | `verboompj` | **Not relevant** | The current handover scripts derive the resource group as `rg-<workload>`, pass the selected workload through deployment and repository variables, and document how to pass a custom resource group to validation. The old hard-coded AKS path is not used by this scenario. |
-| [#21 AKS Track - Module 3 - Order of deploying + granting SRE Agent access has changed](https://github.com/JoranBergfeld/sre-agent-workshop/issues/21) | `verboompj` | **Not relevant** | The original AKS instructions are obsolete. The handover onboarding module now distinguishes permission to deploy the SRE Agent resource from granting its managed identity Reader access to the scenario resource group through the Azure Resources card. |
-| [#20 Deploy the fault (module 5)](https://github.com/JoranBergfeld/sre-agent-workshop/issues/20) | `bram-boer` | **Not relevant** | The handover README explains the fault in functional terms, names the failing route and exception, provides both a UI trigger and Bash/PowerShell injectors, and states the expected alert and recovery contract. Learners do not need to infer the fault from Bicep. |
-| [#19 Verify Current State](https://github.com/JoranBergfeld/sre-agent-workshop/issues/19) | `bram-boer` | **Not relevant** | The prerequisites explicitly require Azure CLI authentication and checking the active account. Setup checks `az account show`, while application verification uses the public application URL and does not require Azure credentials. |
-| [#18 scripts in all documents - set context to correct subscription and credentials](https://github.com/JoranBergfeld/sre-agent-workshop/issues/18) | `bram-boer` | **Not relevant** | The prerequisites and scenario guides now show `az account set`, setup accepts an explicit subscription ID, and Azure-touching lifecycle scripts select and verify the active subscription before operating. |
-| [#17 create incident response plan - gui update?](https://github.com/JoranBergfeld/sre-agent-workshop/issues/17) | `bram-boer` | **Not relevant** | The handover module uses the current **Builder → Agent Canvas → Create → Trigger → Incident response plan** flow and instructs learners to keep the default three-hour Azure Monitor reinvestigation cooldown enabled. |
-| [#16 Set up the GitHub connector](https://github.com/JoranBergfeld/sre-agent-workshop/issues/16) | `bram-boer` | **Not relevant** | The shared GitHub connection guide separates the code repository connection from the GitHub operations connector, documents OAuth and PAT as supported authentication methods, provides the workshop PAT flow, and includes least-privilege permissions, token security, and a read-only verification prompt. |
-| [#15 Knowledge Sources](https://github.com/JoranBergfeld/sre-agent-workshop/issues/15) | `bram-boer` | **Not relevant** | The handover module directs learners to **Builder → Knowledge base**, identifies the operational-guidelines file, and requires its status to reach **Indexed** as a persistent file source. |
-| [#14 in module 4 we verify the alertrules, this states 2 but it returns 3](https://github.com/JoranBergfeld/sre-agent-workshop/issues/14) | `bram-boer` | **Not relevant** | The handover capsule defines and documents one scenario-specific alert, `<workload>-unfinished-feature-5xx`. It does not claim that a broader resource group contains exactly two alert rules. |
-| [#13 in module 4 - monitoring setup fields changed](https://github.com/JoranBergfeld/sre-agent-workshop/issues/13) | `bram-boer` | **Not relevant** | The handover onboarding module deliberately avoids depending on an exact setup screen layout, and its response-plan module uses the current **New incident response plan**, preview, create, and status-verification flow documented by Microsoft Learn. |
-| [#12 Module 4: Configure Incident Response (~20 min) prereq check](https://github.com/JoranBergfeld/sre-agent-workshop/issues/12) | `bram-boer` | **Not relevant** | The handover prerequisites distinguish Bash and PowerShell 7, list required tools and Azure roles, state that commands run from the repository root, and explain the expected setup output and role-assignment failure mode. |
-| [#10 Few knowledge gaps that can be filled to enhance the workshop cases](https://github.com/JoranBergfeld/sre-agent-workshop/issues/10) | `bram-boer` | **Not relevant** | The current handover capsule documents its application architecture, telemetry signal, source and test locations, deployment workflow, operator responsibilities, exact API contract, and resource-group scope. The older AKS-specific ambiguity about Container Insights, image publication, and resource mapping does not apply to this App Service scenario. |
-| [#9 Module 3 Team Onboarding, unclear in which window this should be](https://github.com/JoranBergfeld/sre-agent-workshop/issues/9) | `bram-boer` | **Not relevant** | The handover onboarding module now tells the learner to select **Done and go to agent** and continue on the **Team Onboarding** page, where the Azure Resources permission status is verified. |
-| [#8 Knowledge Files are renamed in the gui](https://github.com/JoranBergfeld/sre-agent-workshop/issues/8) | `bram-boer` | **Not relevant** | The handover module no longer instructs learners to find a **Knowledge Files** control. It uses the generic term “knowledge source.” Current Microsoft Learn terminology is **Knowledge base**, with files as one source type. |
-
-## Current documentation actions indicated by the assessment
-
-The current handover documentation addresses all five gaps identified during
-the assessment: team-onboarding navigation, Azure resource access, Knowledge
-base navigation, reinvestigation cooldown guidance, and explicit subscription
-selection.
-
-## Sources
-
-### Repository documentation
-
-- [`scenarios/cloud-agent-handover/README.md`](../scenarios/cloud-agent-handover/README.md)
-- [`scenarios/cloud-agent-handover/docs/00-prerequisites.md`](../scenarios/cloud-agent-handover/docs/00-prerequisites.md)
-- [`scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md`](../scenarios/cloud-agent-handover/docs/01-deploy-infrastructure.md)
-- [`scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md`](../scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md)
-- [`scenarios/cloud-agent-handover/docs/04-configure-incident-response.md`](../scenarios/cloud-agent-handover/docs/04-configure-incident-response.md)
-- [`scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md`](../scenarios/cloud-agent-handover/docs/90-watch-sre-agent.md)
-- [`docs/connect-github-to-sre-agent.md`](./connect-github-to-sre-agent.md)
-
-### Microsoft Learn
-
-- [Create and Set Up Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/create-and-set-up)
-- [Team onboarding for Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/team-onboard)
-- [Connect knowledge in Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/connect-knowledge)
-- [Connect source code to Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/connect-source-code)
-- [Set up GitHub connector in Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/setup-github-connector)
-- [Incident Response Plans in Azure SRE Agent](https://learn.microsoft.com/en-us/azure/sre-agent/incident-response-plans)
-- [Create an incident response plan](https://learn.microsoft.com/en-us/azure/sre-agent/response-plan)
-
-### GitHub Docs
-
-- [GitHub Copilot cloud agent](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent)
-- [Starting GitHub Copilot sessions](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/start-copilot-sessions)
-- [Troubleshooting GitHub Copilot cloud agent](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/troubleshoot-cloud-agent)
-- [Configuring settings for GitHub Copilot cloud agent](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/configuring-agent-settings)
+The final AKS policy is: the SRE Agent investigates and requests explicit human
+approval; after approval it creates exactly one GitHub issue and assigns it to
+`copilot-swe-agent` (`@copilot`). Copilot creates a pull request, a human
+reviews and merges it, and an operator manually deploys the approved change.
+The SRE Agent does not create a branch or pull request, modify repository code
+or Azure directly, merge, or deploy. The policy is stated in the Cosmos
+[`operational guidelines`](../scenarios/cosmos-rbac-removal/knowledge/operational-guidelines.md)
+and [`response guide`](../scenarios/cosmos-rbac-removal/docs/90-watch-sre-agent.md),
+the workload-identity
+[`operational guidelines`](../scenarios/workload-identity-break/knowledge/operational-guidelines.md)
+and [`response guide`](../scenarios/workload-identity-break/docs/90-watch-sre-agent.md),
+and is enforced by the approved-handoff cases in
+[`documentation-contract.test.js`](../scripts/scenario-tools/test/documentation-contract.test.js).
