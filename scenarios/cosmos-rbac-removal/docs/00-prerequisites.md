@@ -27,10 +27,10 @@ The workshop creates several Azure resources that you'll pay for by the hour. He
 - **Required deployment role:** Contributor on the subscription, to register
   resource providers and create the workshop resources.
 - **Required access-management role:** Owner or User Access Administrator at
-  the selected scope. This is required because SRE Agent setup creates managed
-  identity role assignments for the selected Azure resources, including a
-  subscription-scope monitoring grant; Contributor cannot create those role
-  assignments.
+  subscription scope. This is required because SRE Agent setup creates managed
+  identity role assignments for the selected Azure resources and grants
+  Monitoring Contributor at subscription scope; Contributor cannot create
+  those role assignments.
 - **Check your access:** Log in to the [Azure Portal](https://portal.azure.com) and verify you can see your subscription
 - **Resource Providers**: Ensure the required resource providers are registered. Run `setup.sh` or `setup.ps1` to verify.
 
@@ -236,7 +236,7 @@ git remote -v  # should show the generated repository as origin
 Before moving to Module 1, verify:
 
 - [ ] Azure subscription with Contributor access
-- [ ] Owner or User Access Administrator access at the selected scope
+- [ ] Owner or User Access Administrator access at subscription scope
 - [ ] Azure region selected (East US 2, Sweden Central, or Australia East)
 - [ ] Network can reach `*.azuresre.ai` and `ghcr.io`
 - [ ] Azure CLI installed and logged in (`az account show` works)

@@ -99,10 +99,18 @@ for (const scenario of aksScenarios) {
     assert.match(prerequisites, /Contributor[\s\S]*?create[\s\S]*?resources/i);
     assert.match(
       prerequisites,
-      /Owner or User Access Administrator[\s\S]*?required[\s\S]*?selected (?:subscription or resource-group )?scope/i,
+      /Required access-management role:\*\* Owner or User Access Administrator at\s+subscription scope/i,
+    );
+    assert.match(
+      prerequisites,
+      /^- \[ \] Owner or User Access Administrator access at subscription scope$/m,
     );
     assert.match(prerequisites, /managed\s+identity role assignments/i);
     assert.doesNotMatch(prerequisites, /Optional role:\*\* Owner or User Access Administrator/i);
+    assert.doesNotMatch(
+      prerequisites,
+      /Owner or User Access Administrator(?: access)? at (?:the )?(?:selected|resource[- ]group(?:-only)?) scope/i,
+    );
   });
 
   test(`${scenario} onboarding follows the current agent setup flow`, () => {
