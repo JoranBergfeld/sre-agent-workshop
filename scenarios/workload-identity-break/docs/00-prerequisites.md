@@ -83,32 +83,35 @@ Not required for this workshop (we use a pre-built container image), but helpful
 
 ### 5. GitHub Account
 
-- You must have a GitHub account to fork the workshop repository
-- Your account must have permission to fork repositories and create repositories under your personal account or organization
+- You must have a GitHub account that can create a repository from a template
+- The generated repository must have **Issues** and **Actions** enabled
+- Your account or organization must have the **Copilot coding agent** enabled
+- You need repository administrator access to configure Actions secrets and variables
 - [Sign up for free here](https://github.com/signup) if you don't have an account
 
-## Step 1: Fork the Repository
+## Step 1: Generate Your Repository
 
-The workshop repository is a template. You'll fork it to your own GitHub account, configure it with your Azure credentials, and all deployments will run against your own Azure subscription.
+Create an independent repository from the workshop template, configure it with
+your Azure credentials, and run deployments against your Azure subscription.
 
 **Steps:**
 
-1. Navigate to the workshop repository on GitHub: [sre-agent-workshop](https://github.com/Azure-Samples/sre-agent-workshop) (or your team's fork)
-2. Click the **Fork** button in the top-right corner
-3. Choose your personal account or organization as the fork destination
-4. Click **Create fork**
-5. Clone your fork locally:
+1. Navigate to [sre-agent-workshop](https://github.com/Azure-Samples/sre-agent-workshop).
+2. Click **Use this template** → **Create a new repository**.
+3. Choose your personal account or organization, name the repository, and create it.
+4. Verify **Issues** and **Actions** are enabled and the Copilot coding agent is available.
+5. Clone the generated repository locally:
    ```bash
-   git clone https://github.com/{YOUR_USERNAME}/sre-agent-workshop.git
-   cd sre-agent-workshop
+   git clone https://github.com/{OWNER}/{GENERATED_REPOSITORY}.git
+   cd {GENERATED_REPOSITORY}
    ```
 
-Now all your work will be in your own fork, and Copilot will author pull
-requests against it after a human assigns an approved issue.
+Copilot will author pull requests in this generated repository after a human
+assigns an approved issue.
 
 ## Step 2: Create a Service Principal for GitHub Actions
 
-GitHub Actions workflows in your fork need credentials to deploy infrastructure to your Azure subscription. We'll create a service principal with Contributor access to your subscription.
+GitHub Actions workflows in the generated repository need credentials to deploy infrastructure to your Azure subscription. We'll create a service principal with Contributor access to your subscription.
 
 ### Get Your Subscription ID
 
@@ -120,6 +123,26 @@ az account show --query '{name:name,id:id}' --output table
 ```
 
 Keep this terminal open — you'll use `$SUBSCRIPTION_ID` in the next step.
+
+### Set the Canonical Workload Names
+
+Set these once after selecting the subscription and reuse them in every module.
+Replace the default workload only if you need a unique name; the resource group
+must remain derived from the same value.
+
+**Bash**
+
+```bash
+WORKLOAD_NAME="srelabidentity"
+RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+```
+
+**PowerShell**
+
+```powershell
+$WorkloadName = "srelabidentity"
+$ResourceGroup = "rg-${WorkloadName}"
+```
 
 ### Create a Service Principal
 
@@ -143,11 +166,11 @@ This command outputs a JSON block containing the service principal credentials. 
 
 ## Step 3: Configure GitHub Actions Secrets
 
-Your fork needs the service principal credentials as a GitHub Actions secret. Anyone with access to your fork can trigger workflows, so treat this secret with care.
+The generated repository needs the service principal credentials as a GitHub Actions secret. Anyone with write access can trigger workflows, so treat this secret with care.
 
 **Steps:**
 
-1. Go to your fork on GitHub (https://github.com/{YOUR_USERNAME}/sre-agent-workshop)
+1. Go to the generated repository on GitHub.
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret**
 4. Add this secret:
@@ -164,7 +187,7 @@ Repository variables provide defaults for the scenario workflows. While deployme
 
 **Steps:**
 
-1. Go to your fork on GitHub (https://github.com/{YOUR_USERNAME}/sre-agent-workshop)
+1. Go to the generated repository on GitHub.
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Switch to the **Variables** tab
 4. Click **New repository variable** and add these variables:
@@ -193,16 +216,16 @@ kubectl version --client
 # Verify GitHub CLI (optional)
 gh auth status
 
-# Verify your fork is cloned
-cd sre-agent-workshop
-git remote -v  # should show your fork as origin
+# Verify the generated repository is cloned
+cd {GENERATED_REPOSITORY}
+git remote -v  # should show the generated repository as origin
 ```
 
 **Expected output:**
 - `az account show` displays your subscription name and ID
 - `kubectl version --client` shows a version number (e.g., v1.28.0)
 - `gh auth status` shows "Logged in to github.com..." (if installed)
-- `git remote -v` shows your fork URL for both fetch and push
+- `git remote -v` shows the generated repository URL for both fetch and push
 
 ## Checklist
 
@@ -214,11 +237,13 @@ Before moving to Module 1, verify:
 - [ ] Azure CLI installed and logged in (`az account show` works)
 - [ ] kubectl installed (`kubectl version --client` works)
 - [ ] GitHub account created
-- [ ] Repository forked to your account
+- [ ] Repository created with **Use this template**
+- [ ] Issues, Actions, and the Copilot coding agent are available
+- [ ] Administrator access to repository secrets and variables confirmed
 - [ ] Service principal created and JSON saved
-- [ ] `AZURE_CREDENTIALS` secret added to your fork
-- [ ] `WORKLOAD_NAME` variable added to your fork (if using a custom name)
-- [ ] `AZURE_LOCATION` variable added to your fork (if using a non-default region)
+- [ ] `AZURE_CREDENTIALS` secret added to the generated repository
+- [ ] `WORKLOAD_NAME` variable added to the generated repository (if using a custom name)
+- [ ] `AZURE_LOCATION` variable added to the generated repository (if using a non-default region)
 - [ ] Secrets and variables are visible in Settings → Secrets and variables → Actions
 
 ## Cost Reminder

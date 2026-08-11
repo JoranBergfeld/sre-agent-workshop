@@ -39,7 +39,7 @@ az account show --query '{name:name,id:id}' --output table
 
 ```powershell
 $WorkloadName = "srelabcosmos"
-$ResourceGroup = "rg-$WorkloadName"
+$ResourceGroup = "rg-${WorkloadName}"
 $SubscriptionId = "<subscription-id>"
 az account set --subscription $SubscriptionId
 az account show --query '{name:name,id:id}' --output table
@@ -123,7 +123,7 @@ git push origin main
 
 When you push, the `Validate Cosmos RBAC Removal Infrastructure` workflow runs automatically — it checks Bicep syntax. But it doesn't deploy anything. To actually deploy the broken infrastructure:
 
-1. **Go to GitHub** → your fork → **Actions** tab
+1. **Go to GitHub** → your generated repository → **Actions** tab
 2. **Select "Deploy Cosmos RBAC Removal Infrastructure"** in the left sidebar
 3. **Click "Run workflow"** → choose your region and workload name → **Run workflow**
 4. **Watch it complete** (~3–5 minutes)

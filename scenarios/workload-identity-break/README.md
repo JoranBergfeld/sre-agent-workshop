@@ -39,7 +39,7 @@ az account show --query '{name:name,id:id}' --output table
 
 ```powershell
 $WorkloadName = "srelabidentity"
-$ResourceGroup = "rg-$WorkloadName"
+$ResourceGroup = "rg-${WorkloadName}"
 $SubscriptionId = "<subscription-id>"
 az account set --subscription $SubscriptionId
 az account show --query '{name:name,id:id}' --output table
@@ -71,7 +71,7 @@ Before running this scenario's deployment workflow, maintainers must configure t
 
 ## The Scenario
 
-> _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `srelabidentity-id` with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._
+> _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `<workload>-id` (for example, `srelabidentity-id` with the default workload) with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._
 >
 > _Pods are running. Health checks are green. But every data request now fails with a cryptic `AADSTS70021` error. The app can no longer prove who it is to Azure._
 
@@ -137,7 +137,7 @@ git push origin main
 
 When you push, the `Validate Workload Identity Break Infrastructure` workflow runs automatically — it checks Bicep syntax, but it doesn't deploy anything. To actually deploy the broken infrastructure:
 
-1. **Go to GitHub** → your fork → **Actions** tab
+1. **Go to GitHub** → your generated repository → **Actions** tab
 2. **Select "Deploy Workload Identity Break Infrastructure"** in the left sidebar
 3. **Click "Run workflow"** → choose your region and workload name → **Run workflow**
 4. **Watch it complete** (~3–5 minutes)

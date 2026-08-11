@@ -29,13 +29,13 @@ Navigate to the Azure SRE Agent portal and step through the creation wizard:
 The wizard will ask for the following:
 
 - **Subscription:** Select the Azure subscription where you deployed the workshop infrastructure (from Module 1)
-- **Resource group:** Choose `rg-srelabidentity` (the same resource group you created for your AKS, CosmosDB, and monitoring)
-- **Agent name:** Enter something memorable, like `srelabidentity-agent` or `identity-agent` — this name appears in the portal and in incident conversations
+- **Resource group:** Choose `rg-<workload>` (for example, the default is `rg-srelabidentity`) — the same resource group you created for AKS, CosmosDB, and monitoring
+- **Agent name:** Enter something memorable, such as `<workload>-agent` — this name appears in the portal and in incident conversations
 - **Region:** Select the same region as your infrastructure (East US 2, Sweden Central, or Australia East)
 - **Model provider:** Choose **Anthropic** (recommended for this workshop) or Azure OpenAI if you prefer
 - **Application Insights:** Select **Use existing**, then:
   - **Subscription:** Your workshop subscription (`base_subscription`)
-  - **Application Insights name:** `srelabidentity-ai` (the instance deployed by Module 1)
+  - **Application Insights name:** `<workload>-ai` (for example, the default is `srelabidentity-ai`)
   
   This connects the SRE Agent to the same Application Insights instance that monitors your AKS cluster and web app, giving it direct access to application telemetry, error traces, and performance data.
 
@@ -79,8 +79,8 @@ commit as the culprit.
 
 The **Logs** card on the setup page supports connecting additional log sources like Azure Data Explorer or Azure DevOps AI Search. We didn't provision either of these, so **skip this card** — the agent already has log access through two other channels:
 
-- **Application Insights** (`srelabidentity-ai`) — configured during agent creation, provides application telemetry
-- **Azure Resources** (`rg-srelabidentity`) — configured in the next step, gives the agent Reader access to the Log Analytics workspace (`srelabidentity-law`) where AKS container logs, pod events, and Kubernetes errors are stored
+- **Application Insights** (`<workload>-ai`) — configured during agent creation, provides application telemetry
+- **Azure Resources** (`rg-<workload>`) — configured in the next step, gives the agent Reader access to the Log Analytics workspace (`<workload>-law`) where AKS container logs, pod events, and Kubernetes errors are stored
 
 Between these two, the agent has full visibility into both application-level and infrastructure-level logs. No additional configuration needed.
 
@@ -91,7 +91,7 @@ Now the agent needs permission to read your Azure resources.
 1. Still on the setup page, find the **Azure Resources** card
 2. Click the **+** button
 3. Choose **Resource groups**
-4. Filter by your subscription and select **`rg-srelabidentity`** (your workshop resource group)
+4. Filter by your subscription and select **`rg-<workload>`** (for example, `rg-srelabidentity` for the default workload)
 5. Click **Next** to review permissions
 6. The agent will request **Reader** role on the resource group — this is sufficient for the workshop (the agent can query logs and metrics, but cannot modify resources)
 7. Click **Add resource group**

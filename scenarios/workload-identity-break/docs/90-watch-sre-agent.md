@@ -66,7 +66,7 @@ az account show --query '{name:name,id:id}' --output table
 
 ```powershell
 $WorkloadName = "srelabidentity"
-$ResourceGroup = "rg-$WorkloadName"
+$ResourceGroup = "rg-${WorkloadName}"
 $SubscriptionId = "<subscription-id>"
 az account set --subscription $SubscriptionId
 az account show --query '{name:name,id:id}' --output table

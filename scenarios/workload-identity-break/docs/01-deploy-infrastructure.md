@@ -74,7 +74,7 @@ Choose one of the two deployment options below. **Option A (GitHub Actions) is r
 
 #### Step 1: Navigate to GitHub Actions
 
-Go to your fork of the workshop repository on GitHub:
+Go to your generated workshop repository on GitHub:
 1. Click the **Actions** tab at the top
 2. In the left sidebar, select **Deploy Workload Identity Break Infrastructure**
    workflow
@@ -114,7 +114,7 @@ The workflow performs these steps:
 - Creates the alert rule
 - Outputs key resource names and IDs
 
-**Expected final output:**
+**Example final output using the default workload:**
 ```
 ============================================
   Infrastructure Deployment Complete
@@ -179,7 +179,7 @@ az group create \
   --tags workshop=sre-agent environment=demo
 ```
 
-**Expected output:**
+**Example output using the default workload:**
 ```json
 {
   "id": "/subscriptions/.../resourceGroups/rg-srelabidentity",
@@ -283,7 +283,7 @@ az aks show \
   -o table
 ```
 
-Expected output:
+Example output using the default workload:
 ```
 Name        Status    Oidc
 ──────────  ────────  ─────
@@ -329,7 +329,7 @@ az cosmosdb show \
   -o table
 ```
 
-Expected output:
+Example output using the default workload:
 ```
 Name                  Kind              Status
 --------------------  ----------------  ---------
@@ -346,7 +346,7 @@ az identity show \
   -o table
 ```
 
-Expected output:
+Example output using the default workload:
 ```
 Name       ClientId
 ─────────  ──────────────────────────────────────────
@@ -488,7 +488,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
    ```bash
    kubectl config current-context
    ```
-   Should show something like `srelabidentity-aks` or similar.
+   Should show `${WORKLOAD_NAME}-aks`.
 3. Check cluster status in Azure:
    ```bash
   az aks show --resource-group "$RESOURCE_GROUP" --name "${WORKLOAD_NAME}-aks" --query provisioningState
@@ -518,7 +518,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
 
 At this point, you should have:
 
-✅ All Azure resources created in `rg-srelabidentity`
+✅ All Azure resources created in `$RESOURCE_GROUP` (`rg-<workload>`)
 ✅ AKS cluster with OIDC issuer and workload identity enabled  
 ✅ 2 nodes in `Ready` state  
 ✅ CosmosDB serverless account created  

@@ -22,7 +22,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 
 1. **Publish an immutable image first.** Run `Publish Cosmos RBAC Removal Image` from the **Actions** tab, or push an application change to `main`. It publishes `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app:<commit-sha>`. Copy the published commit SHA from that workflow run.
 2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a fine-grained (or classic) PAT with **Packages: read** access. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
-3. **Go to your fork** on GitHub → **Actions** tab and select `Deploy Cosmos RBAC Removal Application`.
+3. **Go to your generated repository** on GitHub → **Actions** tab and select `Deploy Cosmos RBAC Removal Application`.
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
    - **workloadName** (default: `srelabcosmos`) — **must match what you used in Module 1**.
    - **imageTag** — the published full 40-character lowercase Git SHA from `Publish Cosmos RBAC Removal Image` (for example, `0123456789abcdef0123456789abcdef01234567`).

@@ -28,7 +28,9 @@ az role assignment list --assignee "$PRINCIPAL_ID" --all \
   --query "[].{role:roleDefinitionName, scope:scope}" -o table
 ```
 
-Look for **Reader** and **Monitoring Contributor** on `rg-srelabidentity`. If missing, the SRE Agent portal will tell you what to grant when you connect Azure Monitor.
+Look for **Reader** and **Monitoring Contributor** on `rg-<workload>` (the value
+of `$RESOURCE_GROUP`; `rg-srelabidentity` is the default). If missing, the SRE
+Agent portal will tell you what to grant when you connect Azure Monitor.
 
 ## Connect Azure Monitor
 
@@ -122,9 +124,11 @@ az resource list \
   --query "[].name" -o tsv
 ```
 
-Look for **`srelabidentity-workload-identity-auth-errors`**, whose display name is
-**Workload Identity Auth Errors**. It queries `ContainerLog` for
-`AADSTS70021` and `No matching federated identity` token-acquisition failures.
+Look for **`<workload>-workload-identity-auth-errors`** (for example,
+`srelabidentity-workload-identity-auth-errors` with the default workload),
+whose display name is **Workload Identity Auth Errors**. It queries
+`ContainerLog` for `AADSTS70021` and `No matching federated identity`
+token-acquisition failures.
 
 > **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
 

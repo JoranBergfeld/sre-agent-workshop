@@ -33,7 +33,7 @@ az account show --query '{name:name,id:id}' --output table
 
 ```powershell
 $WorkloadName = "srelabcosmos"
-$ResourceGroup = "rg-$WorkloadName"
+$ResourceGroup = "rg-${WorkloadName}"
 $SubscriptionId = "<subscription-id>"
 az account set --subscription $SubscriptionId
 az account show --query '{name:name,id:id}' --output table
@@ -96,24 +96,24 @@ az ad sp delete --id {APP_ID}
 
 ### Remove GitHub Actions Secrets
 
-Your fork still has the `AZURE_CREDENTIALS` secret configured. If you no longer need it, remove it:
+Your generated repository still has the `AZURE_CREDENTIALS` secret configured. If you no longer need it, remove it:
 
-1. Go to your fork on GitHub (https://github.com/{YOUR_USERNAME}/sre-agent-workshop)
+1. Go to your generated repository on GitHub.
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click the trash icon next to `AZURE_CREDENTIALS` to delete it
 
-> **Why:** Reduces the attack surface if your fork is compromised. An attacker with access to these secrets could deploy resources to your subscription.
+> **Why:** Reduces the attack surface if your generated repository is compromised. An attacker with access to these secrets could deploy resources to your subscription.
 
-### Delete Your Fork (Optional)
+### Delete Your Generated Repository (Optional)
 
-If you won't use the workshop repository anymore, you can delete your fork:
+If you won't use the workshop repository anymore, you can delete the generated repository:
 
-1. Go to your fork on GitHub
+1. Go to your generated repository on GitHub.
 2. Click **Settings** at the top
 3. Scroll to the bottom and click **Delete this repository**
 4. Confirm by typing the repository name
 
-> **If you might re-run the workshop or want to keep the code for reference**, you can leave your fork in place. GitHub doesn't charge for repositories.
+> **If you might re-run the workshop or want to keep the code for reference**, you can leave your generated repository in place. GitHub doesn't charge for repositories.
 
 ## Verify Cleanup
 
@@ -136,9 +136,9 @@ az ad sp show --id {APP_ID} 2>/dev/null || echo "✓ Service principal deleted"
 - [ ] Azure resource group cleanup started with the capsule cleanup script
 - [ ] Verified deletion: `az group show --name "$RESOURCE_GROUP"` returns an error
 - [ ] Service principal deleted (optional): `az ad sp delete --id {APP_ID}`
-- [ ] GitHub Actions secrets removed from your fork (optional but recommended)
+- [ ] GitHub Actions secrets removed from your generated repository (optional but recommended)
 - [ ] Service principal app removed from your Azure AD (optional)
-- [ ] Fork deleted (optional if you don't need it anymore)
+- [ ] Generated repository deleted (optional if you don't need it anymore)
 
 ## What You Accomplished 🎉
 
