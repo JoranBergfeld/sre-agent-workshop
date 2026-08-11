@@ -6,6 +6,14 @@ Run every command below from the repository root. The default workload name is
 `srelabcpurunaway`; custom workload names must be unique so their Azure
 resource names do not collide.
 
+## Cost profile
+
+This scenario has a **high** cost profile. The dominant cost drivers are two
+Windows VMs, Standard Azure Bastion, Application Insights and Log Analytics
+ingestion, and Azure SRE Agent usage. Confirm current pricing for your
+deployment region before provisioning, and run cleanup immediately after
+completing the scenario.
+
 ## Scenario modules
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)

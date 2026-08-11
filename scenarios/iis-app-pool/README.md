@@ -5,6 +5,14 @@
 Run every command below from the repository root. This capsule deploys its own
 Windows/IIS environment, monitoring, identity, network, and IIS app-pool alert.
 
+## Cost profile
+
+This scenario has a **high** cost profile. The dominant cost drivers are two
+Windows VMs, Standard Azure Bastion, Application Insights and Log Analytics
+ingestion, and Azure SRE Agent usage. Confirm current pricing for your
+deployment region before provisioning, and run cleanup immediately after
+completing the scenario.
+
 ## Modules
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)

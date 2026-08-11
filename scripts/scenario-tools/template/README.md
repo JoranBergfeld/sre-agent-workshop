@@ -6,6 +6,13 @@
 
 Describe the user-visible failure and the outcome the learner should observe.
 
+## Cost profile
+
+The default cost profile is **low**. Replace this value when the manifest
+declares a different profile. Document the dominant cost drivers, confirm
+current pricing for the deployment region before provisioning, and run cleanup
+immediately after completing the scenario.
+
 ## Flow
 
 1. Run `./scripts/inject.sh` or `./scripts/inject.ps1` to create the fault.

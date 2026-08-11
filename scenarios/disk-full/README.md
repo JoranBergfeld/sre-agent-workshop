@@ -14,6 +14,14 @@ Windows computer names: VM 01 reports Perf data as `sredisk01` and VM 02 as
 `sredisk02`, both within Windows' 15-character computer-name limit. Do not
 reuse the previous VM workshop workload name.
 
+## Cost profile
+
+This scenario has a **high** cost profile. The dominant cost drivers are two
+Windows VMs, Standard Azure Bastion, Application Insights and Log Analytics
+ingestion, and Azure SRE Agent usage. Confirm current pricing for your
+deployment region before provisioning, and run cleanup immediately after
+completing the scenario.
+
 ## Module index
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)

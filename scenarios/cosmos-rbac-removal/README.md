@@ -5,6 +5,14 @@
 Run every command below from the repository root. This capsule is directly
 selectable; it provisions, breaks, and recovers its own AKS workload.
 
+## Cost profile
+
+This scenario has a **high** cost profile. The dominant cost drivers are the
+two-node AKS cluster, Cosmos DB, Application Insights and Log Analytics
+ingestion, and Azure SRE Agent usage. Confirm current pricing for your
+deployment region before provisioning, and run cleanup immediately after
+completing the scenario.
+
 ## Follow the workshop modules
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)

@@ -4,6 +4,13 @@
 
 Run every command below from the repository root.
 
+## Cost profile
+
+This scenario has a **low** cost profile. The dominant cost drivers are the App
+Service plan, Application Insights and Log Analytics ingestion, and Azure SRE
+Agent usage. Confirm current pricing for your deployment region before
+provisioning, and run cleanup immediately after completing the scenario.
+
 ## Follow the workshop modules
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)

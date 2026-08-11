@@ -5,6 +5,13 @@
 Run every command below from the repository root. This capsule owns its
 infrastructure, scenario lifecycle, investigation, approval gate, and output.
 
+## Cost profile
+
+This scenario has a **high** cost profile. The dominant cost drivers are three
+Windows VMs, Application Insights and Log Analytics ingestion, and Azure SRE
+Agent usage. Confirm current pricing for your deployment region before
+provisioning, and run cleanup immediately after completing the scenario.
+
 ## Workshop modules
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)
