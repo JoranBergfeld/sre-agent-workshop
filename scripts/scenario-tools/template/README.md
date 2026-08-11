@@ -8,8 +8,8 @@ Describe the user-visible failure and the outcome the learner should observe.
 
 ## Cost profile
 
-The default cost profile is **low**. Replace this value when the manifest
-declares a different profile. Document the dominant cost drivers, confirm
+REPLACE_THIS_COST_GUIDANCE: Replace this marked sentence with the manifest's
+actual cost profile and the scenario's actual dominant cost drivers. Confirm
 current pricing for the deployment region before provisioning, and run cleanup
 immediately after completing the scenario.
 

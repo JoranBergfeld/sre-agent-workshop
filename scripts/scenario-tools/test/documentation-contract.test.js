@@ -12,14 +12,35 @@ const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .map((entry) => entry.name)
   .sort();
 
+function assertCostGuidance(guide, costProfile) {
+  assert.match(guide, /^## Cost profile$/m);
+  assert.match(guide, new RegExp(`\\*\\*${costProfile}\\*\\*`, 'i'));
+  assert.match(guide, /dominant cost drivers/i);
+  assert.doesNotMatch(
+    guide,
+    /REPLACE_THIS_COST_GUIDANCE/,
+    'guide contains unresolved cost guidance marker REPLACE_THIS_COST_GUIDANCE',
+  );
+}
+
+test('cost guidance rejects the unresolved scaffold marker', () => {
+  const guide = `## Cost profile
+
+The cost profile is **low**. REPLACE_THIS_COST_GUIDANCE with dominant cost drivers.
+`;
+
+  assert.throws(
+    () => assertCostGuidance(guide, 'low'),
+    /REPLACE_THIS_COST_GUIDANCE/,
+  );
+});
+
 for (const scenarioDirectory of scenarioDirectories) {
   test(`${scenarioDirectory} guide documents its cost profile`, () => {
     const scenarioRoot = resolve(scenariosRoot, scenarioDirectory);
     const manifest = yaml.load(readFileSync(resolve(scenarioRoot, 'scenario.yaml'), 'utf8'));
     const guide = readFileSync(resolve(scenarioRoot, manifest.guide), 'utf8');
 
-    assert.match(guide, /^## Cost profile$/m);
-    assert.match(guide, new RegExp(`\\*\\*${manifest.costProfile}\\*\\*`, 'i'));
-    assert.match(guide, /dominant cost drivers/i);
+    assertCostGuidance(guide, manifest.costProfile);
   });
 }
