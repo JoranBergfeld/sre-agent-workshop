@@ -8,6 +8,7 @@ import { REPO_ROOT } from '../lib/paths.js';
 
 const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
+const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
 const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_'))
   .map((entry) => entry.name)
@@ -68,6 +69,18 @@ for (const scenario of aksScenarios) {
     assert.match(prerequisites, /^RESOURCE_GROUP="rg-\${WORKLOAD_NAME}"$/m);
     assert.match(prerequisites, /^\$WorkloadName = "[^"]+"$/m);
     assert.match(prerequisites, /^\$ResourceGroup = "rg-\${WorkloadName}"$/m);
+  });
+
+  test(`${scenario} prerequisites link directly to the canonical template generator`, () => {
+    const prerequisites = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '00-prerequisites.md'),
+      'utf8',
+    );
+
+    assert.ok(
+      prerequisites.includes(canonicalTemplateUrl),
+      `${scenario} prerequisites must contain ${canonicalTemplateUrl}`,
+    );
   });
 }
 
