@@ -18,13 +18,26 @@ The Azure SRE Agent is an AI-powered operations teammate designed to help you ma
 
 1. Open [sre.azure.com](https://sre.azure.com) and sign in with the Azure
    account used for the workshop subscription.
-2. Select **Create agent**, choose the workshop subscription, and enter the
-   requested agent-resource details.
-3. Review the deployment and select **Create**.
-4. When deployment completes, open the agent and select **Set up your agent**.
+2. Select **Create agent**. For **Subscription**, choose the intended workshop
+   subscription.
+3. Create the SRE Agent resource in **`$RESOURCE_GROUP`**: for **Resource
+   group**, choose **Use existing** and select the default resource group
+   derived earlier from `WORKLOAD_NAME`.
+4. For **Region**, choose the same supported region where you deployed the
+   scenario infrastructure.
+5. For **Application Insights**, select **Use existing**, then choose
+   **`srelabidentity-ai`** (or `<workload>-ai` if you changed the default
+   workload name).
+6. For the model provider and model, choose an option available to your tenant
+   in that region. Provider availability varies by tenant and region, so do not
+   assume Anthropic is available.
+7. Review the deployment and select **Create**. When deployment completes,
+   open the agent and select **Set up your agent**.
 
-Your signed-in account's permission to deploy the agent resource is separate
-from the agent managed identity's data access. Creating the agent does not
+Keeping the agent in `$RESOURCE_GROUP` is consistent with cleanup, which
+deletes the agent with the scenario resource group. Your signed-in account's
+permission to deploy the SRE Agent resource remains separate from the agent
+managed identity's data-access grants. Creating the agent does not
 automatically let that identity inspect the AKS, Cosmos DB, or monitoring
 resources in `$RESOURCE_GROUP`; grant that read access during **Full setup**.
 

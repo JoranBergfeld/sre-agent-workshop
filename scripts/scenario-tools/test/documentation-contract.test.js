@@ -10,6 +10,7 @@ const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
 const aksResponsePlanExpectations = {
   'cosmos-rbac-removal': {
+    applicationInsightsName: 'srelabcosmos-ai',
     customAgentName: 'cosmos-rbac-investigator',
     handoffDescription: 'Investigate the Cosmos DB RBAC removal incident',
     planName: 'cosmos-rbac-removal-review',
@@ -19,6 +20,7 @@ const aksResponsePlanExpectations = {
     failureEvidence: /Failed to read items from CosmosDB[\s\S]*Forbidden[\s\S]*HTTP 500/i,
   },
   'workload-identity-break': {
+    applicationInsightsName: 'srelabidentity-ai',
     customAgentName: 'workload-identity-investigator',
     handoffDescription: 'Investigate the workload identity authentication incident',
     planName: 'workload-identity-break-review',
@@ -227,9 +229,21 @@ for (const scenario of aksScenarios) {
       resolve(scenariosRoot, scenario, 'docs', '03-onboard-sre-agent.md'),
       'utf8',
     );
+    const { applicationInsightsName } = aksResponsePlanExpectations[scenario];
 
     assert.match(onboarding, /\bQuickstart\b/);
     assert.match(onboarding, /\bFull setup\b/);
+    assert.match(
+      onboarding,
+      /create (?:or select )?the SRE Agent resource in[\s\S]*?`\$RESOURCE_GROUP`/i,
+    );
+    assert.match(
+      onboarding,
+      new RegExp(
+        `Application Insights[\\s\\S]*?Use existing[\\s\\S]*?${applicationInsightsName}`,
+        'i',
+      ),
+    );
     assert.match(onboarding, /Favorites sidebar/);
     assert.ok(onboarding.includes(githubOAuthAnchor));
     assert.match(onboarding, /Code[\s\S]*?Knowledge base[\s\S]*?index/i);
