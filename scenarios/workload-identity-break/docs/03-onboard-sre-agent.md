@@ -14,52 +14,32 @@ The Azure SRE Agent is an AI-powered operations teammate designed to help you ma
 
 > **Reference:** For more details, see [Azure SRE Agent overview](https://sre.azure.com/docs/overview)
 
-## Create the Agent
+## Create the agent resource
 
-Navigate to the Azure SRE Agent portal and step through the creation wizard:
+1. Open [sre.azure.com](https://sre.azure.com) and sign in with the Azure
+   account used for the workshop subscription.
+2. Select **Create agent**, choose the workshop subscription, and enter the
+   requested agent-resource details.
+3. Review the deployment and select **Create**.
+4. When deployment completes, open the agent and select **Set up your agent**.
 
-### Step 1: Sign In and Create
+Your signed-in account's permission to deploy the agent resource is separate
+from the agent managed identity's data access. Creating the agent does not
+automatically let that identity inspect the AKS, Cosmos DB, or monitoring
+resources in `$RESOURCE_GROUP`; grant that read access during **Full setup**.
 
-1. Open [sre.azure.com](https://sre.azure.com) in your browser
-2. Sign in with your Azure account
-3. Click **Create agent** (or **New agent** if you're on the dashboard)
+## Quickstart
 
-### Step 2: Fill in Basics
+### Connect the generated repository
 
-The wizard will ask for the following:
+On the **Quickstart** page, use the **Code** card and follow
+**[Connect GitHub to the SRE Agent → Connect your code repository](../../../docs/connect-github-to-sre-agent.md#connect-your-code-repository)**.
+Select the generated repository created with **Use this template** in Module 0,
+then wait for the Code card to show a green check.
 
-- **Subscription:** Select the Azure subscription where you deployed the workshop infrastructure (from Module 1)
-- **Resource group:** Choose `rg-<workload>` (for example, the default is `rg-srelabidentity`) — the same resource group you created for AKS, CosmosDB, and monitoring
-- **Agent name:** Enter something memorable, such as `<workload>-agent` — this name appears in the portal and in incident conversations
-- **Region:** Select the same region as your infrastructure (East US 2, Sweden Central, or Australia East)
-- **Model provider:** Choose **Anthropic** (recommended for this workshop) or Azure OpenAI if you prefer
-- **Application Insights:** Select **Use existing**, then:
-  - **Subscription:** Your workshop subscription (`base_subscription`)
-  - **Application Insights name:** `<workload>-ai` (for example, the default is `srelabidentity-ai`)
-  
-  This connects the SRE Agent to the same Application Insights instance that monitors your AKS cluster and web app, giving it direct access to application telemetry, error traces, and performance data.
-
-### Step 3: Review and Deploy
-
-1. Click **Next** to proceed to the review screen
-2. Verify your settings
-3. Click **Create**
-
-The agent deployment takes 2-5 minutes. In the background, Azure is:
-- Creating a managed identity for the agent (used to authenticate to your resources)
-- Setting up Log Analytics and Application Insights for the agent's own diagnostics
-- Configuring role assignments so the agent can read your Azure resources
-- Initializing the agent resource with your specified model provider
-
-**You'll see a "Deployment in progress" screen. This is a good time to grab coffee.** ☕
-
-## Connect Your Code Repository
-
-Once deployment completes, you'll land on the agent overview page. Click **Set up your agent** to begin configuration.
-
-### Add Your GitHub Repository
-
-Follow **[Connect GitHub to the SRE Agent → Connect your code repository](../../../docs/connect-github-to-sre-agent.md#connect-your-code-repository)** to connect the repository you created with **Use this template** in Module 0 via the **Code** card. Come back here once the Code card shows a green checkmark.
+The Code connection is read-only investigation context. It lets the agent
+index and inspect repository content, but it is not the GitHub MCP connector
+used for issue and pull-request operations.
 
 ### Why This Matters
 
@@ -75,36 +55,38 @@ When we intentionally break the app in Module 5 by removing the federated
 identity credential from the Bicep code, the agent will identify that specific
 commit as the culprit.
 
-## Logs (Optional — Skip for This Workshop)
+## Full setup
 
-The **Logs** card on the setup page supports connecting additional log sources like Azure Data Explorer or Azure DevOps AI Search. We didn't provision either of these, so **skip this card** — the agent already has log access through two other channels:
+Select **Full setup** to configure workload data access and persistent
+knowledge.
 
-- **Application Insights** (`<workload>-ai`) — configured during agent creation, provides application telemetry
-- **Azure Resources** (`rg-<workload>`) — configured in the next step, gives the agent Reader access to the Log Analytics workspace (`<workload>-law`) where AKS container logs, pod events, and Kubernetes errors are stored
+### Add Azure resource access
 
-Between these two, the agent has full visibility into both application-level and infrastructure-level logs. No additional configuration needed.
+1. On the **Azure Resources** card, select **+**.
+2. Choose **Resource groups**, select the workshop subscription, and add
+   **`$RESOURCE_GROUP`**.
+3. Review the requested role assignment. The workshop grants the agent managed
+   identity **Reader** on `$RESOURCE_GROUP`; this is resource investigation
+   access, not permission for the learner to deploy the agent.
+4. Confirm the grant and wait until the Azure Resources card reports
+   **permissions complete**.
 
-## Grant Azure Resource Access
+With this access, the agent can query Azure Monitor, read Log Analytics,
+inspect AKS state and resource configuration, and correlate deployment changes
+without modifying the workload.
 
-Now the agent needs permission to read your Azure resources.
+### Logs (optional — skip for this workshop)
 
-1. Still on the setup page, find the **Azure Resources** card
-2. Click the **+** button
-3. Choose **Resource groups**
-4. Filter by your subscription and select **`rg-<workload>`** (for example, `rg-srelabidentity` for the default workload)
-5. Click **Next** to review permissions
-6. The agent will request **Reader** role on the resource group — this is sufficient for the workshop (the agent can query logs and metrics, but cannot modify resources)
-7. Click **Add resource group**
-8. Wait for the green checkmark to appear
+The **Logs** card on the setup page supports connecting additional log sources
+like Azure Data Explorer or Azure DevOps AI Search. We didn't provision either,
+so skip this card. The **Azure Resources** grant already covers the workshop
+monitoring resources in `$RESOURCE_GROUP`, including:
 
-### What This Enables
+- **Application Insights**, which provides application telemetry.
+- **Log Analytics**, which stores AKS container logs, pod events, and
+  Kubernetes errors.
 
-With access to your resource group, the agent can:
-- Query **Azure Monitor metrics** (CPU, memory, pod restarts, error rates)
-- Read **Log Analytics logs** (app errors, authentication failures, deployment events)
-- Check **AKS pod status** (running, pending, failed states)
-- Inspect **resource configurations** (Bicep deployment history, role assignments, secrets)
-- Correlate **deployment changes** with performance degradation
+No additional Logs-card connection is needed for this workshop.
 
 ## Upload operational guidance
 
@@ -128,22 +110,28 @@ merges the PR Copilot authors before manually deploying the fix.
 
 This creates a full audit trail: incident → investigation → issue → PR → deployment.
 
-## Set up the GitHub Connector
+## Set up the GitHub MCP connector
 
-For the SRE Agent to inspect repository evidence during an investigation,
-connect the GitHub **connector**.
+The separate GitHub MCP connector supports issue and pull-request operations;
+it does not replace the read-only Code connection used for investigation.
 
-Follow **[Connect GitHub to the SRE Agent → Set up the GitHub connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-connector-with-a-pat)**, then verify the connection per that guide.
+Follow **[Connect GitHub to the SRE Agent → Set up the GitHub MCP connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-mcp-connector-with-a-pat)**,
+then use the read-only verification prompt in that guide to confirm that the
+agent can list repository issues.
 
-> **Why this matters:** With the GitHub connector, the agent can correlate
-> repository evidence with the incident. The governed remediation loop is: SRE
-> Agent detects and investigates the fault → proposes remediation → a human
-> creates or approves one issue assigned to `@copilot` → Copilot authors the PR
-> → a human reviews, merges, and deploys the fix.
+The governed remediation loop remains: the SRE Agent investigates and proposes
+remediation → a human creates or approves one issue assigned to `@copilot` →
+Copilot authors the PR → a human reviews, merges, and deploys the fix.
+
+## Finish setup
+
+Select **Done and go to agent**. The portal opens Team Onboarding as a pinned
+thread in the **Favorites sidebar**.
 
 ## Team Onboarding
 
-After you click **Done and go to agent**, the agent opens a Team Onboarding conversation. This is where you share knowledge about your environment.
+Use the pinned Team Onboarding conversation to share knowledge about your
+environment.
 
 ### What the Agent Does First
 
@@ -179,14 +167,12 @@ the fault introduced in Module 5.
 
 ## Verify Setup
 
-Before moving on, confirm that everything is connected:
+Before moving on, confirm exactly these four outcomes:
 
-1. **Check the GitHub connection:** In Connectors (**Builder** → **Connectors**), you should see your GitHub repository listed with the status "Connected".
-2. **Check the AKS Resources:** You should see the AKS resources in the **Monitor** → **Resource Mapping**
-3. **Ask the agent:** In the onboarding conversation, ask "What Azure resources do you see in my resource group?" — it should list your AKS cluster, CosmosDB account, Log Analytics workspace, and other resources you created in Module 1
-4. **Ask the agent:** "Can you tell me about the app's architecture from the code?" — it should reference your Kubernetes manifests and application server code
-
-If all three checks pass, you're ready to move to Module 4.
+- [ ] The **Code** card has a green check.
+- [ ] **Azure Resources** lists `$RESOURCE_GROUP` with **permissions complete**.
+- [ ] The `operational-guidelines.md` **File** source is **Indexed**.
+- [ ] The read-only GitHub MCP connector verification prompt lists repository issues.
 
 ## Next Step
 

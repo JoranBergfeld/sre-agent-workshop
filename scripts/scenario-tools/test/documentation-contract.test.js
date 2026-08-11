@@ -10,6 +10,8 @@ const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
 const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
 const canonicalTemplateLink = `[**Use this template**](${canonicalTemplateUrl})`;
+const githubMcpAnchor = '#set-up-the-github-mcp-connector-with-a-pat';
+const oldGithubConnectorAnchor = '#set-up-the-github-connector-with-a-pat';
 const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_'))
   .map((entry) => entry.name)
@@ -82,6 +84,52 @@ for (const scenario of aksScenarios) {
       prerequisites.includes(canonicalTemplateLink),
       `${scenario} prerequisites must contain ${canonicalTemplateLink}`,
     );
+  });
+
+  test(`${scenario} onboarding follows the current agent setup flow`, () => {
+    const onboarding = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '03-onboard-sre-agent.md'),
+      'utf8',
+    );
+
+    assert.match(onboarding, /\bQuickstart\b/);
+    assert.match(onboarding, /\bFull setup\b/);
+    assert.match(onboarding, /Favorites sidebar/);
+    assert.ok(onboarding.includes(githubMcpAnchor));
+    assert.doesNotMatch(onboarding, new RegExp(oldGithubConnectorAnchor));
+    assert.doesNotMatch(onboarding, /If all three checks pass/);
+    assert.doesNotMatch(onboarding, /Monitor\s*→\s*Resource Mapping/);
+
+    const verifySetup = onboarding.match(
+      /^## Verify Setup\s*$([\s\S]*?)(?=^##\s|\Z)/m,
+    )?.[1];
+    assert.ok(verifySetup, `${scenario} onboarding must include Verify Setup`);
+
+    const checklist = verifySetup.match(/^- \[ \].+$/gm) ?? [];
+    assert.equal(checklist.length, 4);
+    assert.match(verifySetup, /Code.*green check/i);
+    assert.match(verifySetup, /Azure Resources.*\$RESOURCE_GROUP.*permissions complete/i);
+    assert.match(verifySetup, /operational-guidelines\.md.*File.*Indexed/i);
+    assert.match(verifySetup, /read-only.*issues/i);
+  });
+
+  test(`${scenario} incident prerequisites use shell account checks and portal permissions`, () => {
+    const incidentResponse = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '04-configure-incident-response.md'),
+      'utf8',
+    );
+
+    assert.match(incidentResponse, /\*\*Bash\*\*/);
+    assert.match(incidentResponse, /\*\*PowerShell\*\*/);
+    assert.match(incidentResponse, /az login/);
+    assert.match(incidentResponse, /az account set --subscription "\$SUBSCRIPTION_ID"/);
+    assert.match(incidentResponse, /az account set --subscription \$SubscriptionId/);
+    assert.match(incidentResponse, /Full setup/);
+    assert.match(incidentResponse, /Azure Resources/);
+    assert.match(incidentResponse, /permissions complete/i);
+    assert.doesNotMatch(incidentResponse, /Microsoft\.ManagedIdentity/);
+    assert.doesNotMatch(incidentResponse, /az identity show/);
+    assert.doesNotMatch(incidentResponse, /az role assignment list/);
   });
 }
 

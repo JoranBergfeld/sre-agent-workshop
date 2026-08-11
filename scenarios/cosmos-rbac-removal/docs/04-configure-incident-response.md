@@ -6,31 +6,45 @@ Set up Azure Monitor as your incident platform and create a response plan so the
 
 ## Prerequisites
 
-Before configuring incident response, ensure the SRE Agent's managed identity has the required RBAC roles. The agent needs **Reader** access to see your alerts. If you created the SRE Agent through the portal with the recommended setup, these roles are typically already assigned.
+Reuse the subscription and workload variables established in Module 0. First
+confirm that this shell is signed in to the expected subscription and can see
+the scenario resource group.
 
-You can verify with:
+**Bash** — run this in the Bash terminal where `SUBSCRIPTION_ID`,
+`WORKLOAD_NAME`, and `RESOURCE_GROUP` are already set:
 
 ```bash
-export WORKLOAD_NAME="srelabcosmos"
-export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
-export SUBSCRIPTION_ID="<subscription-id>"
+az login
 az account set --subscription "$SUBSCRIPTION_ID"
 az account show --query '{name:name,id:id}' --output table
-
-# Find the agent's managed identity
-AGENT_UAMI=$(az resource list --resource-group "$RESOURCE_GROUP" \
-  --resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
-  --query "[?contains(name, 'agent')].name" -o tsv)
-
-# List its role assignments
-PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)
-az role assignment list --assignee "$PRINCIPAL_ID" --all \
-  --query "[].{role:roleDefinitionName, scope:scope}" -o table
+az group show --name "$RESOURCE_GROUP" \
+  --query '{resourceGroup:name,location:location}' --output table
 ```
 
-Look for **Reader** and **Monitoring Contributor** on `rg-<workload>` (the value
-of `$RESOURCE_GROUP`; `rg-srelabcosmos` is the default). If missing, the SRE
-Agent portal will tell you what to grant when you connect Azure Monitor.
+Expected outcome: the account table shows `$SUBSCRIPTION_ID`, and the resource
+group table shows `$RESOURCE_GROUP`.
+
+**PowerShell** — run this in the PowerShell terminal where `$WorkloadName` and
+`$ResourceGroup` are already set. Set `$SubscriptionId` to the same
+subscription selected in Module 0:
+
+```powershell
+$SubscriptionId = "<subscription-id>"
+az login
+az account set --subscription $SubscriptionId
+az account show --query "{name:name,id:id}" --output table
+az group show --name $ResourceGroup `
+  --query "{resourceGroup:name,location:location}" --output table
+```
+
+Expected outcome: the account table shows `$SubscriptionId`, and the resource
+group table shows `$ResourceGroup`.
+
+Finally, in the SRE Agent portal open **Set up your agent** → **Full setup** →
+**Azure Resources**. Confirm that `$RESOURCE_GROUP` is present and reports
+**permissions complete** after you reviewed the **Reader** grant. The portal
+manages the agent identity and its grant; do not search for an agent identity
+inside the scenario resource group.
 
 ## Connect Azure Monitor
 
@@ -60,7 +74,9 @@ This zero-credential polling model means there's nothing extra to configure — 
 
 After connecting, verify that the SRE Agent can see your resources: Confirm that **Builder -> Incident Platform** shows "Azure Monitor" as connected
 
-> **⚠️ If alerts aren't being detected later (in Module 5):** Verify the agent's managed identity has **Reader** + **Monitoring Contributor** roles (see Prerequisites above).
+> **⚠️ If alerts aren't being detected later (in Module 5):** Return to **Full
+> setup** → **Azure Resources** and confirm `$RESOURCE_GROUP` still reports
+> **permissions complete**.
 
 ## Create an Incident Response Plan
 
