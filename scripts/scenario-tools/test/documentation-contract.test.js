@@ -8,6 +8,18 @@ import { REPO_ROOT } from '../lib/paths.js';
 
 const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
+const aksKnowledgeExpectations = {
+  'cosmos-rbac-removal': {
+    defaultWorkloadName: 'srelabcosmos',
+    namespace: 'cosmos-rbac-removal',
+    kubernetesWorkloadName: 'cosmos-rbac-removal-app',
+  },
+  'workload-identity-break': {
+    defaultWorkloadName: 'srelabidentity',
+    namespace: 'workload-identity-break',
+    kubernetesWorkloadName: 'workload-identity-break-app',
+  },
+};
 const aksResponsePlanExpectations = {
   'cosmos-rbac-removal': {
     applicationInsightsName: 'srelabcosmos-ai',
@@ -102,6 +114,35 @@ for (const scenario of aksScenarios) {
     assert.doesNotMatch(
       knowledge,
       humanIssueCreator,
+    );
+  });
+
+  test(`${scenario} knowledge derives Azure names from the connected workload resource group`, () => {
+    const knowledge = readFileSync(
+      resolve(scenariosRoot, scenario, 'knowledge', 'operational-guidelines.md'),
+      'utf8',
+    );
+    const { defaultWorkloadName, namespace, kubernetesWorkloadName } =
+      aksKnowledgeExpectations[scenario];
+
+    assert.doesNotMatch(
+      knowledge,
+      new RegExp(`\\b${defaultWorkloadName}\\b`, 'i'),
+      `${scenario} knowledge hard-codes its default workload prefix`,
+    );
+    assert.match(knowledge, /`rg-<workload>`/);
+    assert.match(knowledge, /`<workload>-aks`/);
+    assert.match(knowledge, /`<workload>-id`/);
+    assert.match(
+      knowledge,
+      /infer[\s\S]*actual workload prefix[\s\S]*connected[\s\S]*`rg-<workload>`/i,
+    );
+    assert.match(knowledge, new RegExp(`namespace \`${namespace}\``));
+    assert.match(
+      knowledge,
+      new RegExp(
+        `Deployment and\\s+Kubernetes ServiceAccount \`${kubernetesWorkloadName}\``,
+      ),
     );
   });
 
@@ -270,6 +311,10 @@ for (const scenario of aksScenarios) {
     assert.match(onboarding, /do not use an Application\s+Insights SDK/i);
     assert.doesNotMatch(onboarding, /Application Insights.*provides application telemetry/i);
     assert.doesNotMatch(onboarding, /Application Insights.*app(?:lication)?-level tracing/i);
+    assert.match(
+      onboarding,
+      /uploaded guidance uses `<workload>`[\s\S]*connected[\s\S]*`rg-<workload>`[\s\S]*without editing/i,
+    );
     assert.doesNotMatch(onboarding, /If all three checks pass/);
     assert.doesNotMatch(onboarding, /Monitor\s*→\s*Resource Mapping/);
 

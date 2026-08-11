@@ -119,6 +119,11 @@ The SRE Agent can ingest runbooks and operational guidelines that shape how it r
 2. Add a file source and upload `scenarios/cosmos-rbac-removal/knowledge/operational-guidelines.md` from your repository.
 3. Wait until `operational-guidelines.md` shows type **File** and status **Indexed** before continuing.
 
+The uploaded guidance uses `<workload>` as a resource-name pattern. The agent
+resolves the actual prefix from the connected Azure resource group named
+`rg-<workload>` and applies it without editing the uploaded file; no learner
+file changes are required.
+
 A temporary chat attachment does not persist as agent knowledge. The Code
 repository connection is also separate: it indexes source for investigation,
 but does not replace this operational-guidance file.

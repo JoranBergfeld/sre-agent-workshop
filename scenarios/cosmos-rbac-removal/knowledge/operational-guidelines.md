@@ -31,11 +31,24 @@ scenario-owned remediation script. It first verifies whether the matching
 assignment already exists; it is not the normal remediation path and does not
 replace the required Bicep correction.
 
+## Resolve the Workload Prefix
+
+The uploaded guidance uses `<workload>` as a resource-name pattern, not a
+literal value. Infer the actual workload prefix from the connected Azure
+resource group whose name matches `rg-<workload>` by removing the leading
+`rg-`. Apply that resolved prefix to every Azure resource pattern below; the
+learner does not need to edit this file.
+
 ## Architecture Overview
 
-- **AKS cluster** (`srelabcosmos-aks`): Hosts the web app in the `cosmos-rbac-removal` namespace
-- **CosmosDB** (`srelabcosmos-cosmos-{suffix}`): NoSQL database, accessed via workload identity (no connection strings)
-- **Managed Identity** (`srelabcosmos-id`): UAMI with federated credential linked to K8s ServiceAccount `cosmos-rbac-removal-app`
+- **Resource group** (`rg-<workload>`): Connected Azure resource group from
+  which the workload prefix is derived
+- **AKS cluster** (`<workload>-aks`): Hosts the web app
+- **CosmosDB** (`<workload>-cosmos-{suffix}`): NoSQL database, accessed via
+  workload identity (no connection strings)
+- **Managed Identity** (`<workload>-id`): UAMI with a federated credential
+- **Kubernetes workload**: namespace `cosmos-rbac-removal`; Deployment and
+  Kubernetes ServiceAccount `cosmos-rbac-removal-app`
 - **Authentication chain**: Pod → K8s OIDC → Federated Credential → UAMI → CosmosDB RBAC role assignment
 
 ## Common Failure: CosmosDB RBAC
