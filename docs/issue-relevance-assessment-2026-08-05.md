@@ -15,7 +15,8 @@ real gaps that were subsequently fixed.
 
 Validation was rerun in the issue-remediation worktree on 2026-08-11:
 
-- The full scenario-tools suite passed 108/108 tests.
+- `npm --prefix scripts/scenario-tools test` ran the complete current
+  scenario-tools suite, which passed with zero failures on 2026-08-11.
 - `scripts/validate-scenarios.sh --write` passed.
 - `scripts/validate-scenarios.sh` passed with no catalog drift.
 - Both AKS scenario entry points and alert modules compiled with
