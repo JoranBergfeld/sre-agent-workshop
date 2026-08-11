@@ -11,6 +11,19 @@ handover-only, author-limited assessment and corrects its false conclusion
 that all 15 issues it reviewed were irrelevant. Several reports identified
 real gaps that were subsequently fixed.
 
+## Validation evidence
+
+Validation was rerun in the issue-remediation worktree on 2026-08-11:
+
+- The full scenario-tools suite passed 93/93 tests.
+- `scripts/validate-scenarios.sh --write` passed.
+- `scripts/validate-scenarios.sh` passed with no catalog drift.
+- Stale-content searches found no learner fork phrases in either AKS tree and
+  no old connector anchor, `New incident response plan`,
+  `workshop-all-incidents`, or `If all three checks pass` wording.
+- All seven scenario READMEs contain **Cost profile** and scenario-specific
+  **dominant cost drivers** guidance.
+
 ## Final disposition
 
 | Issues | Final disposition |
