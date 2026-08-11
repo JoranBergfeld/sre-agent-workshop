@@ -558,6 +558,8 @@ The infrastructure is provisioned and ready. In Module 2, you'll:
 ## Cost Reminder
 
 ⏱️ **Time:** Cluster initialization: ~10–15 min  
-💰 **Cost:** This module costs approximately **$0.40–0.50/hour** while resources are running (AKS $0.25/hr + CosmosDB $0.05/hr + Monitoring $0.10/hr).
-
-Remember to run **Module 7: Cleanup** at the end of the workshop to delete resources and stop incurring costs.
+💰 **Cost:** This is a **high** cost-profile scenario. Review the
+[qualitative estimate and dominant cost drivers](../README.md#cost-profile),
+then verify current pricing for your Azure region before provisioning.
+Run **Module 7: Cleanup** immediately after the workshop to delete resources
+and stop incurring charges.

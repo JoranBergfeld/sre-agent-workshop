@@ -52,6 +52,21 @@ function readMarkdownTree(root) {
   });
 }
 
+function assertNoFixedDollarCostEstimates(document) {
+  const prose = document.content.replace(
+    /```(?:bash|sh|shell|zsh|powershell|pwsh)\s*\n[\s\S]*?```/gi,
+    (shellBlock) => shellBlock.replace(/\$(?:\d+|\{\d+\})(?![\d.])/g, 'SHELL_POSITIONAL'),
+  );
+  const fixedDollarCostEstimate =
+    /(?:\bUSD\s*\$?\s*\d|\bUS\$\s*\d|\$\s*~?\s*\d|\b\d+(?:\.\d+)?\s*(?:USD|US dollars?|dollars?|cents?)\b|\b\d+\.\d+\s*(?:\/\s*(?:hr|hour)|per hour)\b)/i;
+
+  assert.doesNotMatch(
+    prose,
+    fixedDollarCostEstimate,
+    `${document.path} publishes a fixed dollar cost estimate`,
+  );
+}
+
 function assertCostGuidance(guide, costProfile) {
   assert.match(guide, /^## Cost profile$/m);
   assert.match(guide, new RegExp(`\\*\\*${costProfile}\\*\\*`, 'i'));
@@ -109,6 +124,21 @@ for (const scenario of aksScenarios) {
         humanIssueCreator,
         `${document.path} assigns AKS issue creation to the human instead of the SRE Agent`,
       );
+    }
+  });
+
+  test(`${scenario} learner documentation rejects fixed dollar cost estimates`, () => {
+    const scenarioRoot = resolve(scenariosRoot, scenario);
+    const learnerDocumentation = [
+      {
+        path: resolve(scenarioRoot, 'README.md'),
+        content: readFileSync(resolve(scenarioRoot, 'README.md'), 'utf8'),
+      },
+      ...readMarkdownTree(resolve(scenarioRoot, 'docs')),
+    ];
+
+    for (const document of learnerDocumentation) {
+      assertNoFixedDollarCostEstimates(document);
     }
   });
 
@@ -354,6 +384,44 @@ The cost profile is **low**. REPLACE_THIS_COST_GUIDANCE with dominant cost drive
   assert.throws(
     () => assertCostGuidance(guide, 'low'),
     /REPLACE_THIS_COST_GUIDANCE/,
+  );
+});
+
+test('fixed dollar cost detection allows shell variables', () => {
+  const shellExamples = {
+    path: 'shell-examples.md',
+    content: [
+      'Use `$RESOURCE_GROUP`, `${WORKLOAD_NAME}`, and `$SubscriptionId`.',
+      '```bash',
+      'printf "%s\\n" "$1"',
+      '```',
+    ].join('\n'),
+  };
+
+  assert.doesNotThrow(() => assertNoFixedDollarCostEstimates(shellExamples));
+});
+
+test('fixed dollar cost detection rejects estimates in inline code', () => {
+  const fixedEstimate = {
+    path: 'fixed-estimate.md',
+    content: 'Set a budget of `$25` before provisioning.',
+  };
+
+  assert.throws(
+    () => assertNoFixedDollarCostEstimates(fixedEstimate),
+    /publishes a fixed dollar cost estimate/,
+  );
+});
+
+test('fixed dollar cost detection rejects estimates in fenced prose', () => {
+  const fixedEstimate = {
+    path: 'fixed-estimate.md',
+    content: ['```text', 'Estimated total: $25', '```'].join('\n'),
+  };
+
+  assert.throws(
+    () => assertNoFixedDollarCostEstimates(fixedEstimate),
+    /publishes a fixed dollar cost estimate/,
   );
 });
 
