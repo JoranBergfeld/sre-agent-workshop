@@ -6,9 +6,99 @@ Congratulations! You've completed the workshop and seen the Azure SRE Agent in a
 
 > **Important:** Once you delete a resource, it cannot be recovered. Only proceed if you're finished experimenting with the workshop environment.
 
+## Remove the SRE Agent Subscription Role Assignment
+
+SRE Agent setup granted its managed identity **Monitoring Contributor** at
+subscription scope. Resource-group deletion removes resources and
+resource-group-scoped role assignments, but resource-group deletion does not
+remove subscription-scope role assignments. Remove this exact assignment before
+deleting the agent, while its principal ID is still available.
+
+You need **Owner** or **User Access Administrator** at subscription scope to
+delete this role assignment. Contributor is not sufficient.
+
+### Capture the Agent Principal ID Before Deletion
+
+1. In the SRE Agent portal, select the workshop agent.
+2. Open **Settings** → **Azure settings** → **Go to Identity**.
+3. Copy the **Object (principal) ID** before deleting the agent.
+
+### List, Review, Delete, and Verify the Exact Assignment
+
+Reuse the subscription variables from Module 0. Set the intended subscription,
+confirm the active account, and use `/subscriptions/<subscription-id>` as the
+exact cleanup scope.
+
+**Bash**
+
+```bash
+export SUBSCRIPTION_ID="<subscription-id>"
+AGENT_PRINCIPAL_ID="<object-principal-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+az role assignment list --assignee-object-id "$AGENT_PRINCIPAL_ID" --role "Monitoring Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID" --output table
+```
+
+Review the output and confirm it is the agent's **Monitoring Contributor**
+assignment at the intended subscription scope. Then delete only that exact
+role and scope:
+
+```bash
+az role assignment delete --assignee-object-id "$AGENT_PRINCIPAL_ID" --role "Monitoring Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID"
+az role assignment list --assignee-object-id "$AGENT_PRINCIPAL_ID" --role "Monitoring Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID" --output table
+```
+
+The verification list must return no matching assignment before you continue.
+
+**PowerShell**
+
+```powershell
+$SubscriptionId = "<subscription-id>"
+$AgentPrincipalId = "<object-principal-id>"
+az account set --subscription $SubscriptionId
+az account show --query "{name:name,id:id}" --output table
+az role assignment list --assignee-object-id $AgentPrincipalId --role "Monitoring Contributor" --scope "/subscriptions/$SubscriptionId" --output table
+```
+
+Review the output and confirm it is the agent's **Monitoring Contributor**
+assignment at the intended subscription scope. Then delete only that exact
+role and scope:
+
+```powershell
+az role assignment delete --assignee-object-id $AgentPrincipalId --role "Monitoring Contributor" --scope "/subscriptions/$SubscriptionId"
+az role assignment list --assignee-object-id $AgentPrincipalId --role "Monitoring Contributor" --scope "/subscriptions/$SubscriptionId" --output table
+```
+
+The verification list must return no matching assignment before you continue.
+
+Do not use a broad role-assignment deletion command.
+
+## Delete the SRE Agent
+
+After verifying the subscription-scope assignment is gone, delete the workshop
+agent.
+
+### Via the SRE Agent Portal
+
+1. Navigate to [sre.azure.com](https://sre.azure.com).
+2. Select your agent from the list.
+3. Click **Settings** (gear icon).
+4. Click **Delete agent** at the bottom.
+5. Confirm deletion.
+
+### Via the Azure Portal
+
+1. Navigate to the [Azure Portal](https://portal.azure.com).
+2. Go to your resource group (or all resources).
+3. Search for the SRE Agent resource by name.
+4. Open the resource and select **Delete**.
+5. Confirm deletion.
+
 ## Delete Azure Resources
 
-All your workshop resources (AKS, CosmosDB, Log Analytics, Application Insights, managed identity, and role assignments) live in a single resource group. Deleting the resource group deletes everything in one command.
+The AKS, Cosmos DB, Log Analytics, Application Insights, managed identity, and
+resource-group-scoped role assignments live in the scenario resource group.
+The subscription-scoped SRE Agent assignment was removed separately above.
 
 ### Get Your Resource Group Name
 
@@ -54,27 +144,6 @@ az group show --name "$RESOURCE_GROUP"
 This command will return an error once the resource group is deleted (which is the expected outcome).
 
 > **Note:** Deletion typically takes 5–10 minutes. You'll stop incurring hourly charges immediately, but Azure may take a moment to fully remove the resources from billing.
-
-## Delete the SRE Agent
-
-The SRE Agent resource itself was created in your resource group, so it was already deleted in the step above. However, if you created an agent in a separate subscription or resource group, follow these steps:
-
-### Via the Azure Portal
-
-1. Navigate to the [Azure Portal](https://portal.azure.com)
-2. Go to your resource group (or all resources)
-3. Search for the SRE Agent resource by name
-4. Click on it to open the resource page
-5. Click **Delete** in the top menu bar
-6. Confirm the deletion
-
-### Via the SRE Agent Portal
-
-1. Navigate to [sre.azure.com](https://sre.azure.com)
-2. Select your agent from the list
-3. Click **Settings** (gear icon)
-4. Click **Delete agent** at the bottom
-5. Confirm deletion
 
 ## Clean Up GitHub
 
@@ -133,6 +202,10 @@ az ad sp show --id {APP_ID} 2>/dev/null || echo "✓ Service principal deleted"
 
 ## Final Checklist
 
+- [ ] SRE Agent Object (principal) ID captured before agent deletion
+- [ ] Exact subscription-scope Monitoring Contributor assignment reviewed
+- [ ] Exact assignment deleted and the verification list returned no assignment
+- [ ] SRE Agent deleted
 - [ ] Azure resource group cleanup started with the capsule cleanup script
 - [ ] Verified deletion: `az group show --name "$RESOURCE_GROUP"` returns an error
 - [ ] Service principal deleted (optional): `az ad sp delete --id {APP_ID}`

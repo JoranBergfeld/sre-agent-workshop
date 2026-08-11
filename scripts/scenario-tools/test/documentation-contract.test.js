@@ -315,6 +315,58 @@ for (const scenario of aksScenarios) {
     assert.doesNotMatch(incidentResponse, /Microsoft\.ManagedIdentity/);
     assert.doesNotMatch(incidentResponse, /az identity show/);
   });
+
+  test(`${scenario} cleanup removes only the agent subscription monitoring role before deletion`, () => {
+    const cleanup = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '99-cleanup.md'),
+      'utf8',
+    );
+    const bashList =
+      'az role assignment list --assignee-object-id "$AGENT_PRINCIPAL_ID" --role "Monitoring Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID"';
+    const bashDelete =
+      'az role assignment delete --assignee-object-id "$AGENT_PRINCIPAL_ID" --role "Monitoring Contributor" --scope "/subscriptions/$SUBSCRIPTION_ID"';
+    const powerShellList =
+      'az role assignment list --assignee-object-id $AgentPrincipalId --role "Monitoring Contributor" --scope "/subscriptions/$SubscriptionId"';
+    const powerShellDelete =
+      'az role assignment delete --assignee-object-id $AgentPrincipalId --role "Monitoring Contributor" --scope "/subscriptions/$SubscriptionId"';
+
+    assert.match(cleanup, /Settings.*Azure settings.*Go to Identity/i);
+    assert.match(cleanup, /copy[\s\S]*Object \(principal\) ID[\s\S]*before deleting the agent/i);
+    assert.match(
+      cleanup,
+      /Owner\*{0,2} or \*{0,2}User Access Administrator\*{0,2} at subscription scope/i,
+    );
+    assert.match(
+      cleanup,
+      /resource-group deletion does not\s+remove[\s\S]*subscription-scope role assignments/i,
+    );
+    assert.match(cleanup, /az account set --subscription "\$SUBSCRIPTION_ID"/);
+    assert.match(cleanup, /az account set --subscription \$SubscriptionId/);
+    assert.equal(cleanup.split(bashList).length - 1, 2);
+    assert.equal(cleanup.split(powerShellList).length - 1, 2);
+    assert.ok(cleanup.includes(bashDelete));
+    assert.ok(cleanup.includes(powerShellDelete));
+    assert.match(cleanup, /review[\s\S]*Monitoring Contributor[\s\S]*subscription scope/i);
+    assert.match(cleanup, /verify[\s\S]*no (?:matching )?assignment/i);
+
+    const captureIndex = cleanup.search(/copy[\s\S]*Object \(principal\) ID/i);
+    const firstListIndex = cleanup.indexOf(bashList);
+    const deleteIndex = cleanup.indexOf(bashDelete);
+    const verifyIndex = cleanup.lastIndexOf(bashList);
+    const agentDeletionIndex = cleanup.indexOf('## Delete the SRE Agent');
+    const resourceDeletionIndex = cleanup.indexOf('## Delete Azure Resources');
+
+    assert.ok(captureIndex < firstListIndex);
+    assert.ok(firstListIndex < deleteIndex);
+    assert.ok(deleteIndex < verifyIndex);
+    assert.ok(verifyIndex < agentDeletionIndex);
+    assert.ok(agentDeletionIndex < resourceDeletionIndex);
+    assert.doesNotMatch(
+      cleanup,
+      /All your workshop resources[^.]*role assignments[^.]*single resource group/i,
+    );
+    assert.doesNotMatch(cleanup, /Deleting the resource group deletes everything/i);
+  });
 }
 
 test('AKS response plans use the current Agent Canvas flow', () => {
