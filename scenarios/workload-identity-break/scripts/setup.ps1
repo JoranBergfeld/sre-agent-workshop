@@ -4,10 +4,24 @@
 #   .\scenarios\workload-identity-break\scripts\setup.ps1 -Location swedencentral
 
 param(
-    [string]$Location = "eastus2"
+    [string]$Location = "eastus2",
+    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID,
+    [switch]$Help
 )
 
 $errors = 0
+if ($Help) {
+    Write-Host "Usage: ./setup.ps1 [-SubscriptionId <id>] [-Location <region>]"
+    exit 0
+}
+
+$requestedSubscriptionId = $SubscriptionId
+if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId)) { az account set --subscription $requestedSubscriptionId; if ($LASTEXITCODE -ne 0) { throw "Unable to select Azure subscription '$requestedSubscriptionId'. Run 'az login', then run: az account set --subscription `"$requestedSubscriptionId`"" } }
+$activeSubscriptionId = [string](az account show --query id --output tsv); if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($activeSubscriptionId)) { throw "Azure CLI is not authenticated. Run 'az login' and try again." }
+$activeSubscriptionName = [string](az account show --query name --output tsv); if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($activeSubscriptionName)) { throw "Unable to read the active Azure subscription name." }
+$activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim()
+if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', but active subscription is '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }
+Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 
 function Write-Header($text) { Write-Host "`n-- $text --" }
 function Write-Ok($text)     { Write-Host "  ✅ $text" }

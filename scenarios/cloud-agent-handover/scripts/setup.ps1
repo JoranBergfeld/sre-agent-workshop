@@ -5,7 +5,9 @@ param(
 
     [ValidateLength(1, 51)]
     [ValidatePattern("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
-    [string]$Workload = "srelabapp"
+    [string]$Workload = "srelabapp",
+
+    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,14 +45,17 @@ foreach ($requiredCommand in @("az", "gh", "dotnet")) {
     }
 }
 
-try {
-    $accountJson = (Invoke-NativeCommand -Command "az" -Arguments @(
-        "account", "show", "--output", "json"
-    )) -join [Environment]::NewLine
-}
-catch {
-    throw "Azure CLI is not authenticated. Run 'az login' and try again."
-}
+$requestedSubscriptionId = $SubscriptionId
+if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId)) { az account set --subscription $requestedSubscriptionId; if ($LASTEXITCODE -ne 0) { throw "Unable to select Azure subscription '$requestedSubscriptionId'. Run 'az login', then run: az account set --subscription `"$requestedSubscriptionId`"" } }
+$activeSubscriptionId = [string](az account show --query id --output tsv); if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($activeSubscriptionId)) { throw "Azure CLI is not authenticated. Run 'az login' and try again." }
+$activeSubscriptionName = [string](az account show --query name --output tsv); if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($activeSubscriptionName)) { throw "Unable to read the active Azure subscription name." }
+$activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim()
+if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', but active subscription is '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }
+Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
+$selectedSubscription = [PSCustomObject]@{ Id = $activeSubscriptionId; Name = $activeSubscriptionName }
+$accountJson = (Invoke-NativeCommand -Command "az" -Arguments @(
+    "account", "show", "--output", "json"
+)) -join [Environment]::NewLine
 $account = $accountJson | ConvertFrom-Json
 
 try {
@@ -105,7 +110,7 @@ query($owner:String!, $name:String!) {
         throw "Copilot coding agent is not assignable in $repository. Enable it before setup."
     }
 
-    $subscriptionId = [string]$account.id
+    $subscriptionId = [string]$selectedSubscription.Id
     $tenantId = [string]$account.tenantId
     $resourceGroup = "rg-$Workload"
 

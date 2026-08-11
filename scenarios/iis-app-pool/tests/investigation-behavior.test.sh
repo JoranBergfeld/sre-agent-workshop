@@ -28,7 +28,19 @@ set -euo pipefail
 printf '%s\n' "$*" > "$FIXTURE/inspection-arguments.txt"
   printf '%s\n' "$INSPECTION_OUTPUT"
 EOF
-  printf '%s\n' "$az_body" > "$fixture/bin/az"
+  cat > "$fixture/bin/az" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1 $2" == "account show" ]]; then
+  if [[ " $* " == *" --query name "* ]]; then
+    printf 'test-subscription\n'
+  else
+    printf '00000000-0000-0000-0000-000000000000\n'
+  fi
+  exit 0
+fi
+EOF
+  printf '%s\n' "$az_body" >> "$fixture/bin/az"
   chmod +x "$fixture"/{bin/az,tools/invoke-vm-investigation.sh,tools/invoke-vm-run-command.sh}
 
   FIXTURE="$fixture" INSPECTION_OUTPUT="$inspection_output" PATH="$fixture/bin:$PATH" \
@@ -44,32 +56,27 @@ EOF
   grep -Fq -- "- **Confidence:** $expected_confidence" "$postmortem"
 }
 
-run_case empty '#!/usr/bin/env bash
-printf "%s\n" "{\"tables\":[{\"rows\":[]}]}"' \
+run_case empty 'printf "%s\n" "{\"tables\":[{\"rows\":[]}]}"' \
   '{"Name":"DefaultAppPool","Value":"Stopped"}' \
   "KQL query returned no records; telemetry evidence is unavailable." \
   low
 
-run_case failed '#!/usr/bin/env bash
-exit 9' \
+run_case failed 'exit 9' \
   '{"Name":"DefaultAppPool","Value":"Stopped"}' \
   "KQL query failed; telemetry evidence is unavailable." \
   low
 
-run_case stopped '#!/usr/bin/env bash
-printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
+run_case stopped 'printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
   '{"Name":"DefaultAppPool","Value":"Stopped"}' \
   "VM inspection emitted Value exactly 'Stopped'." \
   high
 
-run_case running '#!/usr/bin/env bash
-printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
+run_case running 'printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
   '{"Name":"DefaultAppPool","Value":"Started"}' \
   "VM inspection emitted Value 'Started', contradicting the stopped app-pool hypothesis." \
   low
 
-run_case malformed '#!/usr/bin/env bash
-printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
+run_case malformed 'printf "%s\n" "{\"tables\":[{\"rows\":[[\"evidence\"]]}]}"' \
   'not-json' \
   "VM inspection output is unparseable; the stopped app-pool hypothesis is unconfirmed." \
   medium

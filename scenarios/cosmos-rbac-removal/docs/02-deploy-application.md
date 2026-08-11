@@ -42,7 +42,12 @@ First, make sure you have AKS credentials:
 
 ```bash
 # Get AKS credentials (if you haven't done this since Module 1)
-az aks get-credentials --resource-group rg-srelabcosmos --name srelabcosmos-aks
+export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "${WORKLOAD_NAME}-aks"
 ```
 
 Now check that the pods are running:

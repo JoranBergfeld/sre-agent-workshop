@@ -8,11 +8,12 @@ UPSTREAM_REPOSITORY="JoranBergfeld/sre-agent-workshop"
 
 usage() {
   cat <<'EOF'
-Usage: setup.sh [-l|--location <region>] [-w|--workload <name>]
+Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>]
 
 Options:
   -l, --location  Azure region (default: eastus2)
   -w, --workload  Workload name (default: srelabapp)
+  -s, --subscription-id  Azure subscription ID (default: AZURE_SUBSCRIPTION_ID or active subscription)
   -h, --help      Show this help
 EOF
 }
@@ -44,6 +45,11 @@ while [ "$#" -gt 0 ]; do
     -w|--workload)
       require_option_value "$1" "${2:-}"
       WORKLOAD="$2"
+      shift 2
+      ;;
+    -s|--subscription-id)
+      require_option_value "$1" "${2:-}"
+      export AZURE_SUBSCRIPTION_ID="$2"
       shift 2
       ;;
     -h|--help)
@@ -78,18 +84,21 @@ for required_command in az gh dotnet zip jq; do
   fi
 done
 
-if ! az account show >/dev/null 2>&1; then
-  echo "Azure CLI is not authenticated. Run 'az login' and try again." >&2
-  exit 1
-fi
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
+requested_subscription_id="${AZURE_SUBSCRIPTION_ID:-}"
+if [ -n "$requested_subscription_id" ] && ! az account set --subscription "$requested_subscription_id"; then echo "Unable to select Azure subscription '$requested_subscription_id'. Run 'az login', then run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; fi
+active_subscription_id=$(az account show --query id --output tsv) || { echo "Azure CLI is not authenticated. Run 'az login' and try again." >&2; exit 1; }
+active_subscription_name=$(az account show --query name --output tsv) || { echo "Unable to read the active Azure subscription name." >&2; exit 1; }
+if [ -z "$active_subscription_id" ] || [ -z "$active_subscription_name" ]; then echo "Unable to read the active Azure subscription. Run 'az login' and try again." >&2; exit 1; fi
+if [ -n "$requested_subscription_id" ] && [ "$active_subscription_id" != "$requested_subscription_id" ]; then echo "Azure subscription mismatch: requested '$requested_subscription_id', but active subscription is '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; fi
+echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 
 if ! gh auth status >/dev/null 2>&1; then
   echo "GitHub CLI is not authenticated. Run 'gh auth login' and try again." >&2
   exit 1
 fi
 
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT=$(cd -- "$SCRIPT_DIR/../../.." && pwd)
 cd "$REPO_ROOT"
 
 if ! REPOSITORY=$(gh repo view --json nameWithOwner --jq .nameWithOwner); then
@@ -129,7 +138,7 @@ if ! grep -Fxq 'copilot-swe-agent' <<<"$ACTORS"; then
   exit 1
 fi
 
-SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+SUBSCRIPTION_ID="$active_subscription_id"
 TENANT_ID=$(az account show --query tenantId --output tsv)
 RESOURCE_GROUP="rg-$WORKLOAD"
 

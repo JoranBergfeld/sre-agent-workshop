@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -92,6 +93,8 @@ for (const scenario of scenarios) {
       '--dry-run',
       '--resource-group',
       'rg-custom',
+      '--workload',
+      'ignored-workload',
     ], {
       encoding: 'utf8',
     });
@@ -110,6 +113,8 @@ for (const scenario of scenarios) {
       '--dry-run',
       '-ResourceGroup',
       'rg-custom',
+      '-Workload',
+      'ignored-workload',
     ], {
       encoding: 'utf8',
     });
@@ -117,6 +122,53 @@ for (const scenario of scenarios) {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Resource group: rg-custom/);
     assert.match(result.stdout, /Dry run: would delete resource group 'rg-custom'\./);
+  });
+
+  for (const [shell, command, args] of [
+    ['Bash', 'bash', [resolve(scriptsDirectory, 'cleanup.sh'), '--workload', 'custom-workload', '--dry-run']],
+    ['PowerShell', 'pwsh', ['-NoProfile', '-File', resolve(scriptsDirectory, 'cleanup.ps1'), '-Workload', 'custom-workload', '--dry-run']],
+  ]) {
+    test(`${scenario} ${shell} cleanup derives the resource group from a custom workload`, () => {
+      const result = spawnSync(command, args, { encoding: 'utf8' });
+
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Resource group: rg-custom-workload/);
+      assert.match(result.stdout, /Dry run: would delete resource group 'rg-custom-workload'\./);
+    });
+  }
+
+  for (const script of ['inject', 'cleanup', 'remediate']) {
+    test(`${scenario} ${script} help has Bash and PowerShell resource/workload parity`, () => {
+      const bash = spawnSync('bash', [resolve(scriptsDirectory, `${script}.sh`), '--help'], { encoding: 'utf8' });
+      const powershell = spawnSync('pwsh', [
+        '-NoProfile',
+        '-File',
+        resolve(scriptsDirectory, `${script}.ps1`),
+        '-Help',
+      ], { encoding: 'utf8' });
+
+      assert.equal(bash.status, 0, bash.stderr);
+      assert.equal(powershell.status, 0, powershell.stderr);
+      assert.match(bash.stdout, /resource-group/i);
+      assert.match(bash.stdout, /workload/i);
+      assert.match(powershell.stdout, /ResourceGroup/i);
+      assert.match(powershell.stdout, /Workload/i);
+    });
+  }
+
+  test(`${scenario} setup help has Bash and PowerShell subscription parity`, () => {
+    const bash = spawnSync('bash', [resolve(scriptsDirectory, 'setup.sh'), '--help'], { encoding: 'utf8' });
+    const powershell = spawnSync('pwsh', [
+      '-NoProfile',
+      '-File',
+      resolve(scriptsDirectory, 'setup.ps1'),
+      '-Help',
+    ], { encoding: 'utf8' });
+
+    assert.equal(bash.status, 0, bash.stderr);
+    assert.equal(powershell.status, 0, powershell.stderr);
+    assert.match(bash.stdout, /subscription-id/i);
+    assert.match(powershell.stdout, /SubscriptionId/i);
   });
 }
 
@@ -160,5 +212,35 @@ test('Cosmos RBAC manual fallback stops when listing role assignments fails', ()
     assert.notEqual(result.status, 0, result.stderr);
     assert.match(result.stderr, /simulated role-assignment list failure/);
     assert.doesNotMatch(result.stderr, /unexpected CosmosDB role assignment creation/);
+  }
+});
+
+test('Cosmos RBAC manual fallback derives a custom resource group and selects the subscription', () => {
+  const scriptsDirectory = resolve(repositoryRoot, 'scenarios', 'cosmos-rbac-removal', 'scripts');
+  const temporaryDirectory = mkdtempSync(resolve(tmpdir(), 'sre-agent-lifecycle-'));
+
+  const commands = [
+    ['bash', [resolve(scriptsDirectory, 'remediate.sh'), '--workload', 'custom-workload', '--subscription-id', 'test-subscription']],
+    ['pwsh', ['-NoProfile', '-File', resolve(scriptsDirectory, 'remediate.ps1'), '-Workload', 'custom-workload', '-SubscriptionId', 'test-subscription']],
+  ];
+
+  for (const [index, [command, args]] of commands.entries()) {
+    const logPath = resolve(temporaryDirectory, `az-${index}.log`);
+    const result = spawnSync(command, args, {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: mockedLifecyclePath,
+        LIFECYCLE_AZ_LOG_PATH: logPath,
+        LIFECYCLE_AZ_SUBSCRIPTION_ID: 'test-subscription',
+      },
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Azure subscription: test-subscription \(test-subscription\)/);
+    const azLog = readFileSync(logPath, 'utf8');
+    assert.match(azLog, /account set --subscription test-subscription/);
+    assert.match(azLog, /cosmosdb list --resource-group rg-custom-workload/);
+    assert.match(azLog, /identity show --name custom-workload-id --resource-group rg-custom-workload/);
   }
 });

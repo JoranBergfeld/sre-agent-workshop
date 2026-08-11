@@ -152,7 +152,11 @@ Replace `srelabcosmos` and `eastus2` with your desired workload name and locatio
 
 ```bash
 export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
 export LOCATION="eastus2"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
 ```
 
 **Supported locations:**
@@ -170,7 +174,7 @@ export LOCATION="eastus2"
 
 ```bash
 az group create \
-  --name "rg-${WORKLOAD_NAME}" \
+  --name "${RESOURCE_GROUP}" \
   --location "${LOCATION}" \
   --tags workshop=sre-agent environment=demo
 ```
@@ -199,7 +203,7 @@ From the repository root, run:
 
 ```bash
 az deployment group create \
-  --resource-group "rg-${WORKLOAD_NAME}" \
+  --resource-group "${RESOURCE_GROUP}" \
   --template-file scenarios/cosmos-rbac-removal/infra/bicep/main.bicep \
   --parameters scenarios/cosmos-rbac-removal/infra/bicep/main.bicepparam \
     location="${LOCATION}" \
@@ -220,7 +224,7 @@ After the deployment completes, parse the outputs:
 echo "============================================"
 echo "  Infrastructure Deployment Complete"
 echo "============================================"
-echo "Resource Group:       rg-${WORKLOAD_NAME}"
+echo "Resource Group:       ${RESOURCE_GROUP}"
 echo "Location:             ${LOCATION}"
 echo "AKS Cluster:          $(jq -r '.aksClusterName.value' deployment-outputs.json)"
 echo "CosmosDB Endpoint:    $(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)"
@@ -261,10 +265,10 @@ az login
 
 ### 2. List All Resources
 
-Replace `srelabcosmos` with your `workloadName` if you customized it:
+Use the workload and resource-group variables established above:
 
 ```bash
-az resource list --resource-group rg-srelabcosmos -o table
+az resource list --resource-group "$RESOURCE_GROUP" -o table
 ```
 
 Expected output: ~8–10 resources including AKS cluster, CosmosDB, Log Analytics, Application Insights, managed identity, alert rules, etc. (Azure may auto-create additional resources like Smart Detection rules.)
@@ -273,8 +277,8 @@ Expected output: ~8–10 resources including AKS cluster, CosmosDB, Log Analytic
 
 ```bash
 az aks show \
-  --resource-group rg-srelabcosmos \
-  --name srelabcosmos-aks \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "${WORKLOAD_NAME}-aks" \
   --query "{name:name, status:provisioningState, oidc:oidcIssuerProfile.enabled}" \
   -o table
 ```
@@ -294,8 +298,8 @@ Download the cluster credentials so `kubectl` can communicate with your cluster:
 
 ```bash
 az aks get-credentials \
-  --resource-group rg-srelabcosmos \
-  --name srelabcosmos-aks
+  --resource-group "$RESOURCE_GROUP" \
+  --name "${WORKLOAD_NAME}-aks"
 ```
 
 > **⚠️ Existing kubectl users:** If you already use `kubectl` with other clusters, this command adds a new context to your kubeconfig and sets it as the current context. Your existing cluster configurations are preserved — you can switch back with `kubectl config use-context <your-old-context>`.
@@ -319,8 +323,8 @@ Both nodes should be in `Ready` state. If nodes show `NotReady` or `NotSchedulab
 
 ```bash
 az cosmosdb show \
-  --resource-group rg-srelabcosmos \
-  --name $(az cosmosdb list --resource-group rg-srelabcosmos --query "[0].name" -o tsv) \
+  --resource-group "$RESOURCE_GROUP" \
+  --name $(az cosmosdb list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv) \
   --query "{name:name, kind:kind, status:provisioningState}" \
   -o table
 ```
@@ -336,8 +340,8 @@ srelabcosmos-cosmos-xxxx    GlobalDocumentDB  Succeeded
 
 ```bash
 az identity show \
-  --resource-group rg-srelabcosmos \
-  --name srelabcosmos-id \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "${WORKLOAD_NAME}-id" \
   --query "{name:name, clientId:clientId}" \
   -o table
 ```
@@ -467,7 +471,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
 **Solution:**
 1. Re-run the credential fetch:
    ```bash
-   az aks get-credentials --resource-group rg-srelabcosmos --name srelabcosmos-aks
+  az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "${WORKLOAD_NAME}-aks"
    ```
 2. Verify the kubeconfig context:
    ```bash
@@ -476,7 +480,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
    Should show something like `srelabcosmos-aks` or similar.
 3. Check cluster status in Azure:
    ```bash
-   az aks show --resource-group rg-srelabcosmos --name srelabcosmos-aks --query provisioningState
+  az aks show --resource-group "$RESOURCE_GROUP" --name "${WORKLOAD_NAME}-aks" --query provisioningState
    ```
    Should return `"Succeeded"`. If it shows `"Creating"` or other state, wait a few more minutes.
 
@@ -515,7 +519,7 @@ Run this quick verification:
 
 ```bash
 # List resources
-az resource list --resource-group rg-srelabcosmos --query "[].type" -o table | wc -l
+az resource list --resource-group "$RESOURCE_GROUP" --query "[].type" -o table | wc -l
 # Should show: ~10
 
 # Check nodes
@@ -523,7 +527,7 @@ kubectl get nodes
 # Should show: 2 nodes in Ready state
 
 # Check cluster readiness
-az aks show --resource-group rg-srelabcosmos --name srelabcosmos-aks --query "provisioningState"
+az aks show --resource-group "$RESOURCE_GROUP" --name "${WORKLOAD_NAME}-aks" --query "provisioningState"
 # Should show: "Succeeded"
 ```
 

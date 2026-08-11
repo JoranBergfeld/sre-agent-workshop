@@ -51,6 +51,24 @@ gh auth login
 gh auth refresh -s read:org,repo
 ```
 
+Optionally pin every lifecycle command to an intended Azure subscription:
+
+```bash
+export AZURE_SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$AZURE_SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+```
+
+```powershell
+$env:AZURE_SUBSCRIPTION_ID = "<subscription-id>"
+az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+az account show --query '{name:name,id:id}' --output table
+```
+
+Setup also accepts `--subscription-id <subscription-id>` in Bash and
+`-SubscriptionId <subscription-id>` in PowerShell. Lifecycle scripts verify
+the active subscription and print its name and ID before Azure operations.
+
 The GitHub scopes required by your organization may vary with its policy.
 
 ### Codespaces GitHub authentication

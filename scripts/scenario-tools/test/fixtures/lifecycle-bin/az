@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ -n "${LIFECYCLE_AZ_LOG_PATH:-}" ]; then
+  printf '%s\n' "$*" >> "$LIFECYCLE_AZ_LOG_PATH"
+fi
+
 case " $* " in
+  *" account set "*)
+    ;;
+  *" account show --output none "*)
+    ;;
+  *" account show "*" --query name "*)
+    printf '%s\n' "${LIFECYCLE_AZ_SUBSCRIPTION_NAME:-test-subscription}"
+    ;;
+  *" account show "*)
+    printf '%s\n' "${LIFECYCLE_AZ_SUBSCRIPTION_ID:-test-subscription}"
+    ;;
   *" cosmosdb list "*)
     printf 'cosmos-account\n'
     ;;

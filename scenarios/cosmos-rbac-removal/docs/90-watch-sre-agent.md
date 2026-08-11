@@ -54,13 +54,25 @@ Only when the issue-to-Copilot flow cannot be used, an authorized operator may
 run the capsule fallback:
 
 ```bash
+export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
 ./scenarios/cosmos-rbac-removal/scripts/remediate.sh \
-  --resource-group rg-srelabcosmos --workload srelabcosmos
+   --resource-group "$RESOURCE_GROUP" --workload "$WORKLOAD_NAME" \
+   --subscription-id "$SUBSCRIPTION_ID"
 ```
 
 ```powershell
+$WorkloadName = "srelabcosmos"
+$ResourceGroup = "rg-$WorkloadName"
+$SubscriptionId = "<subscription-id>"
+az account set --subscription $SubscriptionId
+az account show --query '{name:name,id:id}' --output table
 ./scenarios/cosmos-rbac-removal/scripts/remediate.ps1 `
-  -ResourceGroup rg-srelabcosmos -Workload srelabcosmos
+   -ResourceGroup $ResourceGroup -Workload $WorkloadName `
+   -SubscriptionId $SubscriptionId
 ```
 
 The fallback safely exits without creating another assignment if the matching

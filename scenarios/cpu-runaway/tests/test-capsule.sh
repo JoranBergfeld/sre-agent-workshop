@@ -154,6 +154,19 @@ cat > "$MOCK_BIN/az" <<'EOF'
 set -euo pipefail
 printf '%s\n' "$*" >> "$AZ_LOG"
 
+if [ "${1:-} ${2:-}" = "account set" ]; then
+  exit 0
+fi
+
+if [ "${1:-} ${2:-}" = "account show" ]; then
+  if [[ " $* " == *" --query name "* ]]; then
+    printf 'test-subscription\n'
+  else
+    printf '00000000-0000-0000-0000-000000000000\n'
+  fi
+  exit 0
+fi
+
 case "${1:-} ${2:-} ${3:-}" in
   "group show "*)
     case "${AZ_GROUP_SHOW_MODE:-success}" in

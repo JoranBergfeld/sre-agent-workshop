@@ -11,13 +11,19 @@ Before configuring incident response, ensure the SRE Agent's managed identity ha
 You can verify with:
 
 ```bash
+export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+
 # Find the agent's managed identity
-AGENT_UAMI=$(az resource list --resource-group rg-srelabcosmos \
+AGENT_UAMI=$(az resource list --resource-group "$RESOURCE_GROUP" \
   --resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
   --query "[?contains(name, 'agent')].name" -o tsv)
 
 # List its role assignments
-PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group rg-srelabcosmos --query principalId -o tsv)
+PRINCIPAL_ID=$(az identity show --name "$AGENT_UAMI" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)
 az role assignment list --assignee "$PRINCIPAL_ID" --all \
   --query "[].{role:roleDefinitionName, scope:scope}" -o table
 ```
@@ -111,7 +117,7 @@ Log Analytics workspace, not a metric alert.
 ```bash
 # List scheduled query rules in the resource group
 az resource list \
-  --resource-group rg-srelabcosmos \
+   --resource-group "$RESOURCE_GROUP" \
   --resource-type "Microsoft.Insights/scheduledQueryRules" \
   --query "[].name" -o tsv
 ```

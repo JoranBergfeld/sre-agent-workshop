@@ -55,13 +55,24 @@ Only when the issue-to-Copilot flow cannot be used, an authorized operator may
 run the capsule fallback:
 
 ```bash
+export WORKLOAD_NAME="srelabidentity"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
 ./scenarios/workload-identity-break/scripts/remediate.sh \
-  --resource-group rg-srelabidentity --workload srelabidentity
+   --resource-group "$RESOURCE_GROUP" --workload "$WORKLOAD_NAME"
 ```
 
 ```powershell
+$WorkloadName = "srelabidentity"
+$ResourceGroup = "rg-$WorkloadName"
+$SubscriptionId = "<subscription-id>"
+az account set --subscription $SubscriptionId
+az account show --query '{name:name,id:id}' --output table
+$env:AZURE_SUBSCRIPTION_ID = $SubscriptionId
 ./scenarios/workload-identity-break/scripts/remediate.ps1 `
-  -ResourceGroup rg-srelabidentity -Workload srelabidentity
+   -ResourceGroup $ResourceGroup -Workload $WorkloadName
 ```
 
 The fallback recreates the federated credential and restarts the workload. It

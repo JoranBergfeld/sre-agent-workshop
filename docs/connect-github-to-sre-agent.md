@@ -8,7 +8,7 @@ There are two separate GitHub integrations:
 | Integration | Where you set it up | Purpose |
 | --- | --- | --- |
 | **Code repository** | The **Code** card on the agent setup page | Lets the agent read code for root-cause analysis, file references, and deployment correlation |
-| **GitHub connector** | **Builder → Connectors** | Lets the agent read GitHub issues, pull requests, and workflow runs and, when policy permits, create issues |
+| **GitHub MCP connector** | **Builder → Connectors** | Lets the agent read GitHub issues, pull requests, and workflow runs and, when policy permits, create issues |
 
 Connecting the code repository creates an OAuth connection for indexing; it
 does not replace the GitHub connector used for issue handoff.
@@ -33,18 +33,25 @@ On the agent setup page, select **Set up your agent**, then:
 
 The agent starts indexing the selected repository.
 
-## Set up the GitHub connector with a PAT
+## Set up the GitHub MCP connector with a PAT
 
 Use the connector for the Cloud Agent Handover and AKS scenario issue flows.
-This workshop uses a GitHub personal access token (PAT); an OAuth connection
-is not available for the connector. The portal still calls the setup option
-**GitHub OAuth connector** because it supports both authentication methods.
+The connector supports OAuth and personal access token (PAT) authentication.
+This workshop uses a PAT so its repository permissions are explicit and
+repeatable. Use OAuth instead when your organization requires interactive
+user authentication.
 
 1. Open the agent and go to **Builder → Connectors**.
-2. Select **Add connector**, then **GitHub OAuth connector**.
+2. Select **Add connector**, then select the GitHub partner/MCP connector. The
+   portal may label this connector **GitHub OAuth connector** even when PAT
+   authentication is used.
 3. Select **PAT**.
 4. Paste the token created in the next section and select **Connect**.
 5. Confirm that the connector status is **Connected**.
+6. Select only the MCP tools required by the scenario and save the connector.
+   An agent can have at most 80 tools enabled across all connectors, so do not
+   accept unrelated tools. The scenario policy below defines the allowed
+   write operations.
 
 ### Create a fine-grained PAT
 

@@ -59,7 +59,7 @@ Once deployment completes, you'll land on the agent overview page. Click **Set u
 
 ### Add Your GitHub Repository
 
-Follow **[Connect GitHub to the SRE Agent → Connect your code repository](../../../docs/connect-github-to-sre-agent.md#connect-your-code-repository)** to connect your **forked workshop repository** (the one you created in Module 0) via the **Code** card. Come back here once the Code card shows a green checkmark.
+Follow **[Connect GitHub to the SRE Agent → Connect your code repository](../../../docs/connect-github-to-sre-agent.md#connect-your-code-repository)** to connect the repository you created with **Use this template** in Module 0 via the **Code** card. Come back here once the Code card shows a green checkmark.
 
 ### Why This Matters
 
@@ -106,14 +106,17 @@ With access to your resource group, the agent can:
 - Inspect **resource configurations** (Bicep deployment history, role assignments, secrets)
 - Correlate **deployment changes** with performance degradation
 
-## Upload Knowledge Sources
+## Upload operational guidance
 
-The SRE Agent can ingest runbooks and operational guidelines that shape how it responds to incidents. Upload the operational guidelines file included in this repository:
+The SRE Agent can ingest runbooks and operational guidelines that shape how it responds to incidents. Add the operational guidelines file included in this repository as persistent knowledge:
 
-1. On the setup page, find the **Knowledge Sources** card
-2. Select **Add File** to upload the predefined knowledge document
-3. Upload the file `scenarios/workload-identity-break/knowledge/operational-guidelines.md` from your repository
-4. Wait for the green checkmark
+1. Open **Builder → Knowledge base**.
+2. Add a file source and upload `scenarios/workload-identity-break/knowledge/operational-guidelines.md` from your repository.
+3. Wait until `operational-guidelines.md` shows type **File** and status **Indexed** before continuing.
+
+A temporary chat attachment does not persist as agent knowledge. The Code
+repository connection is also separate: it indexes source for investigation,
+but does not replace this operational-guidance file.
 
 ### What This Does
 

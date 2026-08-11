@@ -68,6 +68,14 @@ cat > "$FIXTURE/bin/az" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$FIXTURE/az-arguments.log"
+if [[ "$1 $2" == "account show" ]]; then
+  if [[ " $* " == *" --query name "* ]]; then
+    printf 'test-subscription\n'
+  else
+    printf '00000000-0000-0000-0000-000000000000\n'
+  fi
+  exit 0
+fi
 if [[ "$1 $2" == "group show" ]]; then
   echo "simulated Azure CLI failure" >&2
   exit 14

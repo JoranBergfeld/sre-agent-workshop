@@ -20,23 +20,33 @@ selectable; it provisions, breaks, and recovers its own AKS workload.
 Run the setup check and cleanup commands from the repository root:
 
 ```bash
-./scenarios/workload-identity-break/scripts/setup.sh
-./scenarios/workload-identity-break/scripts/cleanup.sh --resource-group rg-srelabidentity
+export WORKLOAD_NAME="srelabidentity"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+./scenarios/workload-identity-break/scripts/setup.sh --subscription-id "$SUBSCRIPTION_ID"
+./scenarios/workload-identity-break/scripts/cleanup.sh --workload "$WORKLOAD_NAME" --resource-group "$RESOURCE_GROUP"
 ```
 
 ```powershell
-./scenarios/workload-identity-break/scripts/setup.ps1
-./scenarios/workload-identity-break/scripts/cleanup.ps1 -ResourceGroup rg-srelabidentity
+$WorkloadName = "srelabidentity"
+$ResourceGroup = "rg-$WorkloadName"
+$SubscriptionId = "<subscription-id>"
+az account set --subscription $SubscriptionId
+az account show --query '{name:name,id:id}' --output table
+./scenarios/workload-identity-break/scripts/setup.ps1 -SubscriptionId $SubscriptionId
+./scenarios/workload-identity-break/scripts/cleanup.ps1 -Workload $WorkloadName -ResourceGroup $ResourceGroup
 ```
 
-For a custom deployment name, run the injector with both required flags:
+For a custom workload, the resource group is derived when it is not explicit:
 
 ```bash
-./scenarios/workload-identity-break/scripts/inject.sh --resource-group rg-srelabidentity --workload myworkload
+./scenarios/workload-identity-break/scripts/inject.sh --workload "$WORKLOAD_NAME"
 ```
 
 ```powershell
-./scenarios/workload-identity-break/scripts/inject.ps1 -ResourceGroup rg-srelabidentity -Workload myworkload
+./scenarios/workload-identity-break/scripts/inject.ps1 -Workload $WorkloadName
 ```
 
 # Break It: Workload Identity 💥 (~30 min)
@@ -130,18 +140,18 @@ The deployment will **succeed**. The Bicep template is valid syntactically.
 
 **Bash**
 ```bash
-./scenarios/workload-identity-break/scripts/inject.sh
+./scenarios/workload-identity-break/scripts/inject.sh \
+   --workload "$WORKLOAD_NAME" --resource-group "$RESOURCE_GROUP"
 ```
 
 **PowerShell 7**
 ```powershell
-./scenarios/workload-identity-break/scripts/inject.ps1
+./scenarios/workload-identity-break/scripts/inject.ps1 `
+   -Workload $WorkloadName -ResourceGroup $ResourceGroup
 ```
 
-Pass both `--resource-group <name>` and `--workload <name>` in Bash, or
-`-ResourceGroup <name>` and `-Workload <name>` in PowerShell. The injector
-deletes the live federated credential, restarts the pods, and waits for the
-rollout to finish.
+The injector deletes the live federated credential, restarts the pods, and
+waits for the rollout to finish.
 
 > **Why two steps?** This mirrors a real identity-cleanup-gone-wrong: the Bicep change removes the credential from the "desired state" (your code), and the CLI deletion simulates Azure catching up. When the SRE Agent investigates, it finds the credential missing from both the Bicep code *and* the live environment.
 

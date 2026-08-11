@@ -25,6 +25,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+requested_subscription_id="${AZURE_SUBSCRIPTION_ID:-}"; [ -z "$requested_subscription_id" ] || az account set --subscription "$requested_subscription_id" || { echo "Unable to select Azure subscription '$requested_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }
+active_subscription_id=$(az account show --query id -o tsv) || { echo "Azure CLI is not authenticated. Run 'az login'." >&2; exit 1; }; active_subscription_name=$(az account show --query name -o tsv) || exit 1
+[ -n "$active_subscription_id" ] && [ -n "$active_subscription_name" ] || { echo "Unable to read the active Azure subscription." >&2; exit 1; }
+[ -z "$requested_subscription_id" ] || [ "$active_subscription_id" = "$requested_subscription_id" ] || { echo "Azure subscription mismatch: requested '$requested_subscription_id', active '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }; echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 errors=0
 ok() { echo "  PASS: $1"; }
 fail() { errors=$((errors + 1)); echo "  FAIL: $1"; }
@@ -37,11 +42,7 @@ else
   fail "Azure CLI not found"
 fi
 
-if az account show >/dev/null 2>&1; then
-  ok "Azure login detected"
-else
-  fail "Not logged in to Azure"
-fi
+ok "Azure subscription verified"
 
 if az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name" -o tsv 2>/dev/null | grep -qx 'Standard_B2s'; then
   ok "Standard_B2s available in $LOCATION"

@@ -53,6 +53,9 @@ cat > "$FAKE_BIN/az" <<'EOF'
 set -euo pipefail
 printf '%s\n' "$*" >> "${AZ_CALL_LOG:?}"
 case "$*" in
+  "account set"*) exit 0 ;;
+  "account show "*"--query name"*) printf 'test-subscription\n' ;;
+  "account show"*) printf '00000000-0000-0000-0000-000000000000\n' ;;
   "group show"*) exit 0 ;;
   "group delete"*) exit 0 ;;
   "vm run-command invoke"*)

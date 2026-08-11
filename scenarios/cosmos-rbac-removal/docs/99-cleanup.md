@@ -18,10 +18,28 @@ When you deployed infrastructure (Module 1), you specified a resource group name
 
 ### Delete the Resource Group
 
-Replace `{RG_NAME}` with your actual resource group name:
+Establish the same values used for deployment, confirm the subscription, and
+run the capsule cleanup:
 
 ```bash
-az group delete --name {RG_NAME} --yes --no-wait
+export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+./scenarios/cosmos-rbac-removal/scripts/cleanup.sh \
+	--workload "$WORKLOAD_NAME" --resource-group "$RESOURCE_GROUP" --yes
+```
+
+```powershell
+$WorkloadName = "srelabcosmos"
+$ResourceGroup = "rg-$WorkloadName"
+$SubscriptionId = "<subscription-id>"
+az account set --subscription $SubscriptionId
+az account show --query '{name:name,id:id}' --output table
+$env:AZURE_SUBSCRIPTION_ID = $SubscriptionId
+./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 `
+	-Workload $WorkloadName -ResourceGroup $ResourceGroup -Yes
 ```
 
 **What this does:**
@@ -30,15 +48,10 @@ az group delete --name {RG_NAME} --yes --no-wait
 
 **To monitor deletion:**
 ```bash
-az group show --name {RG_NAME}
+az group show --name "$RESOURCE_GROUP"
 ```
 
 This command will return an error once the resource group is deleted (which is the expected outcome).
-
-**Example (with default name):**
-```bash
-az group delete --name rg-srelabcosmos --yes --no-wait
-```
 
 > **Note:** Deletion typically takes 5–10 minutes. You'll stop incurring hourly charges immediately, but Azure may take a moment to fully remove the resources from billing.
 
@@ -107,7 +120,7 @@ If you won't use the workshop repository anymore, you can delete your fork:
 ### Check That Azure Resources Are Deleted
 
 ```bash
-az group show --name {RG_NAME} 2>/dev/null || echo "✓ Resource group deleted"
+az group show --name "$RESOURCE_GROUP" 2>/dev/null || echo "Resource group deleted"
 ```
 
 If the resource group is deleted, this returns "✓ Resource group deleted". If it still exists, you'll see the resource group details.
@@ -120,8 +133,8 @@ az ad sp show --id {APP_ID} 2>/dev/null || echo "✓ Service principal deleted"
 
 ## Final Checklist
 
-- [ ] Azure resource group deleted (`az group delete --name {RG_NAME} --yes --no-wait`)
-- [ ] Verified deletion: `az group show --name {RG_NAME}` returns an error
+- [ ] Azure resource group cleanup started with the capsule cleanup script
+- [ ] Verified deletion: `az group show --name "$RESOURCE_GROUP"` returns an error
 - [ ] Service principal deleted (optional): `az ad sp delete --id {APP_ID}`
 - [ ] GitHub Actions secrets removed from your fork (optional but recommended)
 - [ ] Service principal app removed from your Azure AD (optional)

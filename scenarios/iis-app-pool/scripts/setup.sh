@@ -23,6 +23,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+requested_subscription_id="${AZURE_SUBSCRIPTION_ID:-}"; [ -z "$requested_subscription_id" ] || az account set --subscription "$requested_subscription_id" || { echo "Unable to select Azure subscription '$requested_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }
+active_subscription_id=$(az account show --query id -o tsv) || { echo "Azure CLI is not authenticated. Run 'az login'." >&2; exit 1; }; active_subscription_name=$(az account show --query name -o tsv) || exit 1
+[ -n "$active_subscription_id" ] && [ -n "$active_subscription_name" ] || { echo "Unable to read the active Azure subscription." >&2; exit 1; }
+[ -z "$requested_subscription_id" ] || [ "$active_subscription_id" = "$requested_subscription_id" ] || { echo "Azure subscription mismatch: requested '$requested_subscription_id', active '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }; echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 errors=0
 write_ok()   { echo "  ✅ $1"; }
 write_fail() { errors=$((errors + 1)); echo "  ❌ $1"; }
@@ -43,11 +48,7 @@ else
   write_ok "GitHub CLI optional and not installed"
 fi
 
-if az account show >/dev/null 2>&1; then
-  write_ok "Azure login detected"
-else
-  write_fail "Not logged in to Azure"
-fi
+write_ok "Azure subscription verified"
 
 SIZE=$(az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name" -o tsv 2>/dev/null || true)
 if [ -n "$SIZE" ]; then

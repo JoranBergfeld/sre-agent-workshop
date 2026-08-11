@@ -114,8 +114,9 @@ GitHub Actions workflows in your fork need credentials to deploy infrastructure 
 
 ```bash
 az login
-export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-echo "Your subscription ID: $SUBSCRIPTION_ID"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
 ```
 
 Keep this terminal open — you'll use `$SUBSCRIPTION_ID` in the next step.
@@ -182,7 +183,9 @@ Run these commands to confirm everything is ready:
 ```bash
 # Verify Azure CLI and authentication
 az login
-az account show
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
 
 # Verify kubectl
 kubectl version --client

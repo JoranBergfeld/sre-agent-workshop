@@ -31,6 +31,14 @@ Write-Output $env:INSPECTION_OUTPUT
 EOF
   cat > "$fixture/bin/az" <<'EOF'
 #!/usr/bin/env bash
+if [[ "$1 $2" == "account show" ]]; then
+  if [[ " $* " == *" --query name "* ]]; then
+    printf 'test-subscription\n'
+  else
+    printf '00000000-0000-0000-0000-000000000000\n'
+  fi
+  exit 0
+fi
 printf '%s\n' '{"tables":[{"rows":[["evidence"]]}]}'
 EOF
   chmod +x "$fixture/bin/az"

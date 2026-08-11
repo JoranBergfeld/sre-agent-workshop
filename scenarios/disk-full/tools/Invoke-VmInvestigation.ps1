@@ -33,6 +33,10 @@ Write-Stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtim
 $kql = (Get-Content $queryFile -Raw).Replace('{{COMPUTER_NAME}}', $ComputerName)
 
 if ($WorkspaceId) {
+$requestedSubscriptionId = $env:AZURE_SUBSCRIPTION_ID; if ($requestedSubscriptionId) { az account set --subscription $requestedSubscriptionId; if ($LASTEXITCODE) { throw "Unable to select Azure subscription '$requestedSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" } }
+$activeSubscriptionId = [string](az account show --query id -o tsv); if ($LASTEXITCODE -or -not $activeSubscriptionId) { throw "Azure CLI is not authenticated. Run 'az login'." }
+$activeSubscriptionName = [string](az account show --query name -o tsv); if ($LASTEXITCODE -or -not $activeSubscriptionName) { throw "Unable to read the active Azure subscription." }
+$activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim(); if ($requestedSubscriptionId -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', active '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }; Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
     $queryResult = az monitor log-analytics query -w $WorkspaceId --analytics-query $kql -o json 2>$null
     if ($LASTEXITCODE -eq 0 -and $queryResult) {
         Write-Stage "Correlate" "Telemetry query returned matching records."

@@ -19,6 +19,16 @@ test('Cloud Agent Handover setup retains the authenticated GitHub environment to
   assert.doesNotMatch(powershellSetup, /Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN/);
 });
 
+test('Cloud Agent Handover setup persists the verified Azure subscription', () => {
+  const bashSetup = readFileSync(
+    resolve(repositoryRoot, 'scenarios/cloud-agent-handover/scripts/setup.sh'),
+    'utf8'
+  );
+
+  assert.match(bashSetup, /SUBSCRIPTION_ID="\$active_subscription_id"/);
+  assert.doesNotMatch(bashSetup, /AZURE_ACTIVE_SUBSCRIPTION_ID/);
+});
+
 test('Cloud Agent Handover onboarding makes manual SRE Agent creation explicit', () => {
   const onboardingGuide = readFileSync(
     resolve(repositoryRoot, 'scenarios/cloud-agent-handover/docs/03-onboard-sre-agent.md'),

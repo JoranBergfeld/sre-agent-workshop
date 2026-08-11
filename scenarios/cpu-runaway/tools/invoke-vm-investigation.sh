@@ -53,6 +53,10 @@ write_stage "Investigate" "Collecting telemetry from Azure Monitor and VM runtim
 KQL=$(sed "s/{{VM_NAME}}/$COMPUTER_NAME/g" "$QUERY_FILE")
 
 if [ -n "$WORKSPACE_ID" ]; then
+requested_subscription_id="${AZURE_SUBSCRIPTION_ID:-}"; [ -z "$requested_subscription_id" ] || az account set --subscription "$requested_subscription_id" || { echo "Unable to select Azure subscription '$requested_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }
+active_subscription_id=$(az account show --query id -o tsv) || { echo "Azure CLI is not authenticated. Run 'az login'." >&2; exit 1; }; active_subscription_name=$(az account show --query name -o tsv) || exit 1
+[ -n "$active_subscription_id" ] && [ -n "$active_subscription_name" ] || { echo "Unable to read the active Azure subscription." >&2; exit 1; }
+[ -z "$requested_subscription_id" ] || [ "$active_subscription_id" = "$requested_subscription_id" ] || { echo "Azure subscription mismatch: requested '$requested_subscription_id', active '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }; echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
   if az monitor log-analytics query -w "$WORKSPACE_ID" --analytics-query "$KQL" -o json >/dev/null 2>&1; then
     write_stage "Correlate" "Telemetry query returned matching records."
   else

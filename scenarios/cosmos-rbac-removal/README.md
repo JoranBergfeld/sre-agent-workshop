@@ -20,17 +20,28 @@ selectable; it provisions, breaks, and recovers its own AKS workload.
 Run the setup check and cleanup commands from the repository root:
 
 ```bash
-./scenarios/cosmos-rbac-removal/scripts/setup.sh
-./scenarios/cosmos-rbac-removal/scripts/cleanup.sh --resource-group rg-srelabcosmos
+export WORKLOAD_NAME="srelabcosmos"
+export RESOURCE_GROUP="rg-${WORKLOAD_NAME}"
+export SUBSCRIPTION_ID="<subscription-id>"
+az account set --subscription "$SUBSCRIPTION_ID"
+az account show --query '{name:name,id:id}' --output table
+./scenarios/cosmos-rbac-removal/scripts/setup.sh --subscription-id "$SUBSCRIPTION_ID"
+./scenarios/cosmos-rbac-removal/scripts/cleanup.sh --workload "$WORKLOAD_NAME" --resource-group "$RESOURCE_GROUP"
 ```
 
 ```powershell
-./scenarios/cosmos-rbac-removal/scripts/setup.ps1
-./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -ResourceGroup rg-srelabcosmos
+$WorkloadName = "srelabcosmos"
+$ResourceGroup = "rg-$WorkloadName"
+$SubscriptionId = "<subscription-id>"
+az account set --subscription $SubscriptionId
+az account show --query '{name:name,id:id}' --output table
+./scenarios/cosmos-rbac-removal/scripts/setup.ps1 -SubscriptionId $SubscriptionId
+./scenarios/cosmos-rbac-removal/scripts/cleanup.ps1 -Workload $WorkloadName -ResourceGroup $ResourceGroup
 ```
 
-The Cosmos injector accepts only `--resource-group <rg>` in Bash or
-`-ResourceGroup <rg>` in PowerShell.
+Inject, cleanup, and manual remediation accept `--workload <name>` in Bash or
+`-Workload <name>` in PowerShell. When resource group is omitted, they derive
+`rg-<workload>`; an explicit resource group always takes precedence.
 
 # Module 5: Break It! 💥 (~20 min)
 
@@ -115,17 +126,42 @@ The deployment will **succeed**. The Bicep template is valid syntactically. No e
 
 **Bash**
 ```bash
-./scenarios/cosmos-rbac-removal/scripts/inject.sh
+./scenarios/cosmos-rbac-removal/scripts/inject.sh \
+   --workload "$WORKLOAD_NAME" --resource-group "$RESOURCE_GROUP"
 ```
 
 **PowerShell 7**
 ```powershell
-./scenarios/cosmos-rbac-removal/scripts/inject.ps1
+./scenarios/cosmos-rbac-removal/scripts/inject.ps1 `
+   -Workload $WorkloadName -ResourceGroup $ResourceGroup
 ```
 
-Pass `--resource-group` / `-ResourceGroup` if you chose a non-default workload
-name. The injector deletes the live role assignment, restarts the pods, and
-waits for the rollout to finish.
+The injector deletes the live role assignment, restarts the pods, and waits
+for the rollout to finish.
+
+### Fault checkpoint
+
+The first injector run reports the deleted role assignment and a successful
+deployment rollout. A repeated run is safe: it reports `No role assignment to
+delete (already broken?)`, restarts the pods again, and completes successfully.
+
+Confirm the complete incident state before continuing:
+
+1. `kubectl get deployment cosmos-rbac-removal-app -n cosmos-rbac-removal`
+   shows the deployment as available. If `kubectl` is not authenticated, run
+   `az aks get-credentials --resource-group <resource-group> --name
+   <workload>-aks` first.
+2. Obtain the endpoint with `kubectl get svc cosmos-rbac-removal-app -n
+   cosmos-rbac-removal -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`.
+3. `GET /health` returns HTTP 200, while `GET /items` returns HTTP 500 with a
+   Cosmos DB authorization error.
+4. Azure Monitor fires the scenario's HTTP 5xx alert. The SRE Agent should
+   find the missing live and Bicep role assignment and propose the approved
+   issue → Copilot PR → human review and deployment route.
+
+If the endpoint command returns no value, open the AKS service in the Azure
+portal and copy its external IP. You can also run `scripts/validate.sh` or
+`scripts/validate.ps1` after remediation for an independent health check.
 
 > **Why two steps?** This mirrors what happens in production with Bicep `complete` mode or when a team actively cleans up stale role assignments. The Bicep change removes it from the "desired state" (your code), and the CLI deletion simulates Azure catching up. When the SRE Agent investigates, it'll find the role assignment is missing from both the Bicep code *and* the live Azure environment — exactly like a real cleanup-gone-wrong scenario.
 

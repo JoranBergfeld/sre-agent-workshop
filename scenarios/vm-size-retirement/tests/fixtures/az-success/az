@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "${1:-} ${2:-}" = "account set" ]; then
+  exit 0
+fi
+
+if [ "${1:-} ${2:-}" = "account show" ]; then
+  if [[ " $* " == *" --query name "* ]]; then
+    printf 'test-subscription\n'
+  else
+    printf '00000000-0000-0000-0000-000000000000\n'
+  fi
+  exit 0
+fi
+
 if [ "${1:-}" = "vm" ] && [ "${2:-}" = "list" ]; then
   if [ "${AZ_SUCCESS_EMPTY:-}" != "1" ]; then
     printf '%s\n' "srelabretirement-legacy-01" "srelabretirement-legacy-02"
