@@ -9,7 +9,7 @@ difficulty: advanced
 costProfile: high
 learningObjectives:
   - Distinguish authentication (token acquisition) failures from authorization (RBAC) failures.
-  - Trace AADSTS70021 / "No matching federated identity" errors in ContainerLog to a missing federated identity credential.
+  - Trace AADSTS70021 / "No matching federated identity" errors in ContainerLogV2 to a missing federated identity credential.
   - Reconcile a missing federated identity credential by restoring the federatedCredential block in identity.bicep via a GitHub issue / @copilot PR (GitOps), with a manual fallback.
 guide: README.md
 setup:

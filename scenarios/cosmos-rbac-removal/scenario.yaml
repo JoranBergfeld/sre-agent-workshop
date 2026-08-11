@@ -9,7 +9,7 @@ difficulty: intermediate
 costProfile: high
 learningObjectives:
   - Distinguish liveness (healthy) from dependency failure (500 on /items).
-  - Trace 5xx errors in ContainerLog to a missing CosmosDB RBAC role assignment.
+  - Trace 5xx errors in ContainerLogV2 to a missing CosmosDB RBAC role assignment.
   - Drive remediation through a GitHub issue / @copilot PR (GitOps), with a manual fallback.
 guide: README.md
 setup:

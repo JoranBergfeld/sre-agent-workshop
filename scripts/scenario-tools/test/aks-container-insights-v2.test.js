@@ -75,8 +75,12 @@ for (const [scenario, namespace] of Object.entries(scenarios)) {
     );
   });
 
-  test(`${scenario} learner documentation definitively uses ContainerLogV2`, () => {
-    const learnerDocumentation = [
+  test(`${scenario} metadata and learner documentation definitively use ContainerLogV2`, () => {
+    const scenarioContent = [
+      {
+        path: resolve(scenarioRoot, 'scenario.yaml'),
+        content: readFileSync(resolve(scenarioRoot, 'scenario.yaml'), 'utf8'),
+      },
       {
         path: resolve(scenarioRoot, 'README.md'),
         content: readFileSync(resolve(scenarioRoot, 'README.md'), 'utf8'),
@@ -85,11 +89,11 @@ for (const [scenario, namespace] of Object.entries(scenarios)) {
     ];
 
     assert.ok(
-      learnerDocumentation.some(({ content }) => /\bContainerLogV2\b/.test(content)),
-      `${scenario} learner documentation must name ContainerLogV2`,
+      scenarioContent.some(({ content }) => /\bContainerLogV2\b/.test(content)),
+      `${scenario} metadata or learner documentation must name ContainerLogV2`,
     );
 
-    for (const document of learnerDocumentation) {
+    for (const document of scenarioContent) {
       assert.doesNotMatch(
         document.content,
         /\bContainerLog\b/,
