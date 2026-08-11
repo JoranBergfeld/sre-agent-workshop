@@ -174,11 +174,11 @@ Use that text for `cpu-runaway`, `disk-full`, and `iis-app-pool`.
 ```markdown
 ## Cost profile
 
-The catalog cost profile is **high**. The dominant cost drivers are the three
-Windows virtual machines used for the retirement inventory, Log Analytics and
-Application Insights ingestion, and Azure SRE Agent usage. Confirm current
-regional pricing before deployment and run the scenario cleanup immediately
-after the exercise.
+The catalog cost profile is **high**. The dominant cost drivers are the two
+Windows virtual machines used for the retirement inventory, Standard Azure
+Bastion, Log Analytics and Application Insights ingestion, and Azure SRE Agent
+usage. Confirm current regional pricing before deployment and run the scenario
+cleanup immediately after the exercise.
 ```
 
 Use that text for `vm-size-retirement`.
