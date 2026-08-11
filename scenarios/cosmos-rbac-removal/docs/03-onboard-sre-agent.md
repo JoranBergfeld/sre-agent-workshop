@@ -37,9 +37,17 @@ On the **Quickstart** page, use the **Code** card and follow
 Select the generated repository created with **Use this template** in Module 0,
 then wait for the Code card to show a green check.
 
-The Code connection is read-only investigation context. It lets the agent
-index and inspect repository content, but it is not the GitHub MCP connector
-used for issue and pull-request operations.
+The Code connection (also available from **Builder → Knowledge base**) indexes
+the repository as source context. Authentication automatically creates the
+appropriate GitHub OAuth connector if one is missing, or reuses the existing
+connector. The repository connection supports source investigation and some
+pull-request actions, but this workshop does not let the SRE Agent create the
+remediation pull request.
+
+The workshop separately verifies or configures the **GitHub OAuth connector**
+and its issue operations and repository permissions for the governed issue
+handoff. The SRE Agent creates the approved issue; the Copilot coding agent
+creates the pull request.
 
 ### Why This Matters
 
@@ -63,9 +71,10 @@ knowledge.
 1. On the **Azure Resources** card, select **+**.
 2. Choose **Resource groups**, select the workshop subscription, and add
    **`$RESOURCE_GROUP`**.
-3. Review the requested role assignment. The workshop grants the agent managed
-   identity **Reader** on `$RESOURCE_GROUP`; this is resource investigation
-   access, not permission for the learner to deploy the agent.
+3. Select the **Reader** permission level and review all requested role
+   assignments before confirming. Reader level automatically includes
+   **Reader**, **Log Analytics Reader**, and **Monitoring Reader** at
+   resource-group scope, plus **Monitoring Contributor** at subscription scope.
 4. Confirm the grant and wait until the Azure Resources card reports
    **permissions complete**.
 
@@ -102,24 +111,27 @@ but does not replace this operational-guidance file.
 
 The operational guidelines tell the agent to **always fix through code** —
 never make direct Azure changes. When it identifies a root cause, it proposes
-remediation. A human creates or explicitly approves exactly one GitHub issue,
-assigns it to **`@copilot`** (the Copilot coding agent), then reviews and
-merges the PR Copilot authors before manually deploying the fix.
+remediation. After a human approves issue creation, the SRE Agent creates
+exactly one GitHub issue assigned to **`@copilot`** (the Copilot coding agent).
+A human then reviews and merges the PR Copilot authors before manually
+deploying the fix.
 
 This creates a full audit trail: incident → investigation → issue → PR → deployment.
 
-## Set up the GitHub MCP connector
+## Configure the GitHub OAuth connector
 
-The separate GitHub MCP connector supports issue and pull-request operations;
-it does not replace the read-only Code connection used for investigation.
+The workshop separately checks the GitHub OAuth connector's issue operations
+and permissions. It does not replace the Code/Knowledge Base repository
+connection used to index source for investigations.
 
-Follow **[Connect GitHub to the SRE Agent → Set up the GitHub MCP connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-mcp-connector-with-a-pat)**,
+Follow **[Connect GitHub to the SRE Agent → Configure the GitHub OAuth connector for issue handoff](../../../docs/connect-github-to-sre-agent.md#configure-the-github-oauth-connector-for-issue-handoff)**,
 then use the read-only verification prompt in that guide to confirm that the
 agent can list repository issues.
 
 The governed remediation loop remains: the SRE Agent investigates and proposes
-remediation → a human creates or approves one issue assigned to `@copilot` →
-Copilot authors the PR → a human reviews, merges, and deploys the fix.
+remediation → a human approves issue creation → the SRE Agent creates one issue
+assigned to `@copilot` → Copilot authors the PR → a human reviews, merges, and
+deploys the fix.
 
 ## Finish setup
 
@@ -163,7 +175,7 @@ Before moving on, confirm exactly these four outcomes:
 - [ ] The **Code** card has a green check.
 - [ ] **Azure Resources** lists `$RESOURCE_GROUP` with **permissions complete**.
 - [ ] The `operational-guidelines.md` **File** source is **Indexed**.
-- [ ] The read-only GitHub MCP connector verification prompt lists repository issues.
+- [ ] The **GitHub OAuth connector** verification prompt lists repository issues.
 
 ## Next Step
 

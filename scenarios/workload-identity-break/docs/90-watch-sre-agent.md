@@ -35,10 +35,10 @@ federated credential deleted
 Do **not** recreate the federated credential directly in Azure during normal
 incident response. After the SRE Agent investigates and proposes remediation:
 
-1. A human creates or explicitly approves exactly **one** GitHub issue
-   containing the diagnosis, relevant log evidence, and the required
-   restoration of `federatedCredential` in `identity.bicep`, then assigns it
-   to `@copilot` (the Copilot coding agent).
+1. A human approves issue creation. The SRE Agent creates exactly **one**
+   GitHub issue containing the diagnosis, relevant log evidence, and the
+   required restoration of `federatedCredential` in `identity.bicep`, and
+   assigns it to `@copilot` (the Copilot coding agent).
 2. Copilot authors the pull request.
 3. A human reviews and merges the pull request when it correctly restores the
    credential.

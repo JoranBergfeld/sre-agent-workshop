@@ -46,6 +46,38 @@ Finally, in the SRE Agent portal open **Set up your agent** → **Full setup** �
 manages the agent identity and its grant; do not search for an agent identity
 inside the scenario resource group.
 
+Reader level includes **Reader**, **Log Analytics Reader**, and **Monitoring
+Reader** at resource-group scope and **Monitoring Contributor** at subscription
+scope. If alerts do not appear, verify the subscription-scope assignment:
+
+1. In the agent portal, open **Settings → Azure settings → Go to Identity**.
+2. In the Azure portal, copy the managed identity's **Object (principal) ID**.
+3. Run the matching read-only command. These commands are verification only;
+   do not create role assignments from this troubleshooting step.
+
+**Bash**
+
+```bash
+AGENT_PRINCIPAL_ID="<object-principal-id>"
+az role assignment list --assignee "$AGENT_PRINCIPAL_ID" --scope "/subscriptions/$SUBSCRIPTION_ID" \
+  --query "[?roleDefinitionName=='Monitoring Contributor'].{role:roleDefinitionName,scope:scope}" \
+  --output table
+```
+
+**PowerShell**
+
+```powershell
+$AgentPrincipalId = "<object-principal-id>"
+az role assignment list --assignee $AgentPrincipalId --scope "/subscriptions/$SubscriptionId" `
+  --query "[?roleDefinitionName=='Monitoring Contributor'].{role:roleDefinitionName,scope:scope}" `
+  --output table
+```
+
+Expected outcome: the table shows **Monitoring Contributor** at subscription
+scope. If it does not, return to **Full setup → Azure Resources**, review all
+requested grants, and have an Owner or User Access Administrator correct the
+setup through the portal.
+
 ## Connect Azure Monitor
 
 The SRE Agent can respond to incidents from multiple sources (Azure Monitor, PagerDuty, custom webhooks, etc.). For this workshop, we'll use Azure Monitor — the native Azure alerting platform that's already collecting metrics from your AKS cluster.
@@ -76,7 +108,8 @@ After connecting, verify that the SRE Agent can see your resources: Confirm that
 
 > **⚠️ If alerts aren't being detected later (in Module 5):** Return to **Full
 > setup** → **Azure Resources** and confirm `$RESOURCE_GROUP` still reports
-> **permissions complete**.
+> **permissions complete**. Then repeat the read-only identity check above and
+> verify **Monitoring Contributor** at subscription scope.
 
 ## Create an Incident Response Plan
 
@@ -118,8 +151,9 @@ This step is important — it controls how much the agent is allowed to do autom
 | **Autonomous** | Not used in this workshop; it would skip the required human approval gate. | Avoid for this scenario |
 
 For the workshop, use **Review** mode. The SRE Agent investigates and proposes
-remediation; a human creates or approves one issue assigned to `@copilot`,
-reviews and merges the Copilot PR, then manually runs the deployment.
+remediation; after a human approves issue creation, the SRE Agent creates one
+issue assigned to `@copilot`. A human reviews and merges the Copilot PR, then
+manually runs the deployment.
 
 Click **Save**
 
@@ -177,9 +211,10 @@ pods cannot acquire a token after the federated credential is removed, so
 `/items` returns HTTP 500 while `/health` remains green. The SRE Agent finds
 `AADSTS70021` / `No matching federated identity` in the logs, checks the Bicep
 deployment history, and identifies the missing credential. After it proposes
-remediation, a human creates or explicitly approves exactly one GitHub issue
-assigned to `@copilot`, reviews and merges the resulting PR, then manually runs the
-matching deployment workflow. Do not remediate directly in Azure.
+remediation, a human approves issue creation. The SRE Agent creates exactly one
+GitHub issue assigned to `@copilot`; a human reviews and merges the resulting
+PR, then manually runs the matching deployment workflow. Do not remediate
+directly in Azure.
 
 ## What Happens Next
 

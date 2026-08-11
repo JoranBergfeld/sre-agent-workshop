@@ -7,7 +7,7 @@ from Module 3 and a GitHub connector configured with a PAT for issue access.
 
 In the SRE Agent connector settings, add the **GitHub OAuth connector** for the
 generated repository. Follow [Set up the GitHub
-connector](../../../docs/connect-github-to-sre-agent.md#set-up-the-github-mcp-connector-with-a-pat).
+connector](../../../docs/connect-github-to-sre-agent.md#configure-the-github-oauth-connector-for-issue-handoff).
 
 Verify access with a read-only request in an agent chat:
 

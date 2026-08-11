@@ -10,8 +10,7 @@ const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
 const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
 const canonicalTemplateLink = `[**Use this template**](${canonicalTemplateUrl})`;
-const githubMcpAnchor = '#set-up-the-github-mcp-connector-with-a-pat';
-const oldGithubConnectorAnchor = '#set-up-the-github-connector-with-a-pat';
+const githubOAuthAnchor = '#configure-the-github-oauth-connector-for-issue-handoff';
 const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_'))
   .map((entry) => entry.name)
@@ -59,6 +58,11 @@ for (const scenario of aksScenarios) {
         /\byour fork\b|\bfork the repository\b|\bdelete your fork\b/i,
         `${document.path} uses learner fork terminology`,
       );
+      assert.doesNotMatch(
+        document.content,
+        /a human creates or explicitly approves.*GitHub issue/i,
+        `${document.path} assigns AKS issue creation to the human instead of the SRE Agent`,
+      );
     }
   });
 
@@ -86,6 +90,21 @@ for (const scenario of aksScenarios) {
     );
   });
 
+  test(`${scenario} prerequisites require deployment and role-assignment permissions`, () => {
+    const prerequisites = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '00-prerequisites.md'),
+      'utf8',
+    );
+
+    assert.match(prerequisites, /Contributor[\s\S]*?create[\s\S]*?resources/i);
+    assert.match(
+      prerequisites,
+      /Owner or User Access Administrator[\s\S]*?required[\s\S]*?selected (?:subscription or resource-group )?scope/i,
+    );
+    assert.match(prerequisites, /managed\s+identity role assignments/i);
+    assert.doesNotMatch(prerequisites, /Optional role:\*\* Owner or User Access Administrator/i);
+  });
+
   test(`${scenario} onboarding follows the current agent setup flow`, () => {
     const onboarding = readFileSync(
       resolve(scenariosRoot, scenario, 'docs', '03-onboard-sre-agent.md'),
@@ -95,8 +114,23 @@ for (const scenario of aksScenarios) {
     assert.match(onboarding, /\bQuickstart\b/);
     assert.match(onboarding, /\bFull setup\b/);
     assert.match(onboarding, /Favorites sidebar/);
-    assert.ok(onboarding.includes(githubMcpAnchor));
-    assert.doesNotMatch(onboarding, new RegExp(oldGithubConnectorAnchor));
+    assert.ok(onboarding.includes(githubOAuthAnchor));
+    assert.match(onboarding, /Code[\s\S]*?Knowledge base[\s\S]*?index/i);
+    assert.match(
+      onboarding,
+      /automatically (?:creates|reuses)[\s\S]*?(?:GitHub )?OAuth connector/i,
+    );
+    assert.match(
+      onboarding,
+      /separately (?:verifies|configures)[\s\S]*?(?:GitHub )?OAuth connector[\s\S]*?issue/i,
+    );
+    assert.doesNotMatch(onboarding, /GitHub MCP connector/i);
+    assert.doesNotMatch(onboarding, /custom-agent MCP|custom agent.*MCP/i);
+    assert.match(
+      onboarding,
+      /Reader level automatically includes[\s\S]*?Reader[\s\S]*?Log\s+Analytics Reader[\s\S]*?Monitoring Reader[\s\S]*?resource-group scope[\s\S]*?Monitoring Contributor[\s\S]*?subscription scope/i,
+    );
+    assert.match(onboarding, /review all (?:requested )?role\s+(?:assignments|grants)/i);
     assert.doesNotMatch(onboarding, /If all three checks pass/);
     assert.doesNotMatch(onboarding, /Monitor\s*→\s*Resource Mapping/);
 
@@ -110,7 +144,7 @@ for (const scenario of aksScenarios) {
     assert.match(verifySetup, /Code.*green check/i);
     assert.match(verifySetup, /Azure Resources.*\$RESOURCE_GROUP.*permissions complete/i);
     assert.match(verifySetup, /operational-guidelines\.md.*File.*Indexed/i);
-    assert.match(verifySetup, /read-only.*issues/i);
+    assert.match(verifySetup, /GitHub OAuth connector.*issues/i);
   });
 
   test(`${scenario} incident prerequisites use shell account checks and portal permissions`, () => {
@@ -127,11 +161,36 @@ for (const scenario of aksScenarios) {
     assert.match(incidentResponse, /Full setup/);
     assert.match(incidentResponse, /Azure Resources/);
     assert.match(incidentResponse, /permissions complete/i);
+    assert.match(incidentResponse, /Settings.*Azure settings.*Go to Identity/i);
+    assert.match(incidentResponse, /Object \(principal\) ID/i);
+    assert.match(
+      incidentResponse,
+      /az role assignment list --assignee "\$AGENT_PRINCIPAL_ID" --scope "\/subscriptions\/\$SUBSCRIPTION_ID"/,
+    );
+    assert.match(
+      incidentResponse,
+      /az role assignment list --assignee \$AgentPrincipalId --scope "\/subscriptions\/\$SubscriptionId"/,
+    );
+    assert.match(incidentResponse, /Monitoring Contributor.*subscription scope/i);
+    assert.match(incidentResponse, /verification only|do not create role assignments/i);
     assert.doesNotMatch(incidentResponse, /Microsoft\.ManagedIdentity/);
     assert.doesNotMatch(incidentResponse, /az identity show/);
-    assert.doesNotMatch(incidentResponse, /az role assignment list/);
   });
 }
+
+test('GitHub integration guide uses current OAuth connector terminology and policy', () => {
+  const guide = readFileSync(resolve(REPO_ROOT, 'docs', 'connect-github-to-sre-agent.md'), 'utf8');
+
+  assert.match(guide, /^## Configure the GitHub OAuth connector for issue handoff$/m);
+  assert.match(guide, /Builder[\s\S]*?Connectors[\s\S]*?GitHub OAuth connector/i);
+  assert.match(guide, /Code[\s\S]*?Knowledge Base[\s\S]*?index/i);
+  assert.match(guide, /automatically (?:creates|reuses)[\s\S]*?(?:GitHub )?OAuth connector/i);
+  assert.match(guide, /Issues.*Read and write/i);
+  assert.match(guide, /Pull requests.*Read-only/i);
+  assert.match(guide, /SRE Agent[\s\S]*?creates[\s\S]*?issues/i);
+  assert.match(guide, /Copilot coding agent[\s\S]*?creates[\s\S]*?pull requests/i);
+  assert.doesNotMatch(guide, /GitHub MCP connector/i);
+});
 
 test('cost guidance rejects the unresolved scaffold marker', () => {
   const guide = `## Cost profile

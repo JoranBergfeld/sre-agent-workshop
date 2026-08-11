@@ -7,11 +7,16 @@ There are two separate GitHub integrations:
 
 | Integration | Where you set it up | Purpose |
 | --- | --- | --- |
-| **Code repository** | The **Code** card on the agent setup page | Lets the agent read code for root-cause analysis, file references, and deployment correlation |
-| **GitHub MCP connector** | **Builder → Connectors** | Lets the agent read GitHub issues, pull requests, and workflow runs and, when policy permits, create issues |
+| **Code/Knowledge Base repository connection** | The **Code** card during setup, or **Builder → Knowledge base** | Indexes source for root-cause analysis, file references, and deployment correlation |
+| **GitHub OAuth connector** | **Builder → Connectors** | Provides explicit issue, pull-request, and workflow operations; this workshop requires issue creation |
 
-Connecting the code repository creates an OAuth connection for indexing; it
-does not replace the GitHub connector used for issue handoff.
+Connecting a GitHub repository for source indexing automatically creates the
+appropriate GitHub OAuth connector if one does not exist, or reuses the
+existing connector. The repository connection also supports some pull-request
+actions. The workshop nevertheless verifies the connector separately because
+its governed handoff requires explicit issue operations and repository
+permissions. The SRE Agent creates the issue; the Copilot coding agent creates
+the pull request.
 
 > **Reference:** [Connect source code](https://learn.microsoft.com/azure/sre-agent/connect-source-code)
 > and [Set up the GitHub connector](https://learn.microsoft.com/azure/sre-agent/setup-github-connector)
@@ -19,7 +24,8 @@ does not replace the GitHub connector used for issue handoff.
 
 ## Connect your code repository
 
-On the agent setup page, select **Set up your agent**, then:
+During setup, use the **Code** card. For an existing agent, open **Builder →
+Knowledge base** and select **Add repository**. Then:
 
 1. On the **Code** card, select **+**.
 2. Select **GitHub**.
@@ -31,27 +37,26 @@ On the agent setup page, select **Set up your agent**, then:
 6. Select **Add repository**.
 7. Wait for the **Code** card to show a green checkmark.
 
-The agent starts indexing the selected repository.
+The agent starts indexing the selected repository. Authentication
+automatically creates or reuses the appropriate GitHub OAuth connector.
 
-## Set up the GitHub MCP connector with a PAT
+## Configure the GitHub OAuth connector for issue handoff
 
-Use the connector for the Cloud Agent Handover and AKS scenario issue flows.
-The connector supports OAuth and personal access token (PAT) authentication.
-This workshop uses a PAT so its repository permissions are explicit and
-repeatable. Use OAuth instead when your organization requires interactive
-user authentication.
+Use the explicit connector setup for the Cloud Agent Handover and AKS issue
+flows. The GitHub OAuth connector supports OAuth and personal access token
+(PAT) authentication for issue, pull-request, and workflow operations. This
+workshop uses a PAT so repository permissions are explicit and repeatable. Use
+OAuth instead when your organization requires interactive user
+authentication.
 
 1. Open the agent and go to **Builder → Connectors**.
-2. Select **Add connector**, then select the GitHub partner/MCP connector. The
-   portal may label this connector **GitHub OAuth connector** even when PAT
-   authentication is used.
+2. Select **Add connector**, then select **GitHub OAuth connector**.
 3. Select **PAT**.
 4. Paste the token created in the next section and select **Connect**.
 5. Confirm that the connector status is **Connected**.
-6. Select only the MCP tools required by the scenario and save the connector.
-   An agent can have at most 80 tools enabled across all connectors, so do not
-   accept unrelated tools. The scenario policy below defines the allowed
-   write operations.
+6. Enable only the connector operations required by the scenario and save it.
+   The workshop needs repository reads and issue creation, not direct
+   pull-request creation or workflow execution by the SRE Agent.
 
 ### Create a fine-grained PAT
 
@@ -132,7 +137,7 @@ gh api graphql \
 
 Confirm that the output includes `copilot-swe-agent`.
 
-## Verify the connector
+## Verify the GitHub OAuth connector
 
 Open a chat thread with the agent and make a read-only request:
 
@@ -154,16 +159,18 @@ If verification fails, check the token before retrying:
 
 ## Scenario-specific behavior
 
-- **Cloud Agent Handover:** requires the code repository and GitHub connector.
-  After explicit approval, the SRE Agent creates one unassigned issue. The
-  learner reviews it and assigns `copilot-swe-agent`; Copilot creates the fix
-  pull request; the operator reviews and merges it; the OIDC-based **Deploy
-  Cloud Agent Handover Application** workflow deploys the merged code.
+- **Cloud Agent Handover:** requires the code repository and GitHub OAuth
+  connector. After explicit approval, the SRE Agent creates one unassigned
+  issue. The learner reviews it and assigns `copilot-swe-agent`; Copilot
+  creates the fix pull request; the operator reviews and merges it; the
+  OIDC-based **Deploy Cloud Agent Handover Application** workflow deploys the
+  merged code.
 - **CosmosDB RBAC Removal** and **Workload Identity Break:** require the code
-  repository and GitHub connector. The SRE Agent creates a remediation issue
-  assigned to `@copilot`; Copilot opens a pull request; a human reviews,
+  repository and GitHub OAuth connector. The SRE Agent creates a remediation
+  issue assigned to `@copilot`; Copilot opens a pull request; a human reviews,
   merges, and manually runs the selected capsule's deployment workflow.
 - **VM scenarios:** use scenario-local approval-gated scripts with a
   `CHG-`/`INC-` ticket and explicit `APPROVE`. They do not use GitHub issues or
   pull requests for remediation, so the code repository connection is
-  sufficient and the GitHub connector can be skipped.
+  sufficient, and the explicit GitHub OAuth connector verification can be
+  skipped.
