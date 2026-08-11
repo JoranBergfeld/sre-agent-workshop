@@ -91,7 +91,7 @@ monitoring resources in `$RESOURCE_GROUP`, including:
 
 - **Log Analytics**, where Container Insights collects the current Node.js
   apps' stdout/stderr, pod events, and Kubernetes errors. The application
-  output is queryable in `ContainerLog`/`ContainerLogV2`.
+  output is queryable in `ContainerLogV2`.
 - **Application Insights**, which is provisioned and selected for SRE Agent
   diagnostics and agent monitoring. The sample apps do not use an Application
   Insights SDK, so it does not provide app-level tracing for them.

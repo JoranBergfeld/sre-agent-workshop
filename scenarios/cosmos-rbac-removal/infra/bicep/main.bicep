@@ -48,6 +48,7 @@ module aks 'modules/aks.bicep' = {
     workloadName: workloadName
     tags: tags
     logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsId
+    containerInsightsDcrId: monitoring.outputs.containerInsightsDcrId
   }
 }
 

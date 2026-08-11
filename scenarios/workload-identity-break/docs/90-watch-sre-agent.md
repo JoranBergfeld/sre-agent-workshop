@@ -11,7 +11,7 @@ logs `AADSTS70021` / `No matching federated identity`; `/items` returns HTTP
    active incident.
 2. Confirm the alert is scoped to the workshop AKS cluster and refers to
    `workload-identity-auth-errors`.
-3. Watch the agent correlate the alert with `ContainerLog` entries showing
+3. Watch the agent correlate the alert with `ContainerLogV2` entries showing
    failed Azure AD token acquisition.
 4. Confirm it distinguishes this authentication failure from CosmosDB RBAC:
    the pod cannot exchange its ServiceAccount token for a UAMI token, so

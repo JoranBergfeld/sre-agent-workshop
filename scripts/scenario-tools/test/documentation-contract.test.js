@@ -150,6 +150,25 @@ for (const scenario of aksScenarios) {
     );
   });
 
+  test(`${scenario} prerequisites use qualitative cost guidance without fixed dollar estimates`, () => {
+    const prerequisites = readFileSync(
+      resolve(scenariosRoot, scenario, 'docs', '00-prerequisites.md'),
+      'utf8',
+    );
+
+    assert.match(prerequisites, /\*\*high\*\*/i);
+    assert.match(prerequisites, /qualitative cost estimate/i);
+    assert.match(prerequisites, /dominant cost drivers/i);
+    assert.match(prerequisites, /confirm[\s\S]*regional pricing/i);
+    assert.match(prerequisites, /budget/i);
+    assert.match(prerequisites, /cleanup/i);
+    assert.doesNotMatch(
+      prerequisites,
+      /\$\s*~?\d|~\s*\$\s*\d/,
+      `${scenario} prerequisites publish a fixed dollar cost estimate`,
+    );
+  });
+
   test(`${scenario} prerequisites require deployment and role-assignment permissions`, () => {
     const prerequisites = readFileSync(
       resolve(scenariosRoot, scenario, 'docs', '00-prerequisites.md'),

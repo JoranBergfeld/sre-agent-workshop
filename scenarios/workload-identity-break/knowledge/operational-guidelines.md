@@ -34,7 +34,7 @@ All infrastructure changes MUST go through code. Never modify Azure resources di
 
 ## Common Failure: Workload Identity Federation
 
-If `/items` returns HTTP 500 while `/health` remains green and ContainerLog
+If `/items` returns HTTP 500 while `/health` remains green and ContainerLogV2
 contains `AADSTS70021` or `No matching federated identity`:
 - **Root cause**: The UAMI's federated identity credential for
   `system:serviceaccount:workload-identity-break:workload-identity-break-app` is missing.

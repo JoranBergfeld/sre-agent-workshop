@@ -191,10 +191,10 @@ az resource list \
 
 Look for **`<workload>-http-500-errors`** (for example,
 `srelabcosmos-http-500-errors` with the default workload), whose display name
-is **HTTP 500 Errors Detected**. It queries `ContainerLog` for the scenario's
+is **HTTP 500 Errors Detected**. It queries `ContainerLogV2` for the scenario's
 CosmosDB/RBAC failure signals.
 
-> **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
+> **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query `ContainerLogV2` by its native `PodNamespace` and `LogMessage` fields in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
 If the list is empty, re-run **Deploy Cosmos RBAC Removal Infrastructure** from
 Module 1 — the alerts are defined in

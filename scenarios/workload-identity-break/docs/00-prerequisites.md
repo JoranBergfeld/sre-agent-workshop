@@ -6,19 +6,11 @@ Before starting the workshop, you'll need an active Azure subscription, a few co
 
 ## Cost Estimate
 
-The workshop creates several Azure resources that you'll pay for by the hour. Here's the breakdown:
-
-| Resource | Hourly Cost |
-|----------|------------|
-| AKS (2× Standard_D2ads_v6 nodes) | ~$0.25 |
-| CosmosDB (serverless, minimal RU) | ~$0.05 |
-| Log Analytics + Application Insights | ~$0.10 |
-| SRE Agent | ~$0.50 |
-| **Total** | **~$1.00/hr** |
-
-**For the full workshop (3–4 hours): ~$4–6 total cost.**
-
-> **Budget $5–10 to be safe**, especially if you experiment or leave resources running longer than expected. CosmosDB charges per request unit (RU) consumed; monitoring charges based on ingestion volume. Both are minimal for a workshop scenario. Remember to run the cleanup module when done to stop incurring costs.
+The **high** profile is a qualitative cost estimate. The dominant cost drivers
+are the two-node AKS cluster, Cosmos DB, Application Insights and Log Analytics
+ingestion, and Azure SRE Agent usage. Confirm current regional pricing before
+provisioning, set an appropriate budget or alert for your subscription, and run
+cleanup immediately after completing the scenario.
 
 ## Requirements
 
@@ -253,7 +245,10 @@ Before moving to Module 1, verify:
 
 ## Cost Reminder
 
-You're about to provision real Azure resources that incur hourly charges. The workshop should take **3–4 hours total**, so budget for **~$5–10**. When you're done, **run the cleanup steps in Module 7** to delete all resources and stop incurring charges.
+You're about to provision a **high** cost-profile scenario. Confirm current
+regional pricing and your subscription budget before continuing. When you're
+done, **run the cleanup steps in Module 7** to delete all resources and stop
+incurring charges.
 
 ## Next Step
 

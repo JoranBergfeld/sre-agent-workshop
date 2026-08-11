@@ -28,13 +28,9 @@ resource authErrorsAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-prev
       allOf: [
         {
           query: '''
-            let workshopContainers = KubePodInventory
-            | where Namespace == "workload-identity-break"
-            | where TimeGenerated > ago(1h)
-            | distinct ContainerID;
-            ContainerLog
-            | where ContainerID in (workshopContainers)
-            | where LogEntry has "AADSTS70021" or LogEntry has "No matching federated identity" or LogEntry has "ManagedIdentityCredential" or LogEntry contains "AADSTS"
+            ContainerLogV2
+            | where PodNamespace == "workload-identity-break"
+            | where LogMessage has "AADSTS70021" or LogMessage has "No matching federated identity" or LogMessage has "ManagedIdentityCredential" or LogMessage contains "AADSTS"
             | summarize ErrorCount = count() by bin(TimeGenerated, 5m)
           '''
           timeAggregation: 'Count'

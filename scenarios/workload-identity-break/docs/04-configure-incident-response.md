@@ -194,10 +194,10 @@ az resource list \
 Look for **`<workload>-workload-identity-auth-errors`** (for example,
 `srelabidentity-workload-identity-auth-errors` with the default workload),
 whose display name is **Workload Identity Auth Errors**. It queries
-`ContainerLog` for `AADSTS70021` and `No matching federated identity`
+`ContainerLogV2` for `AADSTS70021` and `No matching federated identity`
 token-acquisition failures.
 
-> **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query the `KubePodInventory` and `ContainerLog` tables in Log Analytics — this is the standard approach for container-level alerting in AKS.
+> **Why log-based alerts?** AKS doesn't expose a native `restart_count` metric for `az monitor metrics alert`. Instead, our Bicep uses `Microsoft.Insights/scheduledQueryRules` to query `ContainerLogV2` by its native `PodNamespace` and `LogMessage` fields in Log Analytics — this is the standard approach for container-level alerting in AKS.
 
 If the list is empty, re-run **Deploy Workload Identity Break Infrastructure**
 from Module 1 — the alerts are defined in

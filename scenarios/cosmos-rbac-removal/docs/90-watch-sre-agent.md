@@ -10,7 +10,7 @@ Monitor fires **HTTP 500 Errors Detected** after the app cannot access CosmosDB;
    active incident.
 2. Confirm the alert is scoped to the workshop AKS cluster and refers to
    `http-500-errors`.
-3. Watch the agent correlate the `ContainerLog` failures with requests to
+3. Watch the agent correlate the `ContainerLogV2` failures with requests to
    `/items`.
 4. Confirm it distinguishes this authorization failure from workload identity
    federation: the pod has a UAMI token, but CosmosDB rejects the request

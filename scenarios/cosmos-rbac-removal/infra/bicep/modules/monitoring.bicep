@@ -37,6 +37,62 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+var containerInsightsStreams = [
+  'Microsoft-ContainerLogV2'
+  'Microsoft-KubeEvents'
+  'Microsoft-KubePodInventory'
+  'Microsoft-KubeNodeInventory'
+  'Microsoft-KubePVInventory'
+  'Microsoft-KubeServices'
+  'Microsoft-KubeMonAgentEvents'
+  'Microsoft-InsightsMetrics'
+  'Microsoft-ContainerInventory'
+  'Microsoft-ContainerNodeInventory'
+  'Microsoft-Perf'
+]
+
+resource containerInsightsDcr 'Microsoft.Insights/dataCollectionRules@2022-06-01' = {
+  name: '${workloadName}-container-insights-dcr'
+  location: location
+  tags: tags
+  kind: 'Linux'
+  properties: {
+    dataSources: {
+      extensions: [
+        {
+          name: 'ContainerInsightsExtension'
+          extensionName: 'ContainerInsights'
+          streams: containerInsightsStreams
+          extensionSettings: {
+            dataCollectionSettings: {
+              interval: '1m'
+              namespaceFilteringMode: 'Off'
+              namespaces: []
+              enableContainerLogV2: true
+            }
+          }
+        }
+      ]
+    }
+    destinations: {
+      logAnalytics: [
+        {
+          name: 'containerInsightsWorkspace'
+          workspaceResourceId: logAnalytics.id
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: containerInsightsStreams
+        destinations: [
+          'containerInsightsWorkspace'
+        ]
+      }
+    ]
+  }
+}
+
 // ── Outputs ──────────────────────────────────
 @description('Log Analytics workspace resource ID')
 output logAnalyticsId string = logAnalytics.id
@@ -49,3 +105,6 @@ output appInsightsInstrumentationKey string = appInsights.properties.Instrumenta
 
 @description('Application Insights connection string')
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
+
+@description('Container Insights data collection rule resource ID')
+output containerInsightsDcrId string = containerInsightsDcr.id

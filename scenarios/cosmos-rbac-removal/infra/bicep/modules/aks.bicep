@@ -10,6 +10,9 @@ param tags object
 @description('Log Analytics workspace resource ID for Container Insights')
 param logAnalyticsWorkspaceId string
 
+@description('Container Insights data collection rule resource ID')
+param containerInsightsDcrId string
+
 // ──────────────────────────────────────────────
 // AKS Cluster
 // ──────────────────────────────────────────────
@@ -60,6 +63,14 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-01-01' = {
       networkPlugin: 'azure'
       networkPolicy: 'azure'
     }
+  }
+}
+
+resource containerInsightsDcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = {
+  name: 'ContainerInsightsExtension'
+  scope: aks
+  properties: {
+    dataCollectionRuleId: containerInsightsDcrId
   }
 }
 
