@@ -55,6 +55,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-01-01' = {
         enabled: true
         config: {
           logAnalyticsWorkspaceResourceID: logAnalyticsWorkspaceId
+          useAADAuth: 'true'
         }
       }
     }

@@ -38,6 +38,11 @@ for (const [scenario, namespace] of Object.entries(scenarios)) {
     assert.match(monitoring, /output containerInsightsDcrId string = \w+\.id/);
 
     assert.match(aks, /param containerInsightsDcrId string/);
+    assert.match(
+      aks,
+      /config:\s*{\s*logAnalyticsWorkspaceResourceID:\s*logAnalyticsWorkspaceId\s+useAADAuth:\s*'true'\s*}/,
+      'Container Insights must use managed identity authentication',
+    );
     assert.match(aks, /Microsoft\.Insights\/dataCollectionRuleAssociations@/);
     assert.match(aks, /scope:\s*aks/);
     assert.match(aks, /dataCollectionRuleId:\s*containerInsightsDcrId/);
