@@ -30,7 +30,8 @@ resource authErrorsAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-prev
           query: '''
             ContainerLogV2
             | where PodNamespace == "workload-identity-break"
-            | where LogMessage has "AADSTS70021" or LogMessage has "No matching federated identity" or LogMessage has "ManagedIdentityCredential" or LogMessage contains "AADSTS"
+            | extend LogText = tostring(LogMessage)
+            | where LogText has "AADSTS70021" or LogText has "No matching federated identity" or LogText has "ManagedIdentityCredential" or LogText contains "AADSTS"
             | summarize ErrorCount = count() by bin(TimeGenerated, 5m)
           '''
           timeAggregation: 'Count'

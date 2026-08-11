@@ -62,7 +62,20 @@ for (const [scenario, namespace] of Object.entries(scenarios)) {
         new RegExp(`PodNamespace == "${namespace}"`),
         `${path} must filter the fixed scenario namespace`,
       );
-      assert.match(query, /\bLogMessage\b/, `${path} must filter LogMessage`);
+      assert.match(
+        query,
+        /\|\s*extend LogText = tostring\(LogMessage\)/,
+        `${path} must convert dynamic LogMessage values to strings`,
+      );
+      const stringFilterFields = [
+        ...query.matchAll(/\b(\w+)\s+(?:has|contains)\s+"/g),
+      ].map((match) => match[1]);
+      assert.ok(stringFilterFields.length > 0, `${path} must filter log message text`);
+      assert.deepEqual(
+        [...new Set(stringFilterFields)],
+        ['LogText'],
+        `${path} must apply string filters only to converted LogText values`,
+      );
       assert.doesNotMatch(query, /\bContainerLog\b/, `${path} uses legacy ContainerLog`);
       assert.doesNotMatch(query, /\bLogEntry\b/, `${path} uses legacy LogEntry`);
       assert.doesNotMatch(query, /\bKubePodInventory\b/, `${path} retains an unnecessary inventory join`);
@@ -71,7 +84,7 @@ for (const [scenario, namespace] of Object.entries(scenarios)) {
     assert.match(alert, /summarize \w+ = count\(\) by bin\(TimeGenerated, 5m\)/);
     assert.match(
       investigation,
-      /project TimeGenerated, PodName, ContainerName, LogMessage, LogLevel/,
+      /project TimeGenerated, PodName, ContainerName, LogText, LogLevel/,
     );
   });
 

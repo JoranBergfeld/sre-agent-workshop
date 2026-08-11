@@ -30,7 +30,8 @@ resource http500Alert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview
           query: '''
             ContainerLogV2
             | where PodNamespace == "cosmos-rbac-removal"
-            | where LogMessage has "Failed to read items from CosmosDB" or LogMessage has "RBAC" or LogMessage has "StatusCode: 500" or LogMessage has "Forbidden"
+            | extend LogText = tostring(LogMessage)
+            | where LogText has "Failed to read items from CosmosDB" or LogText has "RBAC" or LogText has "StatusCode: 500" or LogText has "Forbidden"
             | summarize ErrorCount = count() by bin(TimeGenerated, 5m)
           '''
           timeAggregation: 'Count'

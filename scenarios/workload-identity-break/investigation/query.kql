@@ -4,6 +4,7 @@
 ContainerLogV2
 | where PodNamespace == "workload-identity-break"
 | where TimeGenerated > ago(1h)
-| where LogMessage has "AADSTS70021" or LogMessage has "No matching federated identity" or LogMessage has "ManagedIdentityCredential" or LogMessage contains "AADSTS"
-| project TimeGenerated, PodName, ContainerName, LogMessage, LogLevel
+| extend LogText = tostring(LogMessage)
+| where LogText has "AADSTS70021" or LogText has "No matching federated identity" or LogText has "ManagedIdentityCredential" or LogText contains "AADSTS"
+| project TimeGenerated, PodName, ContainerName, LogText, LogLevel
 | top 50 by TimeGenerated desc
