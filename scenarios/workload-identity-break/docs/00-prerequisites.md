@@ -96,11 +96,10 @@ your Azure credentials, and run deployments against your Azure subscription.
 
 **Steps:**
 
-1. Navigate to [sre-agent-workshop](https://github.com/JoranBergfeld/sre-agent-workshop/generate).
-2. Click **Use this template** → **Create a new repository**.
-3. Choose your personal account or organization, name the repository, and create it.
-4. Verify **Issues** and **Actions** are enabled and the Copilot coding agent is available.
-5. Clone the generated repository locally:
+1. Open the repository creation form with [**Use this template**](https://github.com/JoranBergfeld/sre-agent-workshop/generate).
+2. Choose your personal account or organization, name the repository, and create it.
+3. Verify **Issues** and **Actions** are enabled and the Copilot coding agent is available.
+4. Clone the generated repository locally:
    ```bash
    git clone https://github.com/{OWNER}/{GENERATED_REPOSITORY}.git
    cd {GENERATED_REPOSITORY}

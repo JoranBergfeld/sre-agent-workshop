@@ -9,6 +9,7 @@ import { REPO_ROOT } from '../lib/paths.js';
 const scenariosRoot = resolve(REPO_ROOT, 'scenarios');
 const aksScenarios = ['cosmos-rbac-removal', 'workload-identity-break'];
 const canonicalTemplateUrl = 'https://github.com/JoranBergfeld/sre-agent-workshop/generate';
+const canonicalTemplateLink = `[**Use this template**](${canonicalTemplateUrl})`;
 const scenarioDirectories = readdirSync(scenariosRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('_'))
   .map((entry) => entry.name)
@@ -78,8 +79,8 @@ for (const scenario of aksScenarios) {
     );
 
     assert.ok(
-      prerequisites.includes(canonicalTemplateUrl),
-      `${scenario} prerequisites must contain ${canonicalTemplateUrl}`,
+      prerequisites.includes(canonicalTemplateLink),
+      `${scenario} prerequisites must contain ${canonicalTemplateLink}`,
     );
   });
 }
