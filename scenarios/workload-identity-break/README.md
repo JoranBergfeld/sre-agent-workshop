@@ -7,8 +7,8 @@ selectable; it provisions, breaks, and recovers its own AKS workload.
 
 ## Cost profile
 
-This scenario has a **high** cost profile. The dominant cost drivers are the
-two-node AKS cluster, Cosmos DB, Application Insights and Log Analytics
+The **high** profile is a qualitative cost estimate. The dominant cost drivers
+are the two-node AKS cluster, Cosmos DB, Application Insights and Log Analytics
 ingestion, and Azure SRE Agent usage. Confirm current pricing for your
 deployment region before provisioning, and run cleanup immediately after
 completing the scenario.

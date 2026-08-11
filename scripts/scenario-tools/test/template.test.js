@@ -80,7 +80,10 @@ test('template materializes a valid standalone scenario capsule', (t) => {
 
   assert.deepEqual(errors, []);
 
-  assert.match(readFileSync(resolve(dest, 'README.md'), 'utf8'), /# Scenario: Disk Full/);
-  assert.doesNotMatch(readFileSync(resolve(dest, 'README.md'), 'utf8'), /\b(?:TODO|TBD)\b/);
+  const readme = readFileSync(resolve(dest, 'README.md'), 'utf8');
+  assert.match(readme, /# Scenario: Disk Full/);
+  assert.match(readme, /qualitative cost estimate/i);
+  assert.match(readme, /REPLACE_THIS_COST_GUIDANCE/);
+  assert.doesNotMatch(readme, /\b(?:TODO|TBD)\b/);
   assert.match(readFileSync(resolve(dest, 'infra/bicep/main.bicep'), 'utf8'), /targetScope\s*=\s*'resourceGroup'/);
 });

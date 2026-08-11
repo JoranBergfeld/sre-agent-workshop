@@ -91,9 +91,12 @@ like Azure Data Explorer or Azure DevOps AI Search. We didn't provision either,
 so skip this card. The **Azure Resources** grant already covers the workshop
 monitoring resources in `$RESOURCE_GROUP`, including:
 
-- **Application Insights**, which provides application telemetry.
-- **Log Analytics**, which stores AKS container logs, pod events, and
-  Kubernetes errors.
+- **Log Analytics**, where Container Insights collects the current Node.js
+  apps' stdout/stderr, pod events, and Kubernetes errors. The application
+  output is queryable in `ContainerLog`/`ContainerLogV2`.
+- **Application Insights**, which is provisioned and selected for SRE Agent
+  diagnostics and agent monitoring. The sample apps do not use an Application
+  Insights SDK, so it does not provide app-level tracing for them.
 
 No additional Logs-card connection is needed for this workshop.
 

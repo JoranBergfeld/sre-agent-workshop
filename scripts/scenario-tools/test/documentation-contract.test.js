@@ -55,6 +55,7 @@ function readMarkdownTree(root) {
 function assertCostGuidance(guide, costProfile) {
   assert.match(guide, /^## Cost profile$/m);
   assert.match(guide, new RegExp(`\\*\\*${costProfile}\\*\\*`, 'i'));
+  assert.match(guide, /qualitative cost estimate/i);
   assert.match(guide, /dominant cost drivers/i);
   assert.doesNotMatch(
     guide,
@@ -198,6 +199,14 @@ for (const scenario of aksScenarios) {
       /Reader level automatically includes[\s\S]*?Reader[\s\S]*?Log\s+Analytics Reader[\s\S]*?Monitoring Reader[\s\S]*?resource-group scope[\s\S]*?Monitoring Contributor[\s\S]*?subscription scope/i,
     );
     assert.match(onboarding, /review all (?:requested )?role\s+(?:assignments|grants)/i);
+    assert.match(onboarding, /Log Analytics[\s\S]*Node\.js[\s\S]*stdout\/stderr[\s\S]*ContainerLog/i);
+    assert.match(
+      onboarding,
+      /Application Insights[\s\S]*SRE Agent\s+diagnostics[\s\S]*agent monitoring/i,
+    );
+    assert.match(onboarding, /do not use an Application\s+Insights SDK/i);
+    assert.doesNotMatch(onboarding, /Application Insights.*provides application telemetry/i);
+    assert.doesNotMatch(onboarding, /Application Insights.*app(?:lication)?-level tracing/i);
     assert.doesNotMatch(onboarding, /If all three checks pass/);
     assert.doesNotMatch(onboarding, /Monitor\s*→\s*Resource Mapping/);
 

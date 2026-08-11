@@ -15,8 +15,8 @@ The workflow deploys the following Azure resources to your subscription. All res
 | Resource Group | `rg-{workloadName}` | Container for all workshop resources |
 | AKS Cluster | `{workloadName}-aks` | Kubernetes cluster hosting the web app; workload identity + OIDC issuer enabled |
 | CosmosDB Account | `{workloadName}-cosmos-{suffix}` | Serverless NoSQL database; globally unique name with 4-char suffix |
-| Log Analytics Workspace | `{workloadName}-law` | Centralized logging for AKS cluster, pods, and application |
-| Application Insights | `{workloadName}-ai` | Application performance monitoring and diagnostics |
+| Log Analytics Workspace | `{workloadName}-law` | Container Insights destination for AKS state and the Node.js app's stdout/stderr in `ContainerLog` |
+| Application Insights | `{workloadName}-ai` | SRE Agent diagnostics and agent monitoring; the sample app does not use an Application Insights SDK |
 | User-Assigned Managed Identity | `{workloadName}-id` | Workload identity for the app to authenticate to CosmosDB |
 | Federated Identity Credential | Automatic | Maps Kubernetes ServiceAccount → Azure managed identity |
 | CosmosDB Role Assignment | Automatic | Grants the managed identity permission to read database data |
