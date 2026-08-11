@@ -263,9 +263,14 @@ test('AKS response plans use the current Agent Canvas flow', () => {
     assert.match(responsePlan, /Never[\s\S]*directly change Azure[\s\S]*repository code/i);
     assert.match(responsePlan, /governed recovery route[\s\S]*issue[\s\S]*Copilot[\s\S]*pull request/i);
     assert.match(responsePlan, /operational-guidelines\.md[\s\S]*knowledge/i);
-    assert.match(responsePlan, /Tools[\s\S]*only the read\/investigation tools/i);
-    assert.match(responsePlan, /do not (?:select|grant|enable)[\s\S]*Azure modification/i);
-    assert.match(responsePlan, /do not (?:select|grant|enable)[\s\S]*pull request creation/i);
+    assert.match(
+      responsePlan,
+      /Tools[\s\S]*read\/investigation operations[\s\S]*GitHub issue-creation operation/i,
+    );
+    assert.match(
+      responsePlan,
+      /do not (?:select|grant|enable)[\s\S]*pull request creation[\s\S]*merge[\s\S]*workflow dispatch[\s\S]*deployment[\s\S]*Azure modification operations/i,
+    );
     assert.match(responsePlan, /Agent Canvas[\s\S]*Table view[\s\S]*appears/i);
     assert.match(responsePlan, /Trigger.*Incident response plan/s);
     assert.ok(responsePlan.includes(expected.planName));

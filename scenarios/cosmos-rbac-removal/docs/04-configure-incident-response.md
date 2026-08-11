@@ -134,10 +134,11 @@ this capsule before creating its response plan:
 6. Under **Knowledge**, enable the already indexed
    `scenarios/cosmos-rbac-removal/knowledge/operational-guidelines.md` file
    source.
-7. Under **Tools**, select only the read/investigation tools needed for
-   connected Azure resources and logs, repository source, and GitHub history.
-   Do not select or grant Azure modification tools or pull request creation
-   tools.
+7. Under **Tools**, select the read/investigation operations needed for
+   connected Azure resources and logs, repository source, and GitHub history,
+   plus the GitHub issue-creation operation needed for the approved handoff.
+   Do not select or grant operations for pull request creation, merge,
+   workflow dispatch, deployment, or Azure modification operations.
 8. Save the custom agent.
 9. Return to **Builder -> Agent Canvas**, switch to **Table view**, and verify
    that `cosmos-rbac-investigator` appears before continuing.
