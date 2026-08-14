@@ -7,7 +7,6 @@ on:
       - 'scenarios/cloud-agent-handover/src/**'
       - '.github/workflows/codeql-cloud-agent-handover.yml'
       - '.github/workflows/validate-appservice-app.yml'
-      - '.github/workflows/deploy-appservice-app.yml'
       - '.github/codeql/codeql-cloud-agent-handover.yml'
   pull_request:
     branches: [main]
@@ -15,7 +14,6 @@ on:
       - 'scenarios/cloud-agent-handover/src/**'
       - '.github/workflows/codeql-cloud-agent-handover.yml'
       - '.github/workflows/validate-appservice-app.yml'
-      - '.github/workflows/deploy-appservice-app.yml'
       - '.github/codeql/codeql-cloud-agent-handover.yml'
   schedule:
     - cron: '17 4 * * 1'

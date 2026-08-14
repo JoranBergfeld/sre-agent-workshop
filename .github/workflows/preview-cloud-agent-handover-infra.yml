@@ -32,5 +32,4 @@ jobs:
             --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
             --parameters scenarios/cloud-agent-handover/infra/bicep/main.bicepparam \
               location="$LOCATION" \
-              workloadName="$WORKLOAD" \
-              githubRepository="${{ github.repository }}"
+              workloadName="$WORKLOAD"

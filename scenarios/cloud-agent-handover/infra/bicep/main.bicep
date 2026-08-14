@@ -11,9 +11,6 @@ param location string = 'eastus2'
 @description('Base workload name used in resource naming ({workloadName}-{type})')
 param workloadName string = 'srelabapp'
 
-@description('GitHub repository in owner/repository format')
-param githubRepository string
-
 @description('Resource tags applied to every resource')
 param tags object = {
   workshop: 'sre-agent'
@@ -28,16 +25,6 @@ module monitoring 'modules/monitoring.bicep' = {
     location: location
     workloadName: workloadName
     tags: tags
-  }
-}
-
-module deploymentIdentity 'modules/identity.bicep' = {
-  name: 'deployment-identity'
-  params: {
-    location: location
-    workloadName: workloadName
-    tags: tags
-    githubRepository: githubRepository
   }
 }
 
@@ -71,6 +58,3 @@ output webAppHostName string = appservice.outputs.webAppHostName
 
 @description('Log Analytics workspace resource ID')
 output logAnalyticsId string = monitoring.outputs.logAnalyticsId
-
-@description('GitHub Actions deployment identity client ID')
-output deploymentClientId string = deploymentIdentity.outputs.clientId

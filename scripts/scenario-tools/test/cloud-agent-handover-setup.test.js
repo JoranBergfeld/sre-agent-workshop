@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..');
@@ -19,13 +19,14 @@ test('Cloud Agent Handover setup retains the authenticated GitHub environment to
   assert.doesNotMatch(powershellSetup, /Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN/);
 });
 
-test('Cloud Agent Handover setup persists the verified Azure subscription', () => {
+test('Cloud Agent Handover setup verifies the requested Azure subscription', () => {
   const bashSetup = readFileSync(
     resolve(repositoryRoot, 'scenarios/cloud-agent-handover/scripts/setup.sh'),
     'utf8'
   );
 
-  assert.match(bashSetup, /SUBSCRIPTION_ID="\$active_subscription_id"/);
+  assert.match(bashSetup, /requested_subscription_id="\$\{AZURE_SUBSCRIPTION_ID:-\}"/);
+  assert.match(bashSetup, /Azure subscription mismatch/);
   assert.doesNotMatch(bashSetup, /AZURE_ACTIVE_SUBSCRIPTION_ID/);
 });
 
@@ -83,5 +84,36 @@ test('Cloud Agent Handover deploy helpers publish the current checkout through A
       script,
       /\bgit\s+(?:fetch|pull|checkout|switch|merge|reset)\b/i
     );
+  }
+});
+
+test('Cloud Agent Handover no longer provisions GitHub deployment credentials', () => {
+  const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
+  const mainBicep = readFileSync(
+    resolve(scenarioRoot, 'infra/bicep/main.bicep'),
+    'utf8'
+  );
+  const bashSetup = readFileSync(resolve(scenarioRoot, 'scripts/setup.sh'), 'utf8');
+  const powershellSetup = readFileSync(
+    resolve(scenarioRoot, 'scripts/setup.ps1'),
+    'utf8'
+  );
+
+  assert.equal(
+    existsSync(resolve(repositoryRoot, '.github/workflows/deploy-appservice-app.yml')),
+    false
+  );
+  assert.equal(
+    existsSync(resolve(scenarioRoot, 'infra/bicep/modules/identity.bicep')),
+    false
+  );
+  assert.doesNotMatch(
+    mainBicep,
+    /githubRepository|deploymentIdentity|deploymentClientId/
+  );
+  for (const setup of [bashSetup, powershellSetup]) {
+    assert.doesNotMatch(setup, /AZURE_CLIENT_ID|AZURE_TENANT_ID/);
+    assert.match(setup, /AZURE_RESOURCE_GROUP/);
+    assert.match(setup, /AZURE_WEBAPP_NAME/);
   }
 });

@@ -52,11 +52,6 @@ $activeSubscriptionName = [string](az account show --query name --output tsv); i
 $activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim()
 if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', but active subscription is '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }
 Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
-$selectedSubscription = [PSCustomObject]@{ Id = $activeSubscriptionId; Name = $activeSubscriptionName }
-$accountJson = (Invoke-NativeCommand -Command "az" -Arguments @(
-    "account", "show", "--output", "json"
-)) -join [Environment]::NewLine
-$account = $accountJson | ConvertFrom-Json
 
 try {
     Invoke-NativeCommand -Command "gh" -Arguments @("auth", "status") -DiscardOutput
@@ -110,15 +105,12 @@ query($owner:String!, $name:String!) {
         throw "Copilot coding agent is not assignable in $repository. Enable it before setup."
     }
 
-    $subscriptionId = [string]$selectedSubscription.Id
-    $tenantId = [string]$account.tenantId
     $resourceGroup = "rg-$Workload"
 
     foreach ($provider in @(
         "Microsoft.Web",
         "Microsoft.Insights",
-        "Microsoft.OperationalInsights",
-        "Microsoft.ManagedIdentity"
+        "Microsoft.OperationalInsights"
     )) {
         Invoke-NativeCommand -Command "az" -Arguments @(
             "provider", "register",
@@ -143,7 +135,6 @@ query($owner:String!, $name:String!) {
         "--parameters",
         "location=$Location",
         "workloadName=$Workload",
-        "githubRepository=$repository",
         "--query", "properties.outputs",
         "--output", "json"
     )) -join [Environment]::NewLine
@@ -151,12 +142,10 @@ query($owner:String!, $name:String!) {
 
     $webApp = [string]$outputs.webAppName.value
     $webHost = [string]$outputs.webAppHostName.value
-    $clientId = [string]$outputs.deploymentClientId.value
 
     foreach ($outputValue in @{
         webAppName = $webApp
         webAppHostName = $webHost
-        deploymentClientId = $clientId
     }.GetEnumerator()) {
         if ([string]::IsNullOrWhiteSpace($outputValue.Value)) {
             throw "Deployment output '$($outputValue.Key)' was empty."
@@ -196,13 +185,10 @@ query($owner:String!, $name:String!) {
     }
 
     foreach ($variable in ([ordered]@{
-        AZURE_CLIENT_ID       = $clientId
-        AZURE_TENANT_ID       = $tenantId
-        AZURE_SUBSCRIPTION_ID = $subscriptionId
-        AZURE_RESOURCE_GROUP  = $resourceGroup
-        AZURE_WEBAPP_NAME     = $webApp
-        AZURE_LOCATION        = $Location
-        WORKLOAD_NAME         = $Workload
+        AZURE_RESOURCE_GROUP = $resourceGroup
+        AZURE_WEBAPP_NAME    = $webApp
+        AZURE_LOCATION       = $Location
+        WORKLOAD_NAME        = $Workload
     }).GetEnumerator()) {
         Invoke-NativeCommand -Command "gh" -Arguments @(
             "variable", "set", $variable.Key,

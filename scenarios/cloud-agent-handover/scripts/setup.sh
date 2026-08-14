@@ -138,15 +138,12 @@ if ! grep -Fxq 'copilot-swe-agent' <<<"$ACTORS"; then
   exit 1
 fi
 
-SUBSCRIPTION_ID="$active_subscription_id"
-TENANT_ID=$(az account show --query tenantId --output tsv)
 RESOURCE_GROUP="rg-$WORKLOAD"
 
 for provider in \
   Microsoft.Web \
   Microsoft.Insights \
-  Microsoft.OperationalInsights \
-  Microsoft.ManagedIdentity; do
+  Microsoft.OperationalInsights; do
   az provider register --namespace "$provider" --wait --output none
 done
 
@@ -162,13 +159,11 @@ OUTPUTS=$(az deployment group create \
   --parameters \
     location="$LOCATION" \
     workloadName="$WORKLOAD" \
-    githubRepository="$REPOSITORY" \
   --query properties.outputs \
   --output json)
 
 WEB_APP=$(jq -er '.webAppName.value' <<<"$OUTPUTS")
 WEB_HOST=$(jq -er '.webAppHostName.value' <<<"$OUTPUTS")
-CLIENT_ID=$(jq -er '.deploymentClientId.value' <<<"$OUTPUTS")
 
 PUBLISH_DIR=$(mktemp -d)
 trap cleanup_temp EXIT
@@ -186,9 +181,6 @@ az webapp deploy \
   --type zip \
   --output none
 
-gh variable set AZURE_CLIENT_ID --repo "$REPOSITORY" --body "$CLIENT_ID"
-gh variable set AZURE_TENANT_ID --repo "$REPOSITORY" --body "$TENANT_ID"
-gh variable set AZURE_SUBSCRIPTION_ID --repo "$REPOSITORY" --body "$SUBSCRIPTION_ID"
 gh variable set AZURE_RESOURCE_GROUP --repo "$REPOSITORY" --body "$RESOURCE_GROUP"
 gh variable set AZURE_WEBAPP_NAME --repo "$REPOSITORY" --body "$WEB_APP"
 gh variable set AZURE_LOCATION --repo "$REPOSITORY" --body "$LOCATION"
