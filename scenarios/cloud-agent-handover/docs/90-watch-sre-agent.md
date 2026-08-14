@@ -70,27 +70,54 @@ reviews it and assigns Copilot. Neither writes the fix nor opens the pull
 request. Repository and App Service Copilot instructions guide the coding
 agent, while CI provides an independent merge gate.
 
-## Observe deployment
+## Update and deploy the merged code
 
 Complete this section only for Path A.
 
-Open
-`https://github.com/<owner>/<repository>/actions/workflows/deploy-appservice-app.yml`.
-Confirm that **Deploy Cloud Agent Handover Application** started automatically for the
-merge and completed successfully.
-
-You can also inspect the latest run from the repository root:
+Before changing branches, commit or stash any local work that you intend to
+keep. Then update the local checkout:
 
 ```bash
-gh run list --workflow deploy-appservice-app.yml --limit 1
+git switch main
+git pull --ff-only
 ```
+
+Deploy the current checkout with the signed-in Azure CLI user.
+
+Bash:
+
+```bash
+scenarios/cloud-agent-handover/scripts/deploy.sh
+```
+
+PowerShell 7:
+
+```powershell
+scenarios/cloud-agent-handover/scripts/deploy.ps1
+```
+
+If you chose a custom workload, pass its resource group:
+
+```bash
+scenarios/cloud-agent-handover/scripts/deploy.sh \
+  --resource-group "rg-<workload>"
+```
+
+```powershell
+scenarios/cloud-agent-handover/scripts/deploy.ps1 `
+  -ResourceGroup "rg-<workload>"
+```
+
+The deployment helpers run the endpoint tests, publish the application, create
+a zip bundle, and call `az webapp deploy`. They deploy exactly the current
+checkout and do not fetch, pull, or change branches.
 
 For Path B without infrastructure, stop after GitHub review and merge. Do not
 run the endpoint validator or claim that the incident recovered in Azure.
 
 ## Validate Azure recovery
 
-After the Path A deployment completes, run the scenario validator.
+After the local Path A deployment completes, run the scenario validator.
 
 Bash:
 

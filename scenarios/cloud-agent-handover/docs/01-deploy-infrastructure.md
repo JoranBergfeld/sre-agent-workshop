@@ -44,12 +44,11 @@ The script:
 2. Registers the required Azure resource providers.
 3. Creates `rg-<workload>`.
 4. Deploys a B1 Linux App Service, workspace-based Application Insights and Log
-   Analytics, the scenario alert, and a GitHub deployment user-assigned managed
-   identity.
-5. Creates the `main`-branch federated identity credential and grants the
-   deployment identity Website Contributor on the resource group.
-6. Tests, publishes, and deploys the .NET 10 application.
-7. Writes the repository variables used by the OIDC app workflow.
+   Analytics, and the scenario alert.
+5. Tests, publishes, and deploys the .NET 10 application with the signed-in
+   Azure CLI user.
+6. Writes repository metadata variables for the resource group, web app,
+   location, and workload name.
 
 At completion it prints values in this form:
 
@@ -83,14 +82,6 @@ authenticated `GITHUB_TOKEN`; do not unset it. Run `gh auth status`, then
 rerun setup. The active credential needs permission to manage Actions variables
 in the generated repository.
 
-### Role assignment is denied
-
-An error containing `Microsoft.Authorization/roleAssignments/write` means the
-signed-in Azure account lacks **Owner** or **User Access Administrator** at the
-resource-group scope or broader. Have an administrator grant one of those
-roles. If access is limited to one resource group, pre-create
-`rg-<workload>`, have the role granted there, and rerun setup.
-
 ### Provider registration fails
 
 Inspect the required providers:
@@ -99,7 +90,6 @@ Inspect the required providers:
 az provider show --namespace Microsoft.Web --query registrationState -o tsv
 az provider show --namespace Microsoft.Insights --query registrationState -o tsv
 az provider show --namespace Microsoft.OperationalInsights --query registrationState -o tsv
-az provider show --namespace Microsoft.ManagedIdentity --query registrationState -o tsv
 ```
 
 Register any provider that is not `Registered`:

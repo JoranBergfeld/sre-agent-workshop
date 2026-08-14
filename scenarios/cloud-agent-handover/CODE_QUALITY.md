@@ -19,8 +19,8 @@ The coverage gate applies to changed C# application lines under
 unchanged application lines are not part of the 100% threshold.
 
 **CodeQL Cloud Agent Handover** analyzes only
-`scenarios/cloud-agent-handover/src` and the CodeQL, validation, and deployment
-workflows for this scenario. It runs C# and GitHub Actions scans in parallel
+`scenarios/cloud-agent-handover/src` and the CodeQL and validation workflows
+for this scenario. It runs C# and GitHub Actions scans in parallel
 with the application validation workflow for relevant pull requests and `main`
 pushes. It also scans weekly so new CodeQL checks apply even when the
 application does not change. Review a clean CodeQL result with the endpoint

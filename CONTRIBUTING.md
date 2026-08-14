@@ -60,8 +60,9 @@ The platform is scenario metadata, not a directory hierarchy.
    `@copilot`, a Copilot pull request, and human deployment after merge. The
    Cloud Agent Handover scenario requires approval before the SRE Agent creates
    one unassigned issue. A learner reviews it and assigns
-   `copilot-swe-agent`; a human merges the pull request and the application
-   deployment runs automatically.
+   `copilot-swe-agent`; a human merges the pull request, updates the local
+   `main` checkout, and deploys it with the scenario's `deploy.sh` or
+   `deploy.ps1` helper.
 
 5. Validate locally:
 
@@ -94,8 +95,9 @@ scenario and are manually dispatched where deployment is required.
 
 The Cloud Agent Handover capsule additionally uses **Validate Cloud Agent
 Handover Application** for its application tests. After an approved Copilot
-fix is reviewed and merged, **Deploy Cloud Agent Handover Application** deploys
-the application automatically on qualifying pushes to `main`.
+fix is reviewed and merged, the operator updates the local `main` checkout and
+deploys the reviewed application with the scenario's Bash or PowerShell
+deployment helper.
 
 ## Style
 

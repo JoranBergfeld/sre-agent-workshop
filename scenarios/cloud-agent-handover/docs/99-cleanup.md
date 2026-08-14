@@ -30,9 +30,8 @@ scenarios/cloud-agent-handover/scripts/cleanup.ps1 -ResourceGroup rg-myworkload
 ```
 
 The scripts call `az group delete --yes --no-wait`. The resource group contains
-the B1 App Service, monitoring resources, GitHub deployment user-assigned
-managed identity, and its federated identity credential (FIC). If you created
-the SRE Agent in this resource group, it is removed as well.
+the B1 App Service and monitoring resources. If you created the SRE Agent in
+this resource group, it is removed as well.
 
 Check deletion safely:
 
@@ -51,14 +50,13 @@ The expected result is `false` after Azure finishes deletion.
 
 ## Optional GitHub cleanup
 
-Remove the repository variables created by setup if you want to retain the
-generated repository without its Azure deployment configuration.
+Remove the repository metadata variables created by setup if you want to
+retain the generated repository without its Azure resource references.
 
 Bash:
 
 ```bash
 for variable in \
-  AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
   AZURE_RESOURCE_GROUP AZURE_WEBAPP_NAME AZURE_LOCATION WORKLOAD_NAME; do
   gh variable delete "$variable"
 done
@@ -69,9 +67,6 @@ PowerShell 7:
 
 ```powershell
 $Variables = @(
-  "AZURE_CLIENT_ID",
-  "AZURE_TENANT_ID",
-  "AZURE_SUBSCRIPTION_ID",
   "AZURE_RESOURCE_GROUP",
   "AZURE_WEBAPP_NAME",
   "AZURE_LOCATION",

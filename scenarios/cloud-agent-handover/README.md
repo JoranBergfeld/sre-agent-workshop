@@ -70,8 +70,8 @@ The Azure and GitHub-only paths converge when Copilot is assigned:
    100% coverage for changed executable application lines.
 3. The operator reviews the source, tests, and CI result.
 4. The operator merges the pull request.
-5. If infrastructure exists, the OIDC-based **Deploy Cloud Agent Handover
-   Application** workflow deploys the merged code.
+5. If infrastructure exists, the operator updates the local `main` checkout
+   and deploys the reviewed code with `deploy.sh` or `deploy.ps1`.
 
 There is no manual kill switch or remediation script. The pull request is the
 intended recovery path. When using Azure, the SRE Agent must still investigate,
@@ -80,9 +80,35 @@ the issue and assigns Copilot before this common flow begins.
 
 Continue with [90 Watch the handover](./docs/90-watch-sre-agent.md).
 
+## Deploy the reviewed change
+
+After merging the Copilot pull request, update the local checkout:
+
+```bash
+git switch main
+git pull --ff-only
+```
+
+Deploy exactly that checkout.
+
+**Bash**
+
+```bash
+./scenarios/cloud-agent-handover/scripts/deploy.sh
+```
+
+**PowerShell 7**
+
+```powershell
+./scenarios/cloud-agent-handover/scripts/deploy.ps1
+```
+
+The scripts test, publish, zip, and deploy the application with the signed-in
+Azure CLI user. They do not fetch or change Git branches.
+
 ## Validate recovery
 
-Run the validator after deployment.
+Run the validator after the local deployment.
 
 **Bash**
 

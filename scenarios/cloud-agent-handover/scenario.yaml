@@ -10,7 +10,7 @@ costProfile: low
 learningObjectives:
   - Observe a route-specific HTTP 500 incident.
   - Approve a structured issue handoff from the SRE Agent to Copilot.
-  - Merge the Cloud Agent pull request and use the OIDC deployment to recover.
+  - Merge the Cloud Agent pull request and deploy the reviewed change locally.
 guide: README.md
 setup:
   bash: scripts/setup.sh

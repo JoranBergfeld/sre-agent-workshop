@@ -13,19 +13,17 @@ Complete these checks before starting the App Service handover.
    cd <repository>
    ```
 
-The setup scripts reject the source template repository because the GitHub OIDC
-trust must target your generated repository.
+The setup scripts reject the source template repository because the scenario
+requires a generated repository that the SRE Agent and Copilot coding agent can
+use for the approved handoff.
 
 ## Access
 
 You need:
 
 - An Azure subscription with **Contributor** at the scenario resource-group
-  scope or broader.
-- **Owner** or **User Access Administrator** at that scope or broader. The
-  Bicep deployment creates a Website Contributor role assignment for the
-  GitHub deployment identity; Contributor alone cannot create role
-  assignments.
+  scope or broader. The signed-in Azure CLI user performs the initial and
+  recovery deployments.
 - Access to create or use an [Azure SRE Agent](https://sre.azure.com).
 - GitHub Copilot coding agent enabled and assignable in the generated
   repository.
@@ -107,7 +105,7 @@ Choose one:
 - [ ] `gh auth status` succeeds for the active GitHub credential.
 - [ ] `dotnet --version` reports 10.x.
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
-- [ ] You have role-assignment permission for the scenario resource group.
+- [ ] Your Azure CLI identity has Contributor access to the scenario resource group.
 - [ ] Copilot coding agent and SRE Agent access are available.
 
 Next: [Deploy infrastructure and the starting app](./01-deploy-infrastructure.md).

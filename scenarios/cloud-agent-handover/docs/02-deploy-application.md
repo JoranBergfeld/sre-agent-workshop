@@ -33,9 +33,10 @@ select the button yet; first connect and configure the SRE Agent.
 
 ## How the recovery deploys
 
-The initial deployment came from your local setup script. Later, when you merge
-the Copilot pull request to `main`, **Deploy Cloud Agent Handover Application** runs
-automatically for App Service source or test changes. It tests and publishes
-the app, signs in to Azure through OIDC, and deploys the merged code.
+The initial deployment came from local setup. After the Copilot pull request is
+reviewed and merged, update your local `main` checkout and run the scenario's
+local deployment helper. The helper tests and publishes exactly the code
+currently checked out, then deploys the zip bundle with your authenticated
+Azure CLI session. It does not pull or change branches for you.
 
 Next: [Onboard the SRE Agent](./03-onboard-sre-agent.md).

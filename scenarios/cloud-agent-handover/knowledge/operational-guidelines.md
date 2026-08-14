@@ -39,7 +39,7 @@ The issue must state:
 
 1. The learner assigns the reviewed issue to `copilot-swe-agent`.
 2. The operator reviews and merges the Copilot pull request.
-3. The merge triggers the OIDC-based **Deploy Cloud Agent Handover Application**
-   workflow.
+3. The operator updates the local `main` checkout and runs `deploy.sh` or
+   `deploy.ps1` with the authenticated Azure CLI user.
 4. Validate the endpoint and health check after deployment. Close the issue and
    incident only after recovery is confirmed.

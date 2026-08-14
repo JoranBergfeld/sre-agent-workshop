@@ -117,3 +117,26 @@ test('Cloud Agent Handover no longer provisions GitHub deployment credentials', 
     assert.match(setup, /AZURE_WEBAPP_NAME/);
   }
 });
+
+test('Cloud Agent Handover documents operator-controlled local deployment', () => {
+  const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
+  const readme = readFileSync(resolve(scenarioRoot, 'README.md'), 'utf8');
+  const handoverGuide = readFileSync(
+    resolve(scenarioRoot, 'docs/90-watch-sre-agent.md'),
+    'utf8'
+  );
+  const operationalGuidance = readFileSync(
+    resolve(scenarioRoot, 'knowledge/operational-guidelines.md'),
+    'utf8'
+  );
+
+  for (const document of [readme, handoverGuide, operationalGuidance]) {
+    assert.match(document, /local/i);
+    assert.match(document, /deploy\.(?:sh|ps1)/i);
+    assert.doesNotMatch(
+      document,
+      /OIDC-based.*Deploy Cloud Agent Handover/is
+    );
+  }
+  assert.match(handoverGuide, /git pull/i);
+});
