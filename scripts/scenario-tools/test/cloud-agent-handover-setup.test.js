@@ -112,7 +112,10 @@ test('Cloud Agent Handover no longer provisions GitHub deployment credentials', 
     /githubRepository|deploymentIdentity|deploymentClientId/
   );
   for (const setup of [bashSetup, powershellSetup]) {
-    assert.doesNotMatch(setup, /AZURE_CLIENT_ID|AZURE_TENANT_ID/);
+    assert.doesNotMatch(
+      setup,
+      /variable["',\s]+set["',\s]+AZURE_(?:CLIENT|TENANT|SUBSCRIPTION)_ID/i
+    );
     assert.match(setup, /AZURE_RESOURCE_GROUP/);
     assert.match(setup, /AZURE_WEBAPP_NAME/);
   }
@@ -139,4 +142,39 @@ test('Cloud Agent Handover documents operator-controlled local deployment', () =
     );
   }
   assert.match(handoverGuide, /git pull/i);
+});
+
+test('Cloud Agent Handover setup removes legacy automatic deployment state', () => {
+  const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
+  const bashSetup = readFileSync(resolve(scenarioRoot, 'scripts/setup.sh'), 'utf8');
+  const powershellSetup = readFileSync(
+    resolve(scenarioRoot, 'scripts/setup.ps1'),
+    'utf8'
+  );
+
+  for (const setup of [bashSetup, powershellSetup]) {
+    assert.match(setup, /github-deploy/);
+    assert.match(setup, /role["',\s]+assignment["',\s]+delete/i);
+    assert.match(setup, /identity["',\s]+delete/i);
+    assert.match(setup, /variable["',\s]+delete/i);
+    assert.match(setup, /AZURE_CLIENT_ID/);
+    assert.match(setup, /AZURE_TENANT_ID/);
+    assert.match(setup, /AZURE_SUBSCRIPTION_ID/);
+  }
+});
+
+test('Shared Cloud Agent Handover guidance uses local deployment', () => {
+  const connectorGuide = readFileSync(
+    resolve(repositoryRoot, 'docs/connect-github-to-sre-agent.md'),
+    'utf8'
+  );
+  const copilotInstructions = readFileSync(
+    resolve(repositoryRoot, '.github/copilot-instructions.md'),
+    'utf8'
+  );
+
+  for (const document of [connectorGuide, copilotInstructions]) {
+    assert.match(document, /deploy\.(?:sh|ps1)/i);
+    assert.doesNotMatch(document, /Deploy Cloud Agent Handover Application/);
+  }
 });

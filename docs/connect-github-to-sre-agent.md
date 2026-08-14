@@ -162,9 +162,9 @@ If verification fails, check the token before retrying:
 - **Cloud Agent Handover:** requires the code repository and GitHub OAuth
   connector. After explicit approval, the SRE Agent creates one unassigned
   issue. The learner reviews it and assigns `copilot-swe-agent`; Copilot
-  creates the fix pull request; the operator reviews and merges it; the
-  OIDC-based **Deploy Cloud Agent Handover Application** workflow deploys the
-  merged code.
+  creates the fix pull request; the operator reviews and merges it, updates the
+  local `main` checkout, and deploys it with the scenario's `deploy.sh` or
+  `deploy.ps1` helper.
 - **CosmosDB RBAC Removal** and **Workload Identity Break:** require the code
   repository and GitHub OAuth connector. The SRE Agent creates a remediation
   issue assigned to `@copilot`; Copilot opens a pull request; a human reviews,

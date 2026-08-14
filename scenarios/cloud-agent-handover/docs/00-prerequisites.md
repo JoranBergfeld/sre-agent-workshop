@@ -24,6 +24,10 @@ You need:
 - An Azure subscription with **Contributor** at the scenario resource-group
   scope or broader. The signed-in Azure CLI user performs the initial and
   recovery deployments.
+- When rerunning setup over an older deployment that still has the former
+  GitHub deployment identity, **Owner** or **User Access Administrator** is
+  required once to remove its legacy role assignment. A fresh deployment does
+  not need role-assignment permission.
 - Access to create or use an [Azure SRE Agent](https://sre.azure.com).
 - GitHub Copilot coding agent enabled and assignable in the generated
   repository.
@@ -106,6 +110,8 @@ Choose one:
 - [ ] `dotnet --version` reports 10.x.
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
 - [ ] Your Azure CLI identity has Contributor access to the scenario resource group.
+- [ ] For an older deployment only, you can remove its legacy role assignment
+      or will delete the old resource group before rerunning setup.
 - [ ] Copilot coding agent and SRE Agent access are available.
 
 Next: [Deploy infrastructure and the starting app](./01-deploy-infrastructure.md).

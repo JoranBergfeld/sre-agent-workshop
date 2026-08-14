@@ -153,6 +153,45 @@ az group create \
   --tags workshop=sre-agent environment=demo \
   --output none
 
+LEGACY_IDENTITY_NAME="$WORKLOAD-github-deploy"
+LEGACY_PRINCIPAL_ID=""
+MANAGED_IDENTITY_STATE=$(az provider show \
+  --namespace Microsoft.ManagedIdentity \
+  --query registrationState \
+  --output tsv)
+if [ "$MANAGED_IDENTITY_STATE" = "Registered" ]; then
+  LEGACY_PRINCIPAL_ID=$(az identity list \
+    --resource-group "$RESOURCE_GROUP" \
+    --query "[?name=='$LEGACY_IDENTITY_NAME'].principalId | [0]" \
+    --output tsv)
+fi
+
+if [ -n "$LEGACY_PRINCIPAL_ID" ]; then
+  RESOURCE_GROUP_ID=$(az group show \
+    --name "$RESOURCE_GROUP" \
+    --query id \
+    --output tsv)
+  WEBSITE_CONTRIBUTOR_ROLE_ID="/subscriptions/$active_subscription_id/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772"
+  LEGACY_ROLE_ASSIGNMENT_IDS=$(az role assignment list \
+    --assignee-object-id "$LEGACY_PRINCIPAL_ID" \
+    --scope "$RESOURCE_GROUP_ID" \
+    --role "$WEBSITE_CONTRIBUTOR_ROLE_ID" \
+    --query '[].id' \
+    --output tsv)
+
+  if [ -n "$LEGACY_ROLE_ASSIGNMENT_IDS" ]; then
+    # Azure resource IDs contain no shell whitespace.
+    # shellcheck disable=SC2086
+    az role assignment delete --ids $LEGACY_ROLE_ASSIGNMENT_IDS
+  fi
+
+  az identity delete \
+    --resource-group "$RESOURCE_GROUP" \
+    --name "$LEGACY_IDENTITY_NAME" \
+    --output none
+  echo "Removed legacy GitHub deployment identity: $LEGACY_IDENTITY_NAME"
+fi
+
 OUTPUTS=$(az deployment group create \
   --resource-group "$RESOURCE_GROUP" \
   --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
@@ -185,6 +224,19 @@ gh variable set AZURE_RESOURCE_GROUP --repo "$REPOSITORY" --body "$RESOURCE_GROU
 gh variable set AZURE_WEBAPP_NAME --repo "$REPOSITORY" --body "$WEB_APP"
 gh variable set AZURE_LOCATION --repo "$REPOSITORY" --body "$LOCATION"
 gh variable set WORKLOAD_NAME --repo "$REPOSITORY" --body "$WORKLOAD"
+
+EXISTING_VARIABLES=$(gh variable list \
+  --repo "$REPOSITORY" \
+  --json name \
+  --jq '.[].name')
+for legacy_variable in \
+  AZURE_CLIENT_ID \
+  AZURE_TENANT_ID \
+  AZURE_SUBSCRIPTION_ID; do
+  if grep -Fxq "$legacy_variable" <<<"$EXISTING_VARIABLES"; then
+    gh variable delete "$legacy_variable" --repo "$REPOSITORY"
+  fi
+done
 
 echo "Application: https://$WEB_HOST"
 echo "Health:      https://$WEB_HOST/health"

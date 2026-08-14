@@ -128,6 +128,61 @@ query($owner:String!, $name:String!) {
         "--output", "none"
     ) -DiscardOutput
 
+    $legacyIdentityName = "$Workload-github-deploy"
+    $managedIdentityState = [string](Invoke-NativeCommand -Command "az" -Arguments @(
+        "provider", "show",
+        "--namespace", "Microsoft.ManagedIdentity",
+        "--query", "registrationState",
+        "--output", "tsv"
+    ))
+    $legacyPrincipalId = ""
+    if ($managedIdentityState.Trim() -ceq "Registered") {
+        $legacyPrincipalId = [string](Invoke-NativeCommand -Command "az" -Arguments @(
+            "identity", "list",
+            "--resource-group", $resourceGroup,
+            "--query", "[?name=='$legacyIdentityName'].principalId | [0]",
+            "--output", "tsv"
+        ))
+        $legacyPrincipalId = $legacyPrincipalId.Trim()
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($legacyPrincipalId)) {
+        $resourceGroupId = [string](Invoke-NativeCommand -Command "az" -Arguments @(
+            "group", "show",
+            "--name", $resourceGroup,
+            "--query", "id",
+            "--output", "tsv"
+        ))
+        $websiteContributorRoleId = "/subscriptions/$activeSubscriptionId/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772"
+        $legacyRoleAssignmentIds = @(Invoke-NativeCommand -Command "az" -Arguments @(
+            "role", "assignment", "list",
+            "--assignee-object-id", $legacyPrincipalId,
+            "--scope", $resourceGroupId.Trim(),
+            "--role", $websiteContributorRoleId,
+            "--query", "[].id",
+            "--output", "tsv"
+        ))
+
+        if ($legacyRoleAssignmentIds.Count -gt 0) {
+            $deleteRoleAssignmentArguments = @(
+                "role", "assignment", "delete",
+                "--ids"
+            ) + $legacyRoleAssignmentIds
+            Invoke-NativeCommand `
+                -Command "az" `
+                -Arguments $deleteRoleAssignmentArguments `
+                -DiscardOutput
+        }
+
+        Invoke-NativeCommand -Command "az" -Arguments @(
+            "identity", "delete",
+            "--resource-group", $resourceGroup,
+            "--name", $legacyIdentityName,
+            "--output", "none"
+        ) -DiscardOutput
+        Write-Host "Removed legacy GitHub deployment identity: $legacyIdentityName"
+    }
+
     $outputsJson = (Invoke-NativeCommand -Command "az" -Arguments @(
         "deployment", "group", "create",
         "--resource-group", $resourceGroup,
@@ -195,6 +250,25 @@ query($owner:String!, $name:String!) {
             "--repo", $repository,
             "--body", [string]$variable.Value
         ) -DiscardOutput
+    }
+
+    $existingVariables = @(Invoke-NativeCommand -Command "gh" -Arguments @(
+        "variable", "list",
+        "--repo", $repository,
+        "--json", "name",
+        "--jq", ".[].name"
+    ))
+    foreach ($legacyVariable in @(
+        "AZURE_CLIENT_ID",
+        "AZURE_TENANT_ID",
+        "AZURE_SUBSCRIPTION_ID"
+    )) {
+        if ($existingVariables -contains $legacyVariable) {
+            Invoke-NativeCommand -Command "gh" -Arguments @(
+                "variable", "delete", $legacyVariable,
+                "--repo", $repository
+            ) -DiscardOutput
+        }
     }
 
     Write-Host "Application: https://$webHost"

@@ -45,9 +45,11 @@ The script:
 3. Creates `rg-<workload>`.
 4. Deploys a B1 Linux App Service, workspace-based Application Insights and Log
    Analytics, and the scenario alert.
-5. Tests, publishes, and deploys the .NET 10 application with the signed-in
+5. Removes the former GitHub OIDC identity, role assignment, and credential
+   variables when rerunning over an older deployment.
+6. Tests, publishes, and deploys the .NET 10 application with the signed-in
    Azure CLI user.
-6. Writes repository metadata variables for the resource group, web app,
+7. Writes repository metadata variables for the resource group, web app,
    location, and workload name.
 
 At completion it prints values in this form:
@@ -81,6 +83,14 @@ Setup uses the active GitHub CLI credential. In Codespaces, it preserves the
 authenticated `GITHUB_TOKEN`; do not unset it. Run `gh auth status`, then
 rerun setup. The active credential needs permission to manage Actions variables
 in the generated repository.
+
+### Legacy role assignment removal is denied
+
+This applies only when rerunning setup over a deployment created by the former
+OIDC workflow. Removing its Website Contributor assignment requires **Owner**
+or **User Access Administrator** at the resource-group scope or broader. Ask an
+administrator to remove the assignment, or delete the old scenario resource
+group and run setup again for a fresh deployment.
 
 ### Provider registration fails
 

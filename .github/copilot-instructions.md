@@ -95,9 +95,10 @@ Removal Infrastructure**.
 
 Cloud Agent Handover uses **Validate Cloud Agent Handover Infrastructure**,
 **Preview Cloud Agent Handover Infrastructure**, **Validate Cloud Agent
-Handover Application**, and **Deploy Cloud Agent Handover Application**.
-The preview workflow is manually dispatched; application deployment is
-automatic on qualifying pushes to `main`.
+Handover Application**, plus the scenario-local `deploy.sh` and `deploy.ps1`
+helpers. The preview workflow is manually dispatched; after merging the
+Copilot pull request, an operator updates the local `main` checkout and deploys
+the reviewed application.
 
 AKS application capsules publish and deploy their own images through
 scenario-named workflows. Keep the GHCR package access required by the
