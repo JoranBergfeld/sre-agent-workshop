@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..');
@@ -55,4 +55,33 @@ test('Cloud Agent Handover documentation retains the authenticated Codespaces to
   assert.match(deploymentGuide, /uses the active GitHub CLI credential/i);
   assert.doesNotMatch(rootReadme, /env -u GH_TOKEN -u GITHUB_TOKEN/);
   assert.doesNotMatch(prerequisites, /Remove-Item Env:GH_TOKEN, Env:GITHUB_TOKEN/);
+});
+
+test('Cloud Agent Handover deploy helpers publish the current checkout through Azure CLI', () => {
+  const bashPath = resolve(
+    repositoryRoot,
+    'scenarios/cloud-agent-handover/scripts/deploy.sh'
+  );
+  const powershellPath = resolve(
+    repositoryRoot,
+    'scenarios/cloud-agent-handover/scripts/deploy.ps1'
+  );
+  const bashDeploy = readFileSync(bashPath, 'utf8');
+  const powershellDeploy = readFileSync(powershellPath, 'utf8');
+
+  assert.notEqual(statSync(bashPath).mode & 0o111, 0);
+  assert.match(bashDeploy, /dotnet test/);
+  assert.match(bashDeploy, /dotnet publish/);
+  assert.match(bashDeploy, /az webapp deploy/);
+  assert.match(bashDeploy, /--type zip/);
+  assert.match(powershellDeploy, /"dotnet"[\s\S]*"test"/);
+  assert.match(powershellDeploy, /"dotnet"[\s\S]*"publish"/);
+  assert.match(powershellDeploy, /"webapp", "deploy"/);
+  assert.match(powershellDeploy, /"--type", "zip"/);
+  for (const script of [bashDeploy, powershellDeploy]) {
+    assert.doesNotMatch(
+      script,
+      /\bgit\s+(?:fetch|pull|checkout|switch|merge|reset)\b/i
+    );
+  }
 });
