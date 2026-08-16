@@ -5,13 +5,14 @@ there is no infrastructure deployment workflow to trigger.
 
 ## Bash
 
-Use the defaults (`eastus2`, workload `srelabapp`):
+Use the recommended `swedencentral` region with the default workload
+`srelabapp`:
 
 ```bash
-scenarios/cloud-agent-handover/scripts/setup.sh
+scenarios/cloud-agent-handover/scripts/setup.sh --location swedencentral
 ```
 
-Or choose supported values:
+Or choose a custom workload name:
 
 ```bash
 scenarios/cloud-agent-handover/scripts/setup.sh \
@@ -21,19 +22,23 @@ scenarios/cloud-agent-handover/scripts/setup.sh \
 
 ## PowerShell 7
 
-Use the defaults:
+Use the recommended `swedencentral` region:
 
 ```powershell
-scenarios/cloud-agent-handover/scripts/setup.ps1
+scenarios/cloud-agent-handover/scripts/setup.ps1 -Location swedencentral
 ```
 
-Or choose supported values:
+Or choose a custom workload name:
 
 ```powershell
 scenarios/cloud-agent-handover/scripts/setup.ps1 `
   -Location swedencentral `
   -Workload myhandover
 ```
+
+The scripts also support `eastus2` and `australiaeast` when Sweden Central is
+unavailable or your subscription has insufficient quota there. If you omit the
+location argument, the script retains its `eastus2` compatibility default.
 
 ## What setup does
 
