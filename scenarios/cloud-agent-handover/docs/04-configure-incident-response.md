@@ -17,31 +17,71 @@ List recent issues from <owner>/<repository> and summarize the top 3.
 
 The agent should either list issues or safely report that none exist.
 
+## Verify the incident platform
+
+Open **Builder** → **Incident Platform** and confirm that **Azure Monitor** is
+connected. If it is not connected, return to **Complete setup** →
+**Quickstart** → **Incidents**, connect Azure Monitor, and then return here.
+
+## Create the scenario custom agent
+
+Response plans route incidents to a custom agent. Create one for this capsule:
+
+1. Open **Builder** → **Agent Canvas**.
+2. Select **Create** → **Custom Agent**.
+3. Set **Name** to `cloud-agent-handover-investigator`.
+4. Set **Handoff Description** to
+   `Investigate the unfinished Cloud Agent Handover feature`.
+5. In **Instructions**, enter:
+
+   > Investigate the Cloud Agent Handover incident. Correlate the alert named
+   > "Unfinished feature returns HTTP 500" with Application Insights and Log
+   > Analytics evidence, the connected Azure resources, repository source,
+   > tests, and GitHub history. Identify the unfinished `POST /api/feature`
+   > implementation. Never change Azure resources or repository code directly.
+   > Present the evidence and request explicit operator approval before
+   > creating one unassigned GitHub issue. The learner assigns Copilot, reviews
+   > and merges its pull request, then an operator deploys the reviewed `main`
+   > branch with the scenario-local deploy helper.
+
+6. Under **Knowledge**, enable the indexed
+   `scenarios/cloud-agent-handover/knowledge/operational-guidelines.md` file.
+7. Under **Tools**, enable the read and investigation operations needed for
+   Azure resources, logs, repository source, and GitHub history. Enable only
+   the GitHub issue-creation write operation required for the approved handoff.
+   Do not enable Azure modification, pull-request creation, merge, workflow
+   dispatch, or deployment operations.
+8. Save the custom agent. Return to **Builder** → **Agent Canvas**, switch to
+   **Table view**, and confirm that `cloud-agent-handover-investigator`
+   appears.
+
 ## Create the review plan
 
-Create one response plan for this alert. Azure Monitor is the incident
-platform for this scenario.
+Create one response plan for this alert after Azure Monitor is connected and
+`cloud-agent-handover-investigator` exists.
 
 If a default `quickstart` response plan exists, open **Builder** → **Incident
 response plans**, switch to **Table view**, and delete it. Leaving that plan
 enabled can route the same alert twice or to the wrong custom agent.
 
-1. Open **Builder** → **Agent Canvas**, select **Create**, then select
-   **Trigger** → **Incident response plan**.
-2. Enter `cloud-agent-handover-review` as the plan name, then select the
-   SRE Agent configured for this scenario as the response custom agent.
-3. Set the incident filter to match only this scenario:
-   - **Severity:** **Sev2** (Severity 2).
-   - **Title contains:** `Unfinished feature returns HTTP 500`.
-4. Set **Agent autonomy level** to **Review**. Do not select **Autonomous**.
-5. Keep **Reinvestigation cooldown** enabled at its default duration of three
+1. Open **Builder** → **Agent Canvas**.
+2. Select **Create**, then **Trigger** → **Incident response plan**.
+3. Enter `cloud-agent-handover-review` as the plan name.
+4. Select `cloud-agent-handover-investigator` as the response custom agent.
+5. Set **Severity** to **Sev2** (Severity 2).
+6. Set **Title contains** to `Unfinished feature returns HTTP 500`.
+7. Set **Agent autonomy level** to **Review**. Do not select **Autonomous**,
+   which is the default for a new plan.
+8. Keep **Reinvestigation cooldown** enabled at its default duration of three
    hours. During this window, another firing of the same Azure Monitor alert
    is merged into or reopens the existing investigation thread. Workshop
    scenarios do not require a separate investigation for every firing.
-6. Preview the matching incidents, then select **Create**.
-7. In the incident response plans list, confirm that
+9. Select **Next**, review the matching-incidents preview, then select
+   **Create**. No historical matches is normal before the scenario alert fires.
+10. In the incident response plans grid, confirm that
    `cloud-agent-handover-review` is **On** and shows the **Sev2** and title
-   filters, **Review** autonomy, and a three-hour reinvestigation cooldown.
+    filters, `cloud-agent-handover-investigator`, **Review** autonomy, and a
+    three-hour reinvestigation cooldown.
 
 In **Review** mode, the agent investigates and presents its evidence before
 the learner explicitly approves creation of one unassigned GitHub issue. The
