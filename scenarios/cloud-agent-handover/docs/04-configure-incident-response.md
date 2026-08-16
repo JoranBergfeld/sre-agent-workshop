@@ -80,8 +80,9 @@ enabled can route the same alert twice or to the wrong custom agent.
    **Create**. No historical matches is normal before the scenario alert fires.
 10. In the incident response plans grid, confirm that
    `cloud-agent-handover-review` is **On** and shows the **Sev2** and title
-    filters, `cloud-agent-handover-investigator`, **Review** autonomy, and a
-    three-hour reinvestigation cooldown.
+   filters, `cloud-agent-handover-investigator`, and **Review** autonomy.
+11. Open the saved plan from its plan ID link and confirm that
+   **Reinvestigation cooldown** is enabled for three hours.
 
 In **Review** mode, the agent investigates and presents its evidence before
 the learner explicitly approves creation of one unassigned GitHub issue. The
