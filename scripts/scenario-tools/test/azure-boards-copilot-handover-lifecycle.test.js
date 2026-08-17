@@ -518,6 +518,34 @@ test('Setup retries seeding v1 controls with bounded attempts for Function start
   assert.match(timesOut.stderr, /timed out|failed after/i);
 });
 
+test('PowerShell setup retries a transient deploy.ps1 throw instead of aborting on the first failure', () => {
+  const azLogPath = resolve(scratchDir(), 'az.log');
+  const statusCounterFile = resolve(scratchDir(), 'status-counter');
+  const result = runPowerShell(
+    'setup.ps1',
+    ['-Workload', 'srelabboardshandover'],
+    {
+      LIFECYCLE_AZ_LOG_PATH: azLogPath,
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      LIFECYCLE_CURL_STATUS_COUNTER_FILE: statusCounterFile,
+      LIFECYCLE_CURL_STATUS_PENDING_ATTEMPTS: '2',
+      RETRY_ATTEMPTS: '2',
+      RETRY_DELAY_SECONDS: '0',
+      STATUS_POLL_ATTEMPTS: '2',
+      STATUS_POLL_DELAY_SECONDS: '0',
+    }
+  );
+
+  assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+  assert.match(result.stdout, /Deploy attempt 1 failed; retrying in 0s\./);
+  assert.match(result.stdout, /Timed out after 2 attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=/);
+  assert.equal(
+    readFileSync(azLogPath, 'utf8').match(/functionapp deploy /g)?.length,
+    2,
+    'setup.ps1 should invoke deploy.ps1 twice when the first attempt throws transiently'
+  );
+});
+
 test('Setup seeding v1 controls is idempotent: a repeat call reports already-injected without duplicating', () => {
   const logPath = resolve(scratchDir(), 'curl.log');
   const result = runBash(

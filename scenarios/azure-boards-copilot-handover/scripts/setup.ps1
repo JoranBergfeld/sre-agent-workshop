@@ -104,20 +104,24 @@ Write-Host "Function app:   $functionApp"
 
 Write-Host "Deploying the current (starting) checkout (bounded retry for Function startup/RBAC propagation)..."
 $deploySucceeded = $false
+$lastDeployErrorMessage = ''
 for ($attempt = 1; $attempt -le $RetryAttempts; $attempt++) {
-    & (Join-Path $ScriptDir 'deploy.ps1') -ResourceGroup $ResourceGroup -AppName $functionApp
-    if ($LASTEXITCODE -eq 0) {
+    try {
+        & (Join-Path $ScriptDir 'deploy.ps1') -ResourceGroup $ResourceGroup -AppName $functionApp
         $deploySucceeded = $true
         break
     }
-    if ($attempt -lt $RetryAttempts) {
-        Write-Warning "Deploy attempt $attempt failed; retrying in ${RetryDelaySeconds}s..."
-        Start-Sleep -Seconds $RetryDelaySeconds
+    catch {
+        $lastDeployErrorMessage = if ($_.Exception.Message) { $_.Exception.Message } else { $_.ToString() }
+        if ($attempt -lt $RetryAttempts) {
+            Write-Warning "Deploy attempt $attempt failed; retrying in ${RetryDelaySeconds}s. Last error: $lastDeployErrorMessage"
+            Start-Sleep -Seconds $RetryDelaySeconds
+        }
     }
 }
 
 if (-not $deploySucceeded) {
-    throw "Failed after $RetryAttempts attempts: deploying the starting application (startup/RBAC propagation may still be in progress)."
+    throw "Failed after $RetryAttempts attempts: deploying the starting application (startup/RBAC propagation may still be in progress). Last error: $lastDeployErrorMessage"
 }
 
 Write-Host "Retrieving the Function host key (bounded retry for startup/RBAC propagation)..."
