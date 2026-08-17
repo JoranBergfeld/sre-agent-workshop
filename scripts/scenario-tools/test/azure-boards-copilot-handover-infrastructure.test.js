@@ -53,8 +53,28 @@ test('Azure Boards handover uses a distinct workload name and scenario-owned res
 
   assert.match(main, /targetScope = 'subscription'/);
   assert.match(main, /resource scenarioResourceGroup 'Microsoft\.Resources\/resourceGroups@/);
-  assert.match(main, /var resourceGroupName = '\$\{workloadName\}-rg'/);
+  assert.match(main, /var resourceGroupName = '\$\{validatedWorkloadName\}-rg'/);
   assert.match(main, /name:\s*resourceGroupName/);
+});
+
+test('Azure Boards handover rejects workload names outside its Azure-safe contract', () => {
+  const main = readScenarioFile('infra/bicep/main.bicep');
+
+  assert.match(main, /var invalidWorkloadNameCharacters = filter\(range\(0, length\(workloadName\)\), index => !contains\('abcdefghijklmnopqrstuvwxyz0123456789-', substring\(workloadName, index, 1\)\)\)/);
+  assert.match(main, /var workloadNameIsAzureSafe = empty\(invalidWorkloadNameCharacters\) && contains\('abcdefghijklmnopqrstuvwxyz', substring\(workloadName, 0, 1\)\) && contains\('abcdefghijklmnopqrstuvwxyz0123456789', substring\(workloadName, length\(workloadName\) - 1, 1\)\)/);
+  assert.match(main, /var validatedWorkloadName = workloadNameIsAzureSafe \? workloadName : fail\('workloadName must contain 6-24 lowercase letters, numbers, or hyphens, start with a letter, and end with a letter or number\.'\)/);
+  assert.match(main, /var resourceGroupName = '\$\{validatedWorkloadName\}-rg'/);
+});
+
+test('Azure Boards handover storage name preserves its deterministic suffix at maximum workload length', () => {
+  const main = readScenarioFile('infra/bicep/main.bicep');
+  const maximumWorkloadName = 'abcdefghijklmnopqrstuvwx';
+  const deterministicSuffix = 'abc123';
+  const expectedName = `${maximumWorkloadName.slice(0, 16)}${deterministicSuffix}st`;
+
+  assert.equal(expectedName.length, 24);
+  assert.ok(expectedName.endsWith(`${deterministicSuffix}st`));
+  assert.match(main, /var storageAccountName = '\$\{take\(replace\(validatedWorkloadName, '-', ''\), 16\)\}\$\{uniqueSuffix\}st'/);
 });
 
 test('Azure Boards handover provisions managed-identity Function hosting and data resources', () => {

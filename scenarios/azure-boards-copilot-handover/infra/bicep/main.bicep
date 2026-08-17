@@ -3,10 +3,14 @@ targetScope = 'subscription'
 @description('Azure region for the scenario resource group and all resources')
 param location string = 'eastus2'
 
-@description('Distinct base name used to derive scenario-owned Azure resource names')
+@description('Distinct base name: 6-24 lowercase letters, numbers, or hyphens; starts with a letter and ends with a letter or number')
 @minLength(6)
 @maxLength(24)
 param workloadName string = 'srelabboardshandover'
+
+var invalidWorkloadNameCharacters = filter(range(0, length(workloadName)), index => !contains('abcdefghijklmnopqrstuvwxyz0123456789-', substring(workloadName, index, 1)))
+var workloadNameIsAzureSafe = empty(invalidWorkloadNameCharacters) && contains('abcdefghijklmnopqrstuvwxyz', substring(workloadName, 0, 1)) && contains('abcdefghijklmnopqrstuvwxyz0123456789', substring(workloadName, length(workloadName) - 1, 1))
+var validatedWorkloadName = workloadNameIsAzureSafe ? workloadName : fail('workloadName must contain 6-24 lowercase letters, numbers, or hyphens, start with a letter, and end with a letter or number.')
 
 @description('Resource tags applied to every scenario resource')
 param tags object = {
@@ -15,11 +19,11 @@ param tags object = {
   environment: 'demo'
 }
 
-var resourceGroupName = '${workloadName}-rg'
-var uniqueSuffix = substring(uniqueString(subscription().subscriptionId, workloadName), 0, 6)
-var serviceBusNamespaceName = take(toLower('${workloadName}-sb-${uniqueSuffix}'), 50)
-var functionAppName = take(toLower('${workloadName}-func-${uniqueSuffix}'), 60)
-var storageAccountName = take(toLower(replace('${workloadName}${uniqueSuffix}st', '-', '')), 24)
+var resourceGroupName = '${validatedWorkloadName}-rg'
+var uniqueSuffix = substring(uniqueString(subscription().subscriptionId, validatedWorkloadName), 0, 6)
+var serviceBusNamespaceName = '${validatedWorkloadName}-sb-${uniqueSuffix}'
+var functionAppName = '${validatedWorkloadName}-func-${uniqueSuffix}'
+var storageAccountName = '${take(replace(validatedWorkloadName, '-', ''), 16)}${uniqueSuffix}st'
 var queueName = 'order-events'
 var receiptTableName = 'NormalizedReceipts'
 var scenarioStateTableName = 'ScenarioState'
@@ -35,7 +39,7 @@ module monitoring 'modules/monitoring.bicep' = {
   scope: scenarioResourceGroup
   params: {
     location: location
-    workloadName: workloadName
+    workloadName: validatedWorkloadName
     tags: tags
   }
 }
@@ -68,7 +72,7 @@ module functionApp 'modules/function-app.bicep' = {
   scope: scenarioResourceGroup
   params: {
     location: location
-    workloadName: workloadName
+    workloadName: validatedWorkloadName
     functionAppName: functionAppName
     storageAccountName: storage.outputs.storageAccountName
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
@@ -96,7 +100,7 @@ module activeBacklogAlert 'modules/active-backlog-alert.bicep' = {
   name: 'active-backlog-alert'
   scope: scenarioResourceGroup
   params: {
-    workloadName: workloadName
+    workloadName: validatedWorkloadName
     serviceBusNamespaceId: messaging.outputs.namespaceId
     queueName: messaging.outputs.queueName
     tags: tags
@@ -107,7 +111,7 @@ module dlqAlert 'modules/dlq-alert.bicep' = {
   name: 'dlq-safety-alert'
   scope: scenarioResourceGroup
   params: {
-    workloadName: workloadName
+    workloadName: validatedWorkloadName
     serviceBusNamespaceId: messaging.outputs.namespaceId
     queueName: messaging.outputs.queueName
     tags: tags
