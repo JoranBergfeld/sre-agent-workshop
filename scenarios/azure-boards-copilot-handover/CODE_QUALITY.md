@@ -12,7 +12,7 @@ normalizer-only acceptance criteria the follow-up Copilot repair must satisfy.
 | --- | --- | --- |
 | Formatting | `ruff format --check .` | Whole `app/` tree |
 | Lint | `ruff check .` | Whole `app/` tree |
-| Static types | `mypy` | `order_events/contracts.py` and `order_events/normalizer` (strict) |
+| Static types | `mypy` | `function_app.py` and `order_events` (adapters/workshop/batches checked; `order_events/contracts.py` and `order_events/normalizer` additionally run under `strict`) |
 | Baseline tests | `pytest` | Every test except the `repair`-marked acceptance suite |
 | Repair acceptance criteria | `pytest -m repair` | Only the `repair`-marked v2 acceptance suite |
 | Branch coverage | `pytest --cov=order_events --cov-report=term-missing` | `order_events`; the repair-scoped normalizer (`order_events/normalizer`) must stay at 100% |

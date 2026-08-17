@@ -6,7 +6,11 @@ import azure.functions as func
 from azure.data.tables import TableServiceClient
 from azure.identity import DefaultAzureCredential
 
-from order_events.adapters.service_bus import RetrySettings, process_order_event_message
+from order_events.adapters.service_bus import (
+    RetrySettings,
+    ServiceBusIncidentEventSender,
+    process_order_event_message,
+)
 from order_events.adapters.storage import ReceiptTableStore, ScenarioStateTableStore
 from order_events.workshop import get_workshop_status, submit_incident_batch
 
@@ -39,6 +43,18 @@ def _retry_settings() -> RetrySettings:
     return RetrySettings(
         delay_seconds=float(os.environ.get("UNSUPPORTED_EVENT_RETRY_DELAY_SECONDS", "5")),
         max_delay_seconds=float(os.environ.get("UNSUPPORTED_EVENT_RETRY_MAX_DELAY_SECONDS", "30")),
+    )
+
+
+def _event_sender() -> ServiceBusIncidentEventSender:
+    return ServiceBusIncidentEventSender(
+        # Matches the ServiceBusConnection__fullyQualifiedNamespace app setting name
+        # Azure Functions' Service Bus extension expects for managed-identity auth.
+        fully_qualified_namespace=os.environ[
+            "ServiceBusConnection__fullyQualifiedNamespace"  # noqa: SIM112
+        ],
+        queue_name=os.environ["ORDER_EVENTS_QUEUE_NAME"],
+        credential=_credential,
     )
 
 
@@ -75,17 +91,13 @@ def workshop_status(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.function_name(name="SubmitV2Orders")
 @app.route(route="submit-v2-orders", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
-@app.service_bus_queue_output(
-    arg_name="order_events_out",
-    connection="ServiceBusConnection",
-    queue_name="%ORDER_EVENTS_QUEUE_NAME%",
-)
-def submit_v2_orders(
-    req: func.HttpRequest, order_events_out: func.Out[list[str]]
-) -> func.HttpResponse:
-    submission = submit_incident_batch(_scenario_state_store(), claimed_at=_clock())
-    if submission.events:
-        order_events_out.set([json.dumps(event) for event in submission.events])
+def submit_v2_orders(req: func.HttpRequest) -> func.HttpResponse:
+    # Sent through the Service Bus SDK directly (order_events.adapters.service_bus):
+    # the Python Service Bus queue output binding only supports a single message per
+    # invocation, so it cannot carry this 20-event incident batch.
+    submission = submit_incident_batch(
+        _scenario_state_store(), _event_sender(), claimed_at=_clock()
+    )
 
     return _json_response(
         {

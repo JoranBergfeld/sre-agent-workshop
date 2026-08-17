@@ -24,3 +24,4 @@ scenarios/azure-boards-copilot-handover/app/.pytest_cache/
 scenarios/azure-boards-copilot-handover/app/.ruff_cache/
 scenarios/azure-boards-copilot-handover/app/.mypy_cache/
 scenarios/azure-boards-copilot-handover/app/.coverage
+scenarios/azure-boards-copilot-handover/app/uv.lock

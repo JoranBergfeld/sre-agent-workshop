@@ -8,13 +8,17 @@ from order_events.normalizer import NormalizedReceipt
 
 
 class ReceiptTableClient(Protocol):
-    def upsert_entity(self, entity: dict[str, object], mode: UpdateMode) -> None: ...
+    def upsert_entity(self, entity: dict[str, object], mode: UpdateMode) -> object: ...
 
 
 class ScenarioStateTableClient(Protocol):
-    def create_entity(self, entity: dict[str, object]) -> None: ...
+    def create_entity(self, entity: dict[str, object]) -> object: ...
 
     def get_entity(self, *, partition_key: str, row_key: str) -> dict[str, object]: ...
+
+    def upsert_entity(self, entity: dict[str, object], mode: UpdateMode) -> object: ...
+
+    def delete_entity(self, *, partition_key: str, row_key: str) -> None: ...
 
 
 class ReceiptTableStore:
@@ -36,6 +40,10 @@ class ReceiptTableStore:
         )
 
 
+_INCIDENT_BATCHES_PARTITION_KEY = "incidentBatches"
+_COMPLETED_STATUS = "completed"
+
+
 class ScenarioStateTableStore:
     def __init__(self, table_client: ScenarioStateTableClient) -> None:
         self._table_client = table_client
@@ -44,9 +52,10 @@ class ScenarioStateTableStore:
         try:
             self._table_client.create_entity(
                 {
-                    "PartitionKey": "incidentBatches",
+                    "PartitionKey": _INCIDENT_BATCHES_PARTITION_KEY,
                     "RowKey": batch_id,
                     "eventCount": event_count,
+                    "status": "pending",
                     "claimedAtUtc": _format_utc(claimed_at),
                 }
             )
@@ -55,13 +64,31 @@ class ScenarioStateTableStore:
 
         return True
 
+    def mark_batch_completed(self, batch_id: str, *, completed_at: datetime) -> None:
+        self._table_client.upsert_entity(
+            {
+                "PartitionKey": _INCIDENT_BATCHES_PARTITION_KEY,
+                "RowKey": batch_id,
+                "status": _COMPLETED_STATUS,
+                "completedAtUtc": _format_utc(completed_at),
+            },
+            mode=UpdateMode.MERGE,
+        )
+
+    def release_batch_claim(self, batch_id: str) -> None:
+        self._table_client.delete_entity(
+            partition_key=_INCIDENT_BATCHES_PARTITION_KEY, row_key=batch_id
+        )
+
     def is_batch_injected(self, batch_id: str) -> bool:
         try:
-            self._table_client.get_entity(partition_key="incidentBatches", row_key=batch_id)
+            entity = self._table_client.get_entity(
+                partition_key=_INCIDENT_BATCHES_PARTITION_KEY, row_key=batch_id
+            )
         except ResourceNotFoundError:
             return False
 
-        return True
+        return entity.get("status") == _COMPLETED_STATUS
 
 
 def _format_utc(value: datetime) -> str:

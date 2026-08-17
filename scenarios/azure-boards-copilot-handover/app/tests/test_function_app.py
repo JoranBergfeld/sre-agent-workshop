@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import azure.functions as func
@@ -6,6 +7,7 @@ import pytest
 
 import function_app
 from order_events.batches import INCIDENT_BATCH_ID, build_incident_events_v2
+from order_events.contracts import ReceiptEventV2
 from order_events.normalizer import NormalizedReceipt
 
 
@@ -19,18 +21,39 @@ class FakeReceiptStore:
 
 class FakeScenarioStateStore:
     def __init__(self, *, already_injected: bool = False) -> None:
-        self._already_injected = already_injected
+        self._status: str | None = "completed" if already_injected else None
         self.claim_calls: list[tuple[str, int, datetime]] = []
+        self.completed_calls: list[tuple[str, datetime]] = []
+        self.released_batches: list[str] = []
 
     def claim_batch(self, *, batch_id: str, event_count: int, claimed_at: datetime) -> bool:
         self.claim_calls.append((batch_id, event_count, claimed_at))
-        if self._already_injected:
+        if self._status is not None:
             return False
-        self._already_injected = True
+        self._status = "pending"
         return True
 
+    def mark_batch_completed(self, batch_id: str, *, completed_at: datetime) -> None:
+        self.completed_calls.append((batch_id, completed_at))
+        self._status = "completed"
+
+    def release_batch_claim(self, batch_id: str) -> None:
+        self.released_batches.append(batch_id)
+        self._status = None
+
     def is_batch_injected(self, batch_id: str) -> bool:
-        return self._already_injected
+        return self._status == "completed"
+
+
+class FakeIncidentEventSender:
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self._error = error
+        self.send_calls: list[tuple[ReceiptEventV2, ...]] = []
+
+    def send_events(self, events: Sequence[ReceiptEventV2]) -> None:
+        self.send_calls.append(tuple(events))
+        if self._error is not None:
+            raise self._error
 
 
 class FakeServiceBusMessage:
@@ -39,14 +62,6 @@ class FakeServiceBusMessage:
 
     def get_body(self) -> bytes:
         return self._body
-
-
-class FakeQueueOutput:
-    def __init__(self) -> None:
-        self.set_calls: list[list[str]] = []
-
-    def set(self, value: list[str]) -> None:
-        self.set_calls.append(value)
 
 
 def _http_request(*, method: str, route: str) -> func.HttpRequest:
@@ -87,47 +102,83 @@ def test_submit_v2_orders_enqueues_the_incident_batch_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state_store = FakeScenarioStateStore()
+    sender = FakeIncidentEventSender()
     monkeypatch.setattr(function_app, "_scenario_state_store", lambda: state_store)
+    monkeypatch.setattr(function_app, "_event_sender", lambda: sender)
     monkeypatch.setattr(
         function_app, "_clock", lambda: datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC)
     )
-    queue_output = FakeQueueOutput()
 
-    response = function_app.submit_v2_orders(
-        _http_request(method="POST", route="submit-v2-orders"), queue_output
-    )
+    response = function_app.submit_v2_orders(_http_request(method="POST", route="submit-v2-orders"))
 
     assert response.status_code == 202
     assert json.loads(response.get_body()) == {
         "incidentBatchAlreadyInjected": False,
         "eventsEnqueued": 20,
     }
-    assert queue_output.set_calls == [[json.dumps(event) for event in build_incident_events_v2()]]
+    assert sender.send_calls == [build_incident_events_v2()]
+    assert state_store.is_batch_injected(INCIDENT_BATCH_ID) is True
 
 
 def test_submit_v2_orders_is_idempotent_when_already_injected(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    sender = FakeIncidentEventSender()
     monkeypatch.setattr(
         function_app,
         "_scenario_state_store",
         lambda: FakeScenarioStateStore(already_injected=True),
     )
-    queue_output = FakeQueueOutput()
+    monkeypatch.setattr(function_app, "_event_sender", lambda: sender)
 
-    response = function_app.submit_v2_orders(
-        _http_request(method="POST", route="submit-v2-orders"), queue_output
-    )
+    response = function_app.submit_v2_orders(_http_request(method="POST", route="submit-v2-orders"))
 
     assert response.status_code == 200
     assert json.loads(response.get_body()) == {
         "incidentBatchAlreadyInjected": True,
         "eventsEnqueued": 0,
     }
-    assert queue_output.set_calls == []
+    assert sender.send_calls == []
 
 
-def test_function_app_registers_the_expected_keyed_functions() -> None:
+def test_submit_v2_orders_reraises_and_allows_retry_when_send_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_store = FakeScenarioStateStore()
+    failing_sender = FakeIncidentEventSender(
+        error=RuntimeError("simulated Service Bus send failure")
+    )
+    monkeypatch.setattr(function_app, "_scenario_state_store", lambda: state_store)
+    monkeypatch.setattr(function_app, "_event_sender", lambda: failing_sender)
+    monkeypatch.setattr(
+        function_app, "_clock", lambda: datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC)
+    )
+
+    with pytest.raises(RuntimeError, match="simulated Service Bus send failure"):
+        function_app.submit_v2_orders(_http_request(method="POST", route="submit-v2-orders"))
+
+    assert state_store.is_batch_injected(INCIDENT_BATCH_ID) is False
+
+    working_sender = FakeIncidentEventSender()
+    monkeypatch.setattr(function_app, "_event_sender", lambda: working_sender)
+
+    retry_response = function_app.submit_v2_orders(
+        _http_request(method="POST", route="submit-v2-orders")
+    )
+
+    assert retry_response.status_code == 202
+    assert json.loads(retry_response.get_body()) == {
+        "incidentBatchAlreadyInjected": False,
+        "eventsEnqueued": 20,
+    }
+    assert working_sender.send_calls == [build_incident_events_v2()]
+    assert state_store.is_batch_injected(INCIDENT_BATCH_ID) is True
+
+
+def test_function_app_registers_the_expected_keyed_functions_without_output_bindings() -> None:
+    # azure-functions' FunctionApp.get_functions() accumulates function names across
+    # calls and raises on a second invocation within the same process, so every
+    # assertion needing the registered functions lives in this single test.
     registered = {fn.get_function_name(): fn for fn in function_app.app.get_functions()}
 
     assert set(registered) == {"ProcessOrderEvent", "WorkshopStatus", "SubmitV2Orders"}
@@ -139,3 +190,11 @@ def test_function_app_registers_the_expected_keyed_functions() -> None:
     submit_trigger = registered["SubmitV2Orders"].get_trigger()
     assert submit_trigger is not None
     assert submit_trigger.auth_level.value == "function"
+
+    # The Python Service Bus queue output binding does not support sending a list of
+    # messages per invocation, so SubmitV2Orders must send via the Service Bus SDK
+    # instead of declaring a serviceBus output binding.
+    submit_bindings = registered["SubmitV2Orders"].get_bindings()
+    assert not any(
+        binding.type == "serviceBus" and binding.direction == 1 for binding in submit_bindings
+    )

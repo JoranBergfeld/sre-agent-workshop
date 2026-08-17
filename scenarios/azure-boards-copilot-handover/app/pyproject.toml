@@ -6,8 +6,17 @@ branch = true
 source = ["order_events"]
 
 [tool.mypy]
-files = ["order_events/contracts.py", "order_events/normalizer"]
+files = ["function_app.py", "order_events"]
 python_version = "3.12"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["order_events.contracts", "order_events.normalizer.*"]
 strict = true
 
 [tool.pytest.ini_options]
