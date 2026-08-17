@@ -1,6 +1,7 @@
 param location string
 param namespaceName string
 param queueName string
+param logAnalyticsWorkspaceId string
 param tags object
 
 resource serviceBusNamespace 'Microsoft.ServiceBus/namespaces@2024-01-01' = {
@@ -30,6 +31,20 @@ resource orderEventsQueue 'Microsoft.ServiceBus/namespaces/queues@2024-01-01' = 
     maxSizeInMegabytes: 1024
     requiresDuplicateDetection: false
     requiresSession: false
+  }
+}
+
+resource serviceBusMetrics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${namespaceName}-metrics-to-log-analytics'
+  scope: serviceBusNamespace
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 

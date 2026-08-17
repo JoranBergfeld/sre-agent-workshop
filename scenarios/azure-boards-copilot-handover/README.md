@@ -10,10 +10,10 @@ events into receipts. Valid but unsupported v2 order events remain active in
 the queue and create the primary backlog signal. Invalid order events are a
 separate domain concept and are not treated as synonyms for unsupported events.
 
-This capsule's Function application and `setup`/`deploy`/`inject`/`validate`/
-`cleanup` lifecycle scripts are implemented. Investigation assets, the Azure
-Boards learner journey, and connected (live-Azure) validation are delivered
-separately.
+This capsule's Function application, lifecycle scripts, Azure Monitor
+investigation query, and SRE Agent operational guidance are implemented. The
+Azure Boards learner journey and connected (live-Azure) validation are
+delivered separately.
 
 ## Cost profile
 
@@ -31,6 +31,12 @@ application, and seed deterministic v1 control events. `scripts/deploy.sh`/
 incident batch. `scripts/validate.sh`/`.ps1` proves recovery. `scripts/
 cleanup.sh`/`.ps1` deletes only the scenario resource group. The
 infrastructure entry point is `infra/bicep/main.bicep`.
+
+Configure the automatic SRE Agent trigger with
+[Module 4](./docs/04-configure-incident-response.md). The investigation query
+is under [`investigation/`](./investigation/query.kql), and the governed
+diagnosis and recovery contract is under
+[`knowledge/`](./knowledge/operational-guidelines.md).
 
 ## Notes
 

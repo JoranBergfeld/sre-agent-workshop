@@ -27,3 +27,5 @@ cleanup:
 signal:
   alertModule: infra/bicep/modules/active-backlog-alert.bicep
   alertName: active-message-backlog
+investigation:
+  query: investigation/query.kql

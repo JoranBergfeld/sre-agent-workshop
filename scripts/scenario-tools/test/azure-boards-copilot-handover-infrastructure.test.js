@@ -44,6 +44,9 @@ test('Azure Boards handover manifest defines the schema-drift signal and scaffol
     alertModule: 'infra/bicep/modules/active-backlog-alert.bicep',
     alertName: 'active-message-backlog',
   });
+  assert.deepEqual(manifest.investigation, {
+    query: 'investigation/query.kql',
+  });
 
   for (const phase of ['setup', 'inject', 'validate', 'cleanup']) {
     assert.equal(manifest[phase].bash, `scripts/${phase}.sh`);
@@ -122,6 +125,10 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces@/);
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces\/queues@/);
   assert.match(messaging, /maxDeliveryCount:\s*100/);
+  assert.match(messaging, /Microsoft\.Insights\/diagnosticSettings@/);
+  assert.match(messaging, /workspaceId:\s*logAnalyticsWorkspaceId/);
+  assert.match(messaging, /category:\s*'AllMetrics'/);
+  assert.match(main, /logAnalyticsWorkspaceId:\s*monitoring\.outputs\.logAnalyticsWorkspaceId/);
   assert.match(storage, /Microsoft\.Storage\/storageAccounts@/);
   assert.match(storage, /Microsoft\.Storage\/storageAccounts\/tableServices\/tables@/);
   assert.match(storage, /normalizedreceipts/i);
@@ -188,4 +195,50 @@ test('Azure Boards handover provisions monitoring, primary backlog alert, safety
   ]) {
     assert.match(main, new RegExp(`output ${output} string`));
   }
+});
+
+test('Azure Boards handover investigation correlates backlog, exceptions, and receipt telemetry', () => {
+  const query = readScenarioFile('investigation/query.kql');
+
+  assert.match(query, /AzureMetrics/);
+  assert.match(query, /ActiveMessages/);
+  assert.match(query, /DeadletteredMessages/);
+  assert.match(query, /AppExceptions/);
+  assert.match(query, /UnsupportedReceiptSchemaError/);
+  assert.match(query, /OuterMessage/);
+  assert.match(query, /Details/);
+  assert.match(query, /AppTraces/);
+  assert.match(query, /Normalized receipt persisted/);
+  assert.match(query, /parse_json/);
+  assert.match(query, /source_schema_version/);
+  assert.match(query, /order_id/);
+});
+
+test('Azure Boards handover guidance routes only the primary alert and requires read-only recovery proof', () => {
+  const responsePlan = readScenarioFile('docs/04-configure-incident-response.md');
+  const knowledge = readScenarioFile('knowledge/operational-guidelines.md');
+
+  assert.match(responsePlan, /Azure Monitor[\s\S]*polls/i);
+  assert.match(responsePlan, /azure-boards-copilot-handover-review/);
+  assert.match(responsePlan, /Sev2/);
+  assert.match(responsePlan, /Title contains[\s\S]*active-message-backlog/i);
+  assert.match(responsePlan, /Review/);
+  assert.match(responsePlan, /dead-letter[\s\S]*safety/i);
+  assert.match(responsePlan, /read-only[\s\S]*recovery confirmation/i);
+
+  assert.match(knowledge, /unsupported[\s\S]*valid v2|valid v2[\s\S]*unsupported/i);
+  assert.match(knowledge, /ActiveMessages/);
+  assert.match(knowledge, /UnsupportedReceiptSchemaError/);
+  assert.match(knowledge, /Normalized receipt persisted/);
+  assert.match(
+    knowledge,
+    /NormalizedReceipts[\s\S]*missing[\s\S]*v2|missing[\s\S]*v2[\s\S]*NormalizedReceipts/i,
+  );
+  assert.match(knowledge, /must not[\s\S]*(?:edit|modify)[\s\S]*code/i);
+  assert.match(knowledge, /must not[\s\S]*(?:change|modify)[\s\S]*Azure/i);
+  assert.match(knowledge, /read-only\s+recovery\s+confirmation/i);
+  assert.match(knowledge, /zero active messages/i);
+  assert.match(knowledge, /zero dead-letter/i);
+  assert.match(knowledge, /23[\s\S]*receipts/i);
+  assert.match(knowledge, /UnsupportedReceiptSchemaError[\s\S]*stopped/i);
 });
