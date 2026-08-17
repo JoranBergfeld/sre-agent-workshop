@@ -2,9 +2,12 @@
 # Deploys the current checkout of the Azure Boards Copilot Handover Function
 # app to an already-provisioned scenario resource group. Runs the app's
 # baseline quality gates first, ships a clean runtime-only zip (no venv, no
-# tests), stamps the exact deployed git commit and UTC timestamp as Function
-# app settings, and waits (bounded) for the keyed status endpoint to confirm
-# the new commit is live.
+# tests), stamps the exact deployed git commit as a Function app setting, and
+# waits (bounded) for the keyed status endpoint to confirm the new commit is
+# live before stamping the DEPLOYED_AT_UTC cutover timestamp used by
+# validate.sh/.ps1 to scope post-deployment exception checks. Re-polls
+# (bounded) after that second settings write to confirm the app is still
+# coherent (settings changes can restart the app).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -180,14 +183,14 @@ if [ "$current_build_setting" != "true" ]; then
     --output none
 fi
 
-# --- Stamp the exact deployed commit and UTC timestamp ---------------------
+# --- Stamp DEPLOYED_COMMIT_SHA only; this is needed for the go-live poll ---
+# below and must be available before the cutover timestamp exists.
 DEPLOYED_COMMIT_SHA="$(cd "$REPO_ROOT" && git rev-parse HEAD)"
-DEPLOYED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "Stamping DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA DEPLOYED_AT_UTC=$DEPLOYED_AT_UTC"
+echo "Stamping DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA"
 az functionapp config appsettings set \
   --resource-group "$RESOURCE_GROUP" \
   --name "$FUNCTION_APP" \
-  --settings "DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA" "DEPLOYED_AT_UTC=$DEPLOYED_AT_UTC" \
+  --settings "DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA" \
   --output none
 
 # --- Deploy the zip ---------------------------------------------------------
@@ -199,34 +202,64 @@ az functionapp deploy \
   --type zip \
   --output none
 
-# --- Wait (bounded) for the keyed status endpoint to report the new SHA ----
 FUNCTION_HOSTNAME=$(az functionapp show --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --query defaultHostName --output tsv)
 FUNCTION_KEY=$(az functionapp keys list --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --query "functionKeys.default" --output tsv)
 STATUS_URL="https://$FUNCTION_HOSTNAME/api/status?code=$FUNCTION_KEY"
 
-echo "Waiting for deployment to report DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA ..."
-attempt=0
-deployed_sha_confirmed=false
-while [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; do
-  attempt=$((attempt + 1))
-  status_body_file="$WORK_DIR/status-$attempt.json"
-  curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" >/dev/null 2>&1 || true
-  reported_sha=$(jq -er '.deployedCommitSha // empty' "$status_body_file" 2>/dev/null || true)
-  if [ "$reported_sha" = "$DEPLOYED_COMMIT_SHA" ]; then
-    deployed_sha_confirmed=true
-    break
-  fi
-  if [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; then
-    sleep "$STATUS_POLL_DELAY_SECONDS"
-  fi
-done
+# Polls (bounded by STATUS_POLL_ATTEMPTS/STATUS_POLL_DELAY_SECONDS) the keyed
+# status endpoint until it reports DEPLOYED_COMMIT_SHA, or exits loudly on
+# timeout. Reused for both the initial go-live check and the post-cutover
+# coherence recheck below so neither poll is unbounded or circular.
+wait_for_deployed_sha() {
+  local phase_label="$1"
+  local attempt=0
+  local confirmed=false
+  local status_body_file
+  local reported_sha
 
-if [ "$deployed_sha_confirmed" != true ]; then
-  echo "Timed out after $STATUS_POLL_ATTEMPTS attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA." >&2
-  exit 1
-fi
+  while [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; do
+    attempt=$((attempt + 1))
+    status_body_file="$WORK_DIR/status-$phase_label-$attempt.json"
+    curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" >/dev/null 2>&1 || true
+    reported_sha=$(jq -er '.deployedCommitSha // empty' "$status_body_file" 2>/dev/null || true)
+    if [ "$reported_sha" = "$DEPLOYED_COMMIT_SHA" ]; then
+      confirmed=true
+      break
+    fi
+    if [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; then
+      sleep "$STATUS_POLL_DELAY_SECONDS"
+    fi
+  done
+
+  if [ "$confirmed" != true ]; then
+    echo "Timed out after $STATUS_POLL_ATTEMPTS attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA during the $phase_label check." >&2
+    exit 1
+  fi
+}
+
+echo "Waiting for deployment to report DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA ..."
+wait_for_deployed_sha "go-live"
+
+# --- Stamp DEPLOYED_AT_UTC only now that the new SHA is proven live -------
+# This is the cutover timestamp: exception validation must only consider
+# telemetry after this point, once the new (fixed) code is actually serving
+# traffic, not from when the settings/deploy calls were merely issued.
+DEPLOYED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "New commit is live. Stamping DEPLOYED_AT_UTC=$DEPLOYED_AT_UTC"
+az functionapp config appsettings set \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$FUNCTION_APP" \
+  --settings "DEPLOYED_AT_UTC=$DEPLOYED_AT_UTC" \
+  --output none
+
+# --- Re-confirm (bounded) the app is coherent after the cutover restart ----
+# Changing an app setting can restart the Function app; re-poll (bounded,
+# not unbounded/circular) to make sure it comes back reporting the same SHA
+# before declaring the deploy complete.
+echo "Confirming the Function app is coherent after the cutover restart ..."
+wait_for_deployed_sha "cutover"
 
 echo ""
 echo "========================================"
-echo "  Deploy complete: $DEPLOYED_COMMIT_SHA"
+echo "  Deploy complete: $DEPLOYED_COMMIT_SHA (deployed at $DEPLOYED_AT_UTC)"
 echo "========================================"

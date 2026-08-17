@@ -2,9 +2,12 @@
 # Deploys the current checkout of the Azure Boards Copilot Handover Function
 # app to an already-provisioned scenario resource group. Runs the app's
 # baseline quality gates first, ships a clean runtime-only zip (no venv, no
-# tests), stamps the exact deployed git commit and UTC timestamp as Function
-# app settings, and waits (bounded) for the keyed status endpoint to confirm
-# the new commit is live.
+# tests), stamps the exact deployed git commit as a Function app setting, and
+# waits (bounded) for the keyed status endpoint to confirm the new commit is
+# live before stamping the DEPLOYED_AT_UTC cutover timestamp used by
+# validate.sh/.ps1 to scope post-deployment exception checks. Re-polls
+# (bounded) after that second settings write to confirm the app is still
+# coherent (settings changes can restart the app).
 
 param()
 
@@ -158,7 +161,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Failed to enable remote build." }
     }
 
-    # --- Stamp the exact deployed commit and UTC timestamp ---------------------
+    # --- Stamp DEPLOYED_COMMIT_SHA only; this is needed for the go-live poll
+    # below and must be available before the cutover timestamp exists. ------
     Push-Location $RepoRoot
     try {
         $deployedCommitSha = (git rev-parse HEAD).Trim()
@@ -166,46 +170,72 @@ try {
     finally {
         Pop-Location
     }
-    $deployedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-    Write-Host "Stamping DEPLOYED_COMMIT_SHA=$deployedCommitSha DEPLOYED_AT_UTC=$deployedAtUtc"
-    az functionapp config appsettings set --resource-group $ResourceGroup --name $FunctionApp --settings "DEPLOYED_COMMIT_SHA=$deployedCommitSha" "DEPLOYED_AT_UTC=$deployedAtUtc" --output none
-    if ($LASTEXITCODE -ne 0) { throw "Failed to stamp deployment provenance settings." }
+    Write-Host "Stamping DEPLOYED_COMMIT_SHA=$deployedCommitSha"
+    az functionapp config appsettings set --resource-group $ResourceGroup --name $FunctionApp --settings "DEPLOYED_COMMIT_SHA=$deployedCommitSha" --output none
+    if ($LASTEXITCODE -ne 0) { throw "Failed to stamp DEPLOYED_COMMIT_SHA." }
 
     # --- Deploy the zip ---------------------------------------------------------
     Write-Host "Deploying zip package to Function app '$FunctionApp' ..."
     az functionapp deploy --resource-group $ResourceGroup --name $FunctionApp --src-path $zipPath --type zip --output none
     if ($LASTEXITCODE -ne 0) { throw "Function zip deploy failed." }
 
-    # --- Wait (bounded) for the keyed status endpoint to report the new SHA ----
     $functionHostname = [string](az functionapp show --resource-group $ResourceGroup --name $FunctionApp --query defaultHostName --output tsv).Trim()
     $functionKey = [string](az functionapp keys list --resource-group $ResourceGroup --name $FunctionApp --query "functionKeys.default" --output tsv).Trim()
     $statusUrl = "https://$functionHostname/api/status?code=$functionKey"
 
-    Write-Host "Waiting for deployment to report DEPLOYED_COMMIT_SHA=$deployedCommitSha ..."
-    $deployedShaConfirmed = $false
-    for ($attempt = 1; $attempt -le $StatusPollAttempts; $attempt++) {
-        $statusBodyFile = Join-Path $WorkDir.FullName "status-$attempt.json"
-        curl -sS -o $statusBodyFile -w '%{http_code}' $statusUrl 2>$null | Out-Null
-        $reportedSha = $null
-        if (Test-Path $statusBodyFile) {
-            $reportedSha = [string](jq -er '.deployedCommitSha // empty' $statusBodyFile 2>$null)
+    # Polls (bounded by StatusPollAttempts/StatusPollDelaySeconds) the keyed
+    # status endpoint until it reports deployedCommitSha, or throws loudly on
+    # timeout. Reused for both the initial go-live check and the post-cutover
+    # coherence recheck below so neither poll is unbounded or circular.
+    function Wait-ForDeployedSha {
+        param(
+            [Parameter(Mandatory = $true)][string]$PhaseLabel
+        )
+
+        $confirmed = $false
+        for ($attempt = 1; $attempt -le $StatusPollAttempts; $attempt++) {
+            $statusBodyFile = Join-Path $WorkDir.FullName "status-$PhaseLabel-$attempt.json"
+            curl -sS -o $statusBodyFile -w '%{http_code}' $statusUrl 2>$null | Out-Null
+            $reportedSha = $null
+            if (Test-Path $statusBodyFile) {
+                $reportedSha = [string](jq -er '.deployedCommitSha // empty' $statusBodyFile 2>$null)
+            }
+            if ($reportedSha -eq $deployedCommitSha) {
+                $confirmed = $true
+                break
+            }
+            if ($attempt -lt $StatusPollAttempts) {
+                Start-Sleep -Seconds $StatusPollDelaySeconds
+            }
         }
-        if ($reportedSha -eq $deployedCommitSha) {
-            $deployedShaConfirmed = $true
-            break
-        }
-        if ($attempt -lt $StatusPollAttempts) {
-            Start-Sleep -Seconds $StatusPollDelaySeconds
+
+        if (-not $confirmed) {
+            throw "Timed out after $StatusPollAttempts attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$deployedCommitSha during the $PhaseLabel check."
         }
     }
 
-    if (-not $deployedShaConfirmed) {
-        throw "Timed out after $StatusPollAttempts attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$deployedCommitSha."
-    }
+    Write-Host "Waiting for deployment to report DEPLOYED_COMMIT_SHA=$deployedCommitSha ..."
+    Wait-ForDeployedSha -PhaseLabel 'go-live'
+
+    # --- Stamp DEPLOYED_AT_UTC only now that the new SHA is proven live -------
+    # This is the cutover timestamp: exception validation must only consider
+    # telemetry after this point, once the new (fixed) code is actually
+    # serving traffic, not from when the settings/deploy calls were issued.
+    $deployedAtUtc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    Write-Host "New commit is live. Stamping DEPLOYED_AT_UTC=$deployedAtUtc"
+    az functionapp config appsettings set --resource-group $ResourceGroup --name $FunctionApp --settings "DEPLOYED_AT_UTC=$deployedAtUtc" --output none
+    if ($LASTEXITCODE -ne 0) { throw "Failed to stamp DEPLOYED_AT_UTC." }
+
+    # --- Re-confirm (bounded) the app is coherent after the cutover restart ---
+    # Changing an app setting can restart the Function app; re-poll (bounded,
+    # not unbounded/circular) to make sure it comes back reporting the same
+    # SHA before declaring the deploy complete.
+    Write-Host "Confirming the Function app is coherent after the cutover restart ..."
+    Wait-ForDeployedSha -PhaseLabel 'cutover'
 
     Write-Host ""
     Write-Host "========================================"
-    Write-Host "  Deploy complete: $deployedCommitSha"
+    Write-Host "  Deploy complete: $deployedCommitSha (deployed at $deployedAtUtc)"
     Write-Host "========================================"
 }
 finally {

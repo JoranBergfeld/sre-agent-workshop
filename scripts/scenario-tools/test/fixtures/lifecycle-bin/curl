@@ -25,6 +25,22 @@ fi
 
 case "$url" in
   *"/api/status"*)
+    # After the cutover marker exists (the fixture `az` writes it when it sees
+    # a `DEPLOYED_AT_UTC=` app-settings write), simulate the cutover-restart
+    # pending window independently from the earlier go-live pending window,
+    # via its own counter/pending-attempts pair.
+    if [ -n "${LIFECYCLE_AZ_ATUTC_MARKER_FILE:-}" ] && [ -f "${LIFECYCLE_AZ_ATUTC_MARKER_FILE}" ] \
+      && [ -n "${LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE:-}" ]; then
+      cutover_attempt=0
+      [ -f "$LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE" ] && cutover_attempt=$(cat "$LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE")
+      cutover_attempt=$((cutover_attempt + 1))
+      printf '%s' "$cutover_attempt" > "$LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE"
+      if [ "$cutover_attempt" -le "${LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_ATTEMPTS:-0}" ]; then
+        printf '%s' "${LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_BODY:-{\}}" > "$output_file"
+        printf '%s' "${LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_CODE:-200}"
+        exit 0
+      fi
+    fi
     if [ -n "${LIFECYCLE_CURL_STATUS_COUNTER_FILE:-}" ]; then
       attempt=0
       [ -f "$LIFECYCLE_CURL_STATUS_COUNTER_FILE" ] && attempt=$(cat "$LIFECYCLE_CURL_STATUS_COUNTER_FILE")

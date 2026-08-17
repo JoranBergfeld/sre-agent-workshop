@@ -118,18 +118,21 @@ try {
 
     $failures = 0
 
+    # Uses explicit stderr writes (not Write-Error) so multiple simultaneous
+    # failures are aggregated like Bash instead of Write-Error's terminating
+    # error under $ErrorActionPreference = 'Stop' aborting after the first one.
     if ($deployedCommitSha -ne $localHeadSha) {
-        Write-Error "FAIL: deployed sha '$deployedCommitSha' does not match local HEAD sha '$localHeadSha'."
+        [Console]::Error.WriteLine("FAIL: deployed sha '$deployedCommitSha' does not match local HEAD sha '$localHeadSha'.")
         $failures++
     }
 
     if ($incidentBatchInjected -ne 'true') {
-        Write-Error "FAIL: the incident batch has not completed (incidentBatchInjected=$incidentBatchInjected)."
+        [Console]::Error.WriteLine("FAIL: the incident batch has not completed (incidentBatchInjected=$incidentBatchInjected).")
         $failures++
     }
 
     if ($normalizedReceiptCount -ne '23' -or $v1ReceiptCount -ne '3' -or $v2ReceiptCount -ne '20') {
-        Write-Error "FAIL: receipt split is not exactly 3 v1 / 20 v2 (23 total); got v1=$v1ReceiptCount v2=$v2ReceiptCount total=$normalizedReceiptCount."
+        [Console]::Error.WriteLine("FAIL: receipt split is not exactly 3 v1 / 20 v2 (23 total); got v1=$v1ReceiptCount v2=$v2ReceiptCount total=$normalizedReceiptCount.")
         $failures++
     }
 
@@ -153,18 +156,18 @@ try {
     Write-Host "Service Bus queue: active=$queueActive dlq=$queueDlq"
 
     if ($queueActive -ne '0') {
-        Write-Error "FAIL: Service Bus queue has $queueActive active message(s); expected zero."
+        [Console]::Error.WriteLine("FAIL: Service Bus queue has $queueActive active message(s); expected zero.")
         $failures++
     }
 
     if ($queueDlq -ne '0') {
-        Write-Error "FAIL: Service Bus queue has $queueDlq dead-letter (DLQ) message(s); expected zero."
+        [Console]::Error.WriteLine("FAIL: Service Bus queue has $queueDlq dead-letter (DLQ) message(s); expected zero.")
         $failures++
     }
 
     Write-Host "Querying Application Insights for UnsupportedReceiptSchemaError exceptions since deployment..."
     $appInsightsName = [string](az resource list --resource-group $ResourceGroup --resource-type "Microsoft.Insights/components" --query "[0].name" --output tsv).Trim()
-    $exceptionQuery = "exceptions | where type == 'UnsupportedReceiptSchemaError' | where timestamp > datetime($deployedAtUtc) | summarize count()"
+    $exceptionQuery = "exceptions | where type endswith 'UnsupportedReceiptSchemaError' | where timestamp > datetime($deployedAtUtc) | summarize count()"
     $exceptionsJson = az monitor app-insights query `
         --app $appInsightsName `
         --resource-group $ResourceGroup `
@@ -175,7 +178,7 @@ try {
     Write-Host "UnsupportedReceiptSchemaError exceptions since deployment: $exceptionCount"
 
     if ($exceptionCount -ne '0') {
-        Write-Error "FAIL: $exceptionCount UnsupportedReceiptSchemaError exception(s) occurred after DEPLOYED_AT_UTC ($deployedAtUtc)."
+        [Console]::Error.WriteLine("FAIL: $exceptionCount UnsupportedReceiptSchemaError exception(s) occurred after DEPLOYED_AT_UTC ($deployedAtUtc).")
         $failures++
     }
 

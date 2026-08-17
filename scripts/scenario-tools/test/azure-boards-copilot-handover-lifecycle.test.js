@@ -368,6 +368,93 @@ test('Deploy waits (bounded) for the keyed status endpoint to report the deploye
   assert.match(neverSucceeds.stderr, /timed out|did not report/i);
 });
 
+test('Deploy stamps DEPLOYED_COMMIT_SHA and deploys before proving go-live, and only stamps DEPLOYED_AT_UTC after the new SHA is confirmed live (cutover ordering, Bash/PowerShell parity)', () => {
+  const cases = [
+    ['Bash', 'deploy.sh', ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'], runBash],
+    ['PowerShell', 'deploy.ps1', ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'], runPowerShell],
+  ];
+
+  for (const [shell, script, args, run] of cases) {
+    const logPath = resolve(scratchDir(), 'az.log');
+    const result = run(script, args, {
+      LIFECYCLE_AZ_LOG_PATH: logPath,
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+    });
+    assert.equal(result.status, 0, `${shell}: ${result.stderr}\n${result.stdout}`);
+
+    const lines = readFileSync(logPath, 'utf8').split('\n');
+    const shaSettingLineIndex = lines.findIndex((line) =>
+      line.includes(`DEPLOYED_COMMIT_SHA=${localHeadSha}`)
+    );
+    const deployLineIndex = lines.findIndex((line) => line.includes('functionapp deploy'));
+    const atUtcSettingLineIndex = lines.findIndex((line) => line.includes('DEPLOYED_AT_UTC='));
+
+    assert.ok(shaSettingLineIndex >= 0, `${shell}: DEPLOYED_COMMIT_SHA setting missing from az log`);
+    assert.ok(deployLineIndex >= 0, `${shell}: functionapp deploy missing from az log`);
+    assert.ok(atUtcSettingLineIndex >= 0, `${shell}: DEPLOYED_AT_UTC setting missing from az log`);
+
+    assert.ok(
+      shaSettingLineIndex < deployLineIndex,
+      `${shell}: DEPLOYED_COMMIT_SHA must be stamped before the zip is deployed (needed for the go-live poll)`
+    );
+    assert.ok(
+      deployLineIndex < atUtcSettingLineIndex,
+      `${shell}: DEPLOYED_AT_UTC must be stamped only after deploy + the go-live poll confirm the new SHA`
+    );
+    assert.doesNotMatch(
+      lines[shaSettingLineIndex],
+      /DEPLOYED_AT_UTC=/,
+      `${shell}: DEPLOYED_COMMIT_SHA must be stamped on its own settings call, separate from DEPLOYED_AT_UTC`
+    );
+  }
+});
+
+test('Deploy re-confirms (bounded) that the app is coherent after stamping DEPLOYED_AT_UTC, without an unbounded or circular poll', () => {
+  const markerFile = resolve(scratchDir(), 'atutc-marker');
+  const cutoverCounterFile = resolve(scratchDir(), 'cutover-counter');
+
+  const eventuallyCoherent = runBash(
+    'deploy.sh',
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    {
+      LIFECYCLE_AZ_ATUTC_MARKER_FILE: markerFile,
+      LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE: cutoverCounterFile,
+      LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_ATTEMPTS: '2',
+      LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_BODY: healthyStatusBody({
+        deployedCommitSha: 'stale-after-cutover-restart',
+      }),
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      STATUS_POLL_ATTEMPTS: '5',
+      STATUS_POLL_DELAY_SECONDS: '0',
+    }
+  );
+  assert.equal(eventuallyCoherent.status, 0, eventuallyCoherent.stderr);
+
+  rmSync(markerFile, { force: true });
+  rmSync(cutoverCounterFile, { force: true });
+
+  const neverCoherent = runBash(
+    'deploy.sh',
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    {
+      LIFECYCLE_AZ_ATUTC_MARKER_FILE: markerFile,
+      LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE: cutoverCounterFile,
+      LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_ATTEMPTS: '999',
+      LIFECYCLE_CURL_STATUS_CUTOVER_PENDING_BODY: healthyStatusBody({
+        deployedCommitSha: 'stale-after-cutover-restart',
+      }),
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      STATUS_POLL_ATTEMPTS: '2',
+      STATUS_POLL_DELAY_SECONDS: '0',
+    }
+  );
+  assert.notEqual(neverCoherent.status, 0);
+  assert.match(neverCoherent.stderr, /timed out|did not/i);
+  // Exactly STATUS_POLL_ATTEMPTS cutover-phase status calls were made,
+  // proving the re-poll is bounded rather than unbounded or circular.
+  assert.equal(readFileSync(cutoverCounterFile, 'utf8').trim(), '2');
+});
+
 test('Setup provisions the subscription-scope Bicep template and captures its outputs', () => {
   const bash = readScript('setup.sh');
   const powershell = readScript('setup.ps1');
@@ -541,19 +628,93 @@ test('Validate fails when the receipt split is not exactly 3 v1 and 20 v2', () =
   assert.match(result.stderr, /receipt/i);
 });
 
-test('Validate fails when the incident batch is not yet completed', () => {
-  const result = runBash(
+test('Validate fails when the incident batch is not yet completed, parsing the legitimate JSON false without aborting silently', () => {
+  // `incidentBatchInjected: false` is a legitimate JSON boolean, not a parse
+  // error. `jq -e` treats `false`/`null` output as a jq-level failure, so a
+  // naive `jq -er` under `set -e` (Bash) would abort before ever printing the
+  // SHA comparison lines or emitting the intended diagnostic. Both shells
+  // must parse it, print the diagnostic, and keep going (Bash keeps
+  // aggregating; PowerShell must not terminate on the first Write-Error).
+  for (const [shell, result] of bothShells(
     'validate.sh',
     ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'],
     {
       LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody({ incidentBatchInjected: false }),
       LIFECYCLE_AZ_QUEUE_ACTIVE: '0',
       LIFECYCLE_AZ_QUEUE_DLQ: '0',
       LIFECYCLE_AZ_EXCEPTION_COUNT: '0',
     }
-  );
+  )) {
+    assert.notEqual(result.status, 0, shell);
+    assert.match(
+      result.stderr,
+      /FAIL: the incident batch has not completed \(incidentBatchInjected=false\)/,
+      `${shell}: expected the specific incident-not-completed diagnostic, not just a nonzero exit`
+    );
+    assert.match(
+      result.stdout,
+      /Deployed commit SHA/,
+      `${shell}: script must reach and print the SHA comparison before failing on the incident check`
+    );
+  }
+});
 
-  assert.notEqual(result.status, 0);
+test('Validate aggregates all pre-telemetry failures instead of stopping at the first one (PowerShell parity)', () => {
+  // Bash already aggregates via `failures=$((failures + 1))`. PowerShell's
+  // `Write-Error` under `$ErrorActionPreference = 'Stop'` is a terminating
+  // error, so it must never be used mid-aggregation: it would report only
+  // the first failure and silently drop the rest.
+  for (const [shell, result] of bothShells(
+    'validate.sh',
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'],
+    {
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody({
+        deployedCommitSha: 'not-the-local-head',
+        incidentBatchInjected: false,
+        v2ReceiptCount: 19,
+        normalizedReceiptCount: 22,
+      }),
+      LIFECYCLE_AZ_QUEUE_ACTIVE: '0',
+      LIFECYCLE_AZ_QUEUE_DLQ: '0',
+      LIFECYCLE_AZ_EXCEPTION_COUNT: '0',
+    }
+  )) {
+    assert.notEqual(result.status, 0, shell);
+    assert.match(result.stderr, /FAIL: deployed sha/i, `${shell}: missing sha diagnostic`);
+    assert.match(
+      result.stderr,
+      /FAIL: the incident batch has not completed/i,
+      `${shell}: missing incident diagnostic`
+    );
+    assert.match(result.stderr, /FAIL: receipt split/i, `${shell}: missing receipt diagnostic`);
+    assert.match(result.stderr, /\(3 issue\(s\)\)/, `${shell}: missing aggregated failure count`);
+  }
+});
+
+test('Validate aggregates telemetry failures (Service Bus and Application Insights) instead of stopping at the first one (PowerShell parity)', () => {
+  for (const [shell, result] of bothShells(
+    'validate.sh',
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'],
+    {
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      LIFECYCLE_AZ_QUEUE_ACTIVE: '4',
+      LIFECYCLE_AZ_QUEUE_DLQ: '2',
+      LIFECYCLE_AZ_EXCEPTION_COUNT: '3',
+    }
+  )) {
+    assert.notEqual(result.status, 0, shell);
+    assert.match(result.stderr, /active/i, `${shell}: missing active-message diagnostic`);
+    assert.match(result.stderr, /dead-letter|dlq/i, `${shell}: missing dead-letter diagnostic`);
+    assert.match(
+      result.stderr,
+      /UnsupportedReceiptSchemaError|exception/i,
+      `${shell}: missing exception diagnostic`
+    );
+    assert.match(result.stderr, /\(3 issue\(s\)\)/, `${shell}: missing aggregated failure count`);
+  }
 });
 
 test('Validate fails on non-zero Service Bus active or dead-letter counts', () => {
@@ -598,6 +759,35 @@ test('Validate fails when UnsupportedReceiptSchemaError exceptions occurred afte
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /UnsupportedReceiptSchemaError|exception/i);
+});
+
+test('Validate matches UnsupportedReceiptSchemaError exceptions robustly for module-qualified type names (KQL endswith)', () => {
+  for (const script of ['validate.sh', 'validate.ps1']) {
+    assert.match(
+      readScript(script),
+      /type\s+endswith\s+["']UnsupportedReceiptSchemaError["']/,
+      `${script} should match the exception type with endswith so module-qualified names (e.g. Contoso.Boards.UnsupportedReceiptSchemaError) still count`
+    );
+  }
+
+  const logPath = resolve(scratchDir(), 'az.log');
+  const result = runBash(
+    'validate.sh',
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    {
+      LIFECYCLE_AZ_LOG_PATH: logPath,
+      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      LIFECYCLE_AZ_QUEUE_ACTIVE: '0',
+      LIFECYCLE_AZ_QUEUE_DLQ: '0',
+      LIFECYCLE_AZ_EXCEPTION_COUNT: '0',
+    }
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    readFileSync(logPath, 'utf8'),
+    /type endswith 'UnsupportedReceiptSchemaError'/,
+    'the generated analytics query passed to az monitor app-insights query should use endswith'
+  );
 });
 
 test('Validate queries the Service Bus queue and Application Insights explicitly, and fails loudly when either query fails', () => {

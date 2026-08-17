@@ -77,6 +77,11 @@ JSON
       echo 'simulated app settings write failure' >&2
       exit 45
     fi
+    if [ -n "${LIFECYCLE_AZ_ATUTC_MARKER_FILE:-}" ]; then
+      case " $* " in
+        *"DEPLOYED_AT_UTC="*) printf '1' > "$LIFECYCLE_AZ_ATUTC_MARKER_FILE" ;;
+      esac
+    fi
     ;;
   *" functionapp deploy "*)
     if [ "${LIFECYCLE_AZ_FAIL_FUNCTION_DEPLOY:-}" = "1" ]; then

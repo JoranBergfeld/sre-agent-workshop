@@ -123,7 +123,11 @@ curl -sS -o "$STATUS_FILE" -w '%{http_code}' "https://$FUNCTION_HOSTNAME/api/sta
 
 DEPLOYED_COMMIT_SHA=$(jq -er '.deployedCommitSha // empty' "$STATUS_FILE")
 DEPLOYED_AT_UTC=$(jq -er '.deployedAtUtc // empty' "$STATUS_FILE")
-INCIDENT_BATCH_INJECTED=$(jq -er '.incidentBatchInjected' "$STATUS_FILE")
+# Not `-e`: `incidentBatchInjected` is a legitimate JSON boolean, and jq's
+# `-e` treats a `false` result as a jq-level failure. Under `set -e` that
+# would abort the script here instead of letting the aggregation below emit
+# the intended incident-not-completed diagnostic and keep checking.
+INCIDENT_BATCH_INJECTED=$(jq -r '.incidentBatchInjected' "$STATUS_FILE")
 NORMALIZED_RECEIPT_COUNT=$(jq -er '.normalizedReceiptCount' "$STATUS_FILE")
 V1_RECEIPT_COUNT=$(jq -er '.v1ReceiptCount' "$STATUS_FILE")
 V2_RECEIPT_COUNT=$(jq -er '.v2ReceiptCount' "$STATUS_FILE")
@@ -181,7 +185,7 @@ fi
 
 echo "Querying Application Insights for UnsupportedReceiptSchemaError exceptions since deployment..."
 APP_INSIGHTS_NAME=$(az resource list --resource-group "$RESOURCE_GROUP" --resource-type "Microsoft.Insights/components" --query "[0].name" --output tsv)
-EXCEPTION_QUERY="exceptions | where type == 'UnsupportedReceiptSchemaError' | where timestamp > datetime($DEPLOYED_AT_UTC) | summarize count()"
+EXCEPTION_QUERY="exceptions | where type endswith 'UnsupportedReceiptSchemaError' | where timestamp > datetime($DEPLOYED_AT_UTC) | summarize count()"
 EXCEPTIONS_JSON=$(az monitor app-insights query \
   --app "$APP_INSIGHTS_NAME" \
   --resource-group "$RESOURCE_GROUP" \
