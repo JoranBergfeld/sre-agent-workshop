@@ -102,6 +102,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'SCENARIO_STATE_TABLE_NAME'
           value: scenarioStateTableName
         }
+        {
+          name: 'UNSUPPORTED_EVENT_RETRY_DELAY_SECONDS'
+          value: '5'
+        }
+        {
+          name: 'UNSUPPORTED_EVENT_RETRY_MAX_DELAY_SECONDS'
+          value: '30'
+        }
       ]
     }
   }
