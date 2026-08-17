@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Fake curl fixture for lifecycle script tests: emulates `curl -sS -o <file> -w
+# '%{http_code}' [-X <method>] <url>` against the keyed HTTP workshop surface
+# (status, submit-v2-orders, seed-v1-controls) without any live Function App.
+set -euo pipefail
+
+output_file=""
+method="GET"
+url=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) output_file="$2"; shift 2 ;;
+    -X) method="$2"; shift 2 ;;
+    -w) shift 2 ;;
+    -sS|-s|-S|-f) shift ;;
+    http*://*) url="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+
+if [ -n "${LIFECYCLE_CURL_LOG_PATH:-}" ]; then
+  printf '%s %s\n' "$method" "$url" >> "$LIFECYCLE_CURL_LOG_PATH"
+fi
+
+case "$url" in
+  *"/api/status"*)
+    if [ -n "${LIFECYCLE_CURL_STATUS_COUNTER_FILE:-}" ]; then
+      attempt=0
+      [ -f "$LIFECYCLE_CURL_STATUS_COUNTER_FILE" ] && attempt=$(cat "$LIFECYCLE_CURL_STATUS_COUNTER_FILE")
+      attempt=$((attempt + 1))
+      printf '%s' "$attempt" > "$LIFECYCLE_CURL_STATUS_COUNTER_FILE"
+      if [ "$attempt" -le "${LIFECYCLE_CURL_STATUS_PENDING_ATTEMPTS:-0}" ]; then
+        printf '%s' "${LIFECYCLE_CURL_STATUS_PENDING_BODY:-{\}}" > "$output_file"
+        printf '%s' "${LIFECYCLE_CURL_STATUS_PENDING_CODE:-200}"
+        exit 0
+      fi
+    fi
+    printf '%s' "${LIFECYCLE_CURL_STATUS_BODY:-{\}}" > "$output_file"
+    printf '%s' "${LIFECYCLE_CURL_STATUS_CODE:-200}"
+    ;;
+  *"/api/submit-v2-orders"*)
+    printf '%s' "${LIFECYCLE_CURL_SUBMIT_BODY:-{\"incidentBatchAlreadyInjected\":false,\"eventsEnqueued\":20\}}" > "$output_file"
+    printf '%s' "${LIFECYCLE_CURL_SUBMIT_CODE:-202}"
+    ;;
+  *"/api/seed-v1-controls"*)
+    printf '%s' "${LIFECYCLE_CURL_SEED_BODY:-{\"controlBatchAlreadyInjected\":false,\"eventsEnqueued\":3\}}" > "$output_file"
+    printf '%s' "${LIFECYCLE_CURL_SEED_CODE:-202}"
+    ;;
+  *)
+    echo "unexpected curl url: $url" >&2
+    exit 97
+    ;;
+esac

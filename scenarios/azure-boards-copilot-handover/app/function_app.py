@@ -13,11 +13,12 @@ from order_events.adapters.service_bus import (
     process_order_event_message,
 )
 from order_events.adapters.storage import (
+    ReceiptTableClient,
     ReceiptTableStore,
     ScenarioStateTableClient,
     ScenarioStateTableStore,
 )
-from order_events.workshop import get_workshop_status, submit_incident_batch
+from order_events.workshop import get_workshop_status, submit_control_batch, submit_incident_batch
 
 app = func.FunctionApp()
 
@@ -36,7 +37,9 @@ def _receipt_store() -> ReceiptTableStore:
     table_client = _table_service_client().get_table_client(
         os.environ["NORMALIZED_RECEIPTS_TABLE_NAME"]
     )
-    return ReceiptTableStore(table_client)
+    # azure.data.tables.TableClient supports the required methods, but its overload-rich
+    # type stubs do not structurally satisfy our narrower protocol under mypy strict mode.
+    return ReceiptTableStore(cast(ReceiptTableClient, table_client))
 
 
 def _scenario_state_store() -> ScenarioStateTableStore:
@@ -86,11 +89,21 @@ def process_order_event(message: func.ServiceBusMessage) -> None:
 @app.function_name(name="WorkshopStatus")
 @app.route(route="status", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def workshop_status(req: func.HttpRequest) -> func.HttpResponse:
-    status = get_workshop_status(_scenario_state_store())
+    status = get_workshop_status(
+        _scenario_state_store(),
+        _receipt_store(),
+        deployed_commit_sha=os.environ.get("DEPLOYED_COMMIT_SHA") or None,
+        deployed_at_utc=os.environ.get("DEPLOYED_AT_UTC") or None,
+    )
     return _json_response(
         {
             "incidentBatchId": status.incident_batch_id,
             "incidentBatchInjected": status.incident_batch_injected,
+            "deployedCommitSha": status.deployed_commit_sha,
+            "deployedAtUtc": status.deployed_at_utc,
+            "normalizedReceiptCount": status.normalized_receipt_count,
+            "v1ReceiptCount": status.v1_receipt_count,
+            "v2ReceiptCount": status.v2_receipt_count,
         },
         status_code=200,
     )
@@ -109,6 +122,22 @@ def submit_v2_orders(req: func.HttpRequest) -> func.HttpResponse:
     return _json_response(
         {
             "incidentBatchAlreadyInjected": submission.already_injected,
+            "eventsEnqueued": len(submission.events),
+        },
+        status_code=200 if submission.already_injected else 202,
+    )
+
+
+@app.function_name(name="SeedV1Controls")
+@app.route(route="seed-v1-controls", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
+def seed_v1_controls(req: func.HttpRequest) -> func.HttpResponse:
+    # Same Service Bus SDK send path as SubmitV2Orders, and the same claim/complete
+    # idempotency guarantee: safe to call repeatedly (e.g. from setup.sh retries).
+    submission = submit_control_batch(_scenario_state_store(), _event_sender(), claimed_at=_clock())
+
+    return _json_response(
+        {
+            "controlBatchAlreadyInjected": submission.already_injected,
             "eventsEnqueued": len(submission.events),
         },
         status_code=200 if submission.already_injected else 202,

@@ -1,6 +1,7 @@
 from order_events.contracts import ReceiptEventV1, ReceiptEventV2
 
 INCIDENT_BATCH_ID = "schema-drift-v2-incident"
+CONTROL_BATCH_ID = "v1-control-events"
 
 
 def build_control_events_v1() -> tuple[ReceiptEventV1, ReceiptEventV1, ReceiptEventV1]:

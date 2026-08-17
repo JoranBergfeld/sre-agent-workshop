@@ -25,3 +25,6 @@ scenarios/azure-boards-copilot-handover/app/.ruff_cache/
 scenarios/azure-boards-copilot-handover/app/.mypy_cache/
 scenarios/azure-boards-copilot-handover/app/.coverage
 scenarios/azure-boards-copilot-handover/app/uv.lock
+
+# Azure Boards Copilot Handover lifecycle test scratch space
+scripts/scenario-tools/test/.tmp-lifecycle-scratch/

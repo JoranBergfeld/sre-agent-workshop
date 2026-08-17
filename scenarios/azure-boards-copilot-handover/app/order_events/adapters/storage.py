@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import uuid4
@@ -8,11 +8,15 @@ from azure.core.exceptions import ResourceExistsError, ResourceModifiedError, Re
 from azure.data.tables import UpdateMode
 
 from order_events.normalizer import NormalizedReceipt
-from order_events.workshop import BatchClaim, ClaimOutcome
+from order_events.workshop import BatchClaim, ClaimOutcome, ReceiptCounts
 
 
 class ReceiptTableClient(Protocol):
     def upsert_entity(self, entity: dict[str, object], mode: UpdateMode) -> object: ...
+
+    def query_entities(
+        self, query_filter: str, *, select: Sequence[str] | None = None
+    ) -> Iterable[Mapping[str, object]]: ...
 
 
 class StoredBatchEntity(Protocol):
@@ -66,6 +70,20 @@ class ReceiptTableStore:
             },
             mode=UpdateMode.REPLACE,
         )
+
+    def count_receipts(self) -> ReceiptCounts:
+        v1_count = 0
+        v2_count = 0
+        for entity in self._table_client.query_entities(
+            "PartitionKey eq 'orders'", select=["sourceSchemaVersion"]
+        ):
+            schema_version = entity.get("sourceSchemaVersion")
+            if schema_version == "v1":
+                v1_count += 1
+            elif schema_version == "v2":
+                v2_count += 1
+
+        return ReceiptCounts(total=v1_count + v2_count, v1=v1_count, v2=v2_count)
 
 
 _INCIDENT_BATCHES_PARTITION_KEY = "incidentBatches"

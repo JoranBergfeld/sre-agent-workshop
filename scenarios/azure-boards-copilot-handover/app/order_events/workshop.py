@@ -4,8 +4,13 @@ from datetime import datetime
 from enum import Enum
 from typing import Protocol
 
-from order_events.batches import INCIDENT_BATCH_ID, build_incident_events_v2
-from order_events.contracts import ReceiptEventV2
+from order_events.batches import (
+    CONTROL_BATCH_ID,
+    INCIDENT_BATCH_ID,
+    build_control_events_v1,
+    build_incident_events_v2,
+)
+from order_events.contracts import ReceiptEvent
 
 
 class ClaimOutcome(Enum):
@@ -46,47 +51,78 @@ class IncidentBatchStateStore(Protocol):
 
 
 class IncidentEventSender(Protocol):
-    def send_events(self, events: Sequence[ReceiptEventV2]) -> None: ...
+    def send_events(self, events: Sequence[ReceiptEvent]) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReceiptCounts:
+    """Aggregate normalized-receipt counts backing the keyed status surface."""
+
+    total: int
+    v1: int
+    v2: int
+
+
+class ReceiptCountStore(Protocol):
+    def count_receipts(self) -> ReceiptCounts: ...
 
 
 @dataclass(frozen=True, slots=True)
 class WorkshopStatus:
     incident_batch_id: str
     incident_batch_injected: bool
+    deployed_commit_sha: str | None
+    deployed_at_utc: str | None
+    normalized_receipt_count: int
+    v1_receipt_count: int
+    v2_receipt_count: int
 
 
 @dataclass(frozen=True, slots=True)
-class IncidentBatchSubmission:
+class BatchSubmission:
     already_injected: bool
-    events: tuple[ReceiptEventV2, ...]
+    events: tuple[ReceiptEvent, ...]
 
 
-def get_workshop_status(state_store: IncidentBatchStateStore) -> WorkshopStatus:
+def get_workshop_status(
+    state_store: IncidentBatchStateStore,
+    receipt_count_store: ReceiptCountStore,
+    *,
+    deployed_commit_sha: str | None,
+    deployed_at_utc: str | None,
+) -> WorkshopStatus:
+    counts = receipt_count_store.count_receipts()
     return WorkshopStatus(
         incident_batch_id=INCIDENT_BATCH_ID,
         incident_batch_injected=state_store.is_batch_injected(INCIDENT_BATCH_ID),
+        deployed_commit_sha=deployed_commit_sha,
+        deployed_at_utc=deployed_at_utc,
+        normalized_receipt_count=counts.total,
+        v1_receipt_count=counts.v1,
+        v2_receipt_count=counts.v2,
     )
 
 
-def submit_incident_batch(
+def _submit_batch(
     state_store: IncidentBatchStateStore,
     sender: IncidentEventSender,
     *,
+    batch_id: str,
+    events: tuple[ReceiptEvent, ...],
     claimed_at: datetime,
-) -> IncidentBatchSubmission:
-    events = build_incident_events_v2()
+) -> BatchSubmission:
     claim = state_store.claim_batch(
-        batch_id=INCIDENT_BATCH_ID, event_count=len(events), claimed_at=claimed_at
+        batch_id=batch_id, event_count=len(events), claimed_at=claimed_at
     )
 
     if claim.outcome is ClaimOutcome.ALREADY_COMPLETED:
-        return IncidentBatchSubmission(already_injected=True, events=())
+        return BatchSubmission(already_injected=True, events=())
 
     if claim.outcome is ClaimOutcome.CONTESTED:
         # Another caller still owns (or already recovered) this same pending claim; do
         # not race it with a duplicate send. The batch is not yet completed, so it
         # must not be reported as injected.
-        return IncidentBatchSubmission(already_injected=False, events=())
+        return BatchSubmission(already_injected=False, events=())
 
     claim_token = claim.claim_token
     if claim_token is None:
@@ -98,9 +134,39 @@ def submit_incident_batch(
         sender.send_events(events)
     except Exception:
         # A failed send must not leave the batch permanently claimed: release it so a
-        # future submit-v2-orders retry can reclaim and resend the same incident batch.
-        state_store.release_batch_claim(INCIDENT_BATCH_ID, claim_token=claim_token)
+        # future retry can reclaim and resend the same deterministic batch.
+        state_store.release_batch_claim(batch_id, claim_token=claim_token)
         raise
 
-    state_store.mark_batch_completed(INCIDENT_BATCH_ID, completed_at=claimed_at)
-    return IncidentBatchSubmission(already_injected=False, events=events)
+    state_store.mark_batch_completed(batch_id, completed_at=claimed_at)
+    return BatchSubmission(already_injected=False, events=events)
+
+
+def submit_incident_batch(
+    state_store: IncidentBatchStateStore,
+    sender: IncidentEventSender,
+    *,
+    claimed_at: datetime,
+) -> BatchSubmission:
+    return _submit_batch(
+        state_store,
+        sender,
+        batch_id=INCIDENT_BATCH_ID,
+        events=build_incident_events_v2(),
+        claimed_at=claimed_at,
+    )
+
+
+def submit_control_batch(
+    state_store: IncidentBatchStateStore,
+    sender: IncidentEventSender,
+    *,
+    claimed_at: datetime,
+) -> BatchSubmission:
+    return _submit_batch(
+        state_store,
+        sender,
+        batch_id=CONTROL_BATCH_ID,
+        events=build_control_events_v1(),
+        claimed_at=claimed_at,
+    )
