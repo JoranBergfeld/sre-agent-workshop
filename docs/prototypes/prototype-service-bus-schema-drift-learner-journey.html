@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype: Service Bus schema drift learner journey</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d8dee9;
+      --panel: #f7f9fc;
+      --success: #16794b;
+      --danger: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #fff;
+      color: var(--ink);
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 12px; font-size: clamp(2rem, 5vw, 3.4rem); }
+    h2 { margin-top: 42px; }
+    p { max-width: 78ch; }
+    code { font-size: 0.92em; }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .question {
+      padding: 18px 20px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .notice {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .status-banner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin: 26px 0 18px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+
+    .status-banner strong { display: block; margin-bottom: 4px; }
+    .status-banner p { margin: 0; color: var(--muted); }
+
+    .pill {
+      flex: none;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 750;
+    }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .state-card {
+      min-height: 116px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .state-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.96rem;
+    }
+
+    .state-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .state-card[data-complete="true"] {
+      border-color: #9fd5bc;
+      background: #f0fbf5;
+    }
+
+    .state-card[data-complete="true"] h3 { color: var(--success); }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 10px;
+    }
+
+    button {
+      min-height: 44px;
+      padding: 10px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 650;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--accent); }
+    button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+    button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    button.secondary { color: var(--accent); }
+    button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+    .result {
+      min-height: 58px;
+      margin: 14px 0 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .result[data-kind="success"] { color: var(--success); }
+    .result[data-kind="error"] { color: var(--danger); }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tabs button[aria-selected="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .walkthrough {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .walkthrough h3 { margin-top: 0; }
+
+    .steps {
+      display: grid;
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .step-number {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+
+    .step[data-done="true"] .step-number {
+      background: #d6f5e5;
+      color: var(--success);
+    }
+
+    .history {
+      max-height: 280px;
+      margin: 0;
+      padding: 0;
+      overflow: auto;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+
+    .history li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .history span {
+      display: inline-block;
+      min-width: 82px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 620px) {
+      .status-banner { display: block; }
+      .pill { display: inline-block; margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Throwaway logic prototype</p>
+    <h1>Service Bus schema drift learner journey</h1>
+    <div class="question">
+      <strong>Question:</strong> Does this sequence make the Azure Boards-to-GitHub handoff
+      understandable and safely gated while still letting the learner experience investigation,
+      code repair, deployment, and recovery as one coherent incident journey?
+    </div>
+    <p class="notice">
+      This file prototypes the learning-state model only. It is not workshop content or production code.
+      Use the free-play actions to challenge the rules, or follow a guided walkthrough.
+    </p>
+
+    <section aria-labelledby="current-state-heading">
+      <h2 id="current-state-heading">Current learner state</h2>
+      <div class="status-banner">
+        <div>
+          <strong id="phase-title"></strong>
+          <p id="phase-explanation"></p>
+        </div>
+        <span class="pill" id="progress-pill"></span>
+      </div>
+      <div class="state-grid" id="state-grid"></div>
+      <p class="result" id="result" aria-live="polite"></p>
+    </section>
+
+    <section aria-labelledby="free-play-heading">
+      <h2 id="free-play-heading">Free play</h2>
+      <p>Try actions in any order. The model will explain why unsafe or premature actions are rejected.</p>
+      <div class="actions" id="free-play-actions"></div>
+    </section>
+
+    <section aria-labelledby="walkthrough-heading">
+      <h2 id="walkthrough-heading">Guided walkthroughs</h2>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="walkthrough" id="walkthrough"></div>
+    </section>
+
+    <section aria-labelledby="history-heading">
+      <h2 id="history-heading">Journey history</h2>
+      <ul class="history" id="history"></ul>
+    </section>
+  </main>
+
+  <script>
+    const ACTIONS = {
+      COMPLETE_ONBOARDING: "Complete Azure Boards and GitHub onboarding",
+      DEPLOY_STARTING_SYSTEM: "Deploy the starting system",
+      VERIFY_CONTROL_EVENTS: "Verify v1 control events produce receipts",
+      ONBOARD_SRE_AGENT: "Onboard the SRE Agent and incident response",
+      INJECT_SCHEMA_DRIFT: "Inject v2 order events",
+      OBSERVE_ALERT: "Observe the sustained backlog alert",
+      INVESTIGATE: "Ask the SRE Agent to investigate",
+      DRAFT_HANDOFF: "Review the proposed handoff work item",
+      APPROVE_HANDOFF: "Approve work-item creation",
+      REJECT_HANDOFF: "Reject work-item creation for revision",
+      CREATE_HANDOFF: "Create one unassigned handoff work item",
+      INVOKE_COPILOT: "Select Create a pull request with GitHub Copilot",
+      COPILOT_OPENS_PR: "Observe Copilot's linked draft pull request",
+      CI_PASSES: "Confirm targeted tests and CI pass",
+      VERIFY_TRACEABILITY: "Verify the pull request links to Azure Boards",
+      MERGE_PR: "Review and merge the pull request",
+      UPDATE_MAIN: "Update the local main checkout",
+      DEPLOY_REPAIR: "Deploy the reviewed revision",
+      VALIDATE_APPLICATION: "Run the scenario validation helper",
+      CONFIRM_TELEMETRY: "Ask the SRE Agent to confirm telemetry recovery",
+      CLOSE_HANDOFF: "Close the handoff work item",
+      CLEAN_UP: "Clean up participant resources",
+      RESET: "Reset the prototype"
+    };
+
+    const initialState = () => ({
+      onboarding: false,
+      startingSystem: false,
+      controlEvidence: false,
+      sreAgentReady: false,
+      incidentInjected: false,
+      alertObserved: false,
+      investigation: "not-started",
+      handoffDraft: "not-shown",
+      handoffApproval: "not-requested",
+      handoffWorkItem: "not-created",
+      copilot: "not-invoked",
+      pullRequest: "not-created",
+      ci: "not-run",
+      traceability: "not-checked",
+      merged: false,
+      localMain: "starting-revision",
+      deployed: "starting-revision",
+      applicationRecovery: "not-validated",
+      telemetryRecovery: "not-confirmed",
+      handoffClosed: false,
+      cleanup: false,
+      lastMessage: "Choose an action or start a guided walkthrough.",
+      lastKind: "neutral",
+      history: []
+    });
+
+    function accept(state, action, patch, message) {
+      return {
+        ...state,
+        ...patch,
+        lastMessage: message,
+        lastKind: "success",
+        history: [...state.history, { action: ACTIONS[action], outcome: message, accepted: true }]
+      };
+    }
+
+    function reject(state, action, message) {
+      return {
+        ...state,
+        lastMessage: message,
+        lastKind: "error",
+        history: [...state.history, { action: ACTIONS[action], outcome: message, accepted: false }]
+      };
+    }
+
+    function transition(state, action) {
+      if (action === "RESET") return initialState();
+
+      switch (action) {
+        case "COMPLETE_ONBOARDING":
+          return accept(state, action, { onboarding: true },
+            "The learner has the required GitHub App connection, paid Copilot access, repository permissions, and Azure DevOps access.");
+        case "DEPLOY_STARTING_SYSTEM":
+          if (!state.onboarding) return reject(state, action, "Complete integration onboarding first so the handoff can be exercised later.");
+          return accept(state, action, { startingSystem: true },
+            "The Function, Service Bus queue, Table Storage, monitoring, and v1-only consumer are deployed.");
+        case "VERIFY_CONTROL_EVENTS":
+          if (!state.startingSystem) return reject(state, action, "Deploy the starting system before proving the healthy control path.");
+          return accept(state, action, { controlEvidence: true },
+            "v1 order events were processed and normalized receipts appeared in Table Storage.");
+        case "ONBOARD_SRE_AGENT":
+          if (!state.startingSystem) return reject(state, action, "The Azure resources must exist before the SRE Agent and incident response can be connected.");
+          return accept(state, action, { sreAgentReady: true },
+            "The SRE Agent can investigate the scenario resources, and the backlog alert routes into incident response.");
+        case "INJECT_SCHEMA_DRIFT":
+          if (!state.controlEvidence || !state.sreAgentReady) {
+            return reject(state, action, "First prove v1 processing is healthy and finish SRE Agent onboarding; otherwise the incident lacks a trustworthy baseline.");
+          }
+          return accept(state, action, { incidentInjected: true },
+            "Valid v2 order events now retry because the deployed consumer only understands v1 field names.");
+        case "OBSERVE_ALERT":
+          if (!state.incidentInjected) return reject(state, action, "Inject the v2 events before expecting a sustained active-backlog alert.");
+          return accept(state, action, { alertObserved: true },
+            "The learner sees the active backlog grow while v2 normalized receipts remain absent.");
+        case "INVESTIGATE":
+          if (!state.alertObserved) return reject(state, action, "Start from the alert so the investigation follows observable incident evidence.");
+          return accept(state, action, { investigation: "diagnosed" },
+            "The SRE Agent correlates queue metrics, Function exceptions, successful v1 processing, and missing v2 receipts to diagnose schema drift.");
+        case "DRAFT_HANDOFF":
+          if (state.investigation !== "diagnosed") return reject(state, action, "The SRE Agent must diagnose the incident before proposing code work.");
+          return accept(state, action, {
+            handoffDraft: "shown",
+            handoffApproval: state.handoffApproval === "rejected" ? "revised" : "pending"
+          }, "The exact title, diagnosis, evidence, source scope, and acceptance criteria are visible for learner review.");
+        case "APPROVE_HANDOFF":
+          if (state.handoffDraft !== "shown") return reject(state, action, "The learner must see the exact proposed work item before approving its creation.");
+          return accept(state, action, { handoffApproval: "approved" },
+            "The learner approved creation of exactly the displayed handoff work item.");
+        case "REJECT_HANDOFF":
+          if (state.handoffDraft !== "shown") return reject(state, action, "There is no displayed work-item draft to reject.");
+          return accept(state, action, { handoffApproval: "rejected", handoffDraft: "needs-revision" },
+            "No work item was created. The SRE Agent must revise and redisplay the material content before asking again.");
+        case "CREATE_HANDOFF":
+          if (state.handoffApproval !== "approved") return reject(state, action, "Explicit approval is required before the SRE Agent creates a tracker record.");
+          return accept(state, action, { handoffWorkItem: "open-unassigned" },
+            "Exactly one unassigned Azure Boards handoff work item exists. The SRE Agent is read-only from this point.");
+        case "INVOKE_COPILOT":
+          if (state.handoffWorkItem !== "open-unassigned") return reject(state, action, "Review the created Azure Boards work item before triggering code modification.");
+          return accept(state, action, { copilot: "invoked" },
+            "The learner started the non-cancellable Copilot action from Azure Boards against the connected GitHub repository.");
+        case "COPILOT_OPENS_PR":
+          if (state.copilot !== "invoked") return reject(state, action, "Only the learner's Azure Boards action may start the cloud agent.");
+          return accept(state, action, { copilot: "completed", pullRequest: "draft" },
+            "Copilot created a linked branch and draft pull request limited to the Function code and directly related tests.");
+        case "CI_PASSES":
+          if (state.pullRequest !== "draft") return reject(state, action, "Wait for the linked draft pull request before evaluating tests and CI.");
+          return accept(state, action, { ci: "passed" },
+            "The backward-compatible normalization and invalid-payload behavior pass targeted tests and CI.");
+        case "VERIFY_TRACEABILITY":
+          if (state.pullRequest !== "draft") return reject(state, action, "A pull request must exist before its Azure Boards link can be inspected.");
+          return accept(state, action, { traceability: "verified" },
+            "The learner confirmed the pull request references and appears on the Azure Boards work item.");
+        case "MERGE_PR":
+          if (state.ci !== "passed" || state.traceability !== "verified") {
+            return reject(state, action, "Do not merge until both CI evidence and Azure Boards traceability have been reviewed.");
+          }
+          return accept(state, action, { pullRequest: "merged", merged: true },
+            "The learner explicitly merged the reviewed repair. No deployment happened automatically.");
+        case "UPDATE_MAIN":
+          if (!state.merged) return reject(state, action, "Only the merged, reviewed revision may be selected for deployment.");
+          return accept(state, action, { localMain: "reviewed-repair" },
+            "The learner's local main checkout now points to the reviewed merge.");
+        case "DEPLOY_REPAIR":
+          if (state.localMain !== "reviewed-repair") return reject(state, action, "Update local main first so the helper deploys exactly the reviewed revision.");
+          return accept(state, action, { deployed: "reviewed-repair" },
+            "The learner explicitly deployed the reviewed Function revision; merge alone did not change Azure.");
+        case "VALIDATE_APPLICATION":
+          if (state.deployed !== "reviewed-repair") return reject(state, action, "Deploy the repair before checking whether the backlog drains into normalized receipts.");
+          return accept(state, action, { applicationRecovery: "validated" },
+            "The validation helper confirms v1 and v2 processing, backlog drain, normalized receipts, and diagnostic dead-letter behavior.");
+        case "CONFIRM_TELEMETRY":
+          if (state.applicationRecovery !== "validated") return reject(state, action, "Run deterministic scenario validation before asking for a telemetry-based recovery confirmation.");
+          return accept(state, action, { telemetryRecovery: "confirmed" },
+            "The SRE Agent confirms the active backlog is clear and Function schema exceptions have stopped, without making changes.");
+        case "CLOSE_HANDOFF":
+          if (state.applicationRecovery !== "validated" || state.telemetryRecovery !== "confirmed") {
+            return reject(state, action, "Keep the work item open until both deterministic validation and telemetry recovery succeed.");
+          }
+          return accept(state, action, { handoffWorkItem: "closed", handoffClosed: true },
+            "The learner closed the handoff work item after end-to-end recovery evidence was complete.");
+        case "CLEAN_UP":
+          if (!state.handoffClosed) return reject(state, action, "Close the recovered incident before removing participant resources.");
+          return accept(state, action, { cleanup: true },
+            "Participant resources, the work item, branch, and pull request are cleaned up; shared facilitator integration remains.");
+        default:
+          return reject(state, action, "Unknown action.");
+      }
+    }
+
+    const phases = [
+      {
+        title: "Prepare the connected workshop",
+        explanation: "Establish the integration, deploy the known starting state, and prove the healthy v1 control path.",
+        complete: state => state.controlEvidence && state.sreAgentReady
+      },
+      {
+        title: "Experience and diagnose the incident",
+        explanation: "Create v2 schema drift, observe the backlog signal, and connect evidence to the code defect.",
+        complete: state => state.investigation === "diagnosed"
+      },
+      {
+        title: "Approve and initiate the handoff",
+        explanation: "Review the exact work-item content before separately authorizing creation and Copilot code modification.",
+        complete: state => state.copilot === "invoked" || state.copilot === "completed"
+      },
+      {
+        title: "Review the linked repair",
+        explanation: "Inspect tests, CI, and Azure Boards traceability before the learner explicitly merges.",
+        complete: state => state.merged
+      },
+      {
+        title: "Deploy and prove recovery",
+        explanation: "Deploy exactly the reviewed merge, validate data-plane recovery, confirm telemetry, and close the handoff.",
+        complete: state => state.handoffClosed
+      },
+      {
+        title: "Finish the workshop",
+        explanation: "Remove participant resources while preserving facilitator-managed shared integration.",
+        complete: state => state.cleanup
+      }
+    ];
+
+    const stateCards = [
+      ["Connected setup", state => state.onboarding, state => state.onboarding ? "Azure Boards, GitHub, and Copilot prerequisites are ready." : "Integration prerequisites are incomplete."],
+      ["Healthy baseline", state => state.controlEvidence && state.sreAgentReady, state => state.controlEvidence && state.sreAgentReady ? "v1 receipts and incident response are proven." : "The known-good path or SRE Agent onboarding is incomplete."],
+      ["Incident diagnosis", state => state.investigation === "diagnosed", state => state.investigation === "diagnosed" ? "Schema drift is supported by queue, Function, and receipt evidence." : "The incident has not been diagnosed."],
+      ["Handoff work item", state => state.handoffWorkItem !== "not-created", state => ({
+        "not-created": "No Azure Boards work item exists.",
+        "open-unassigned": "One approved, unassigned work item is open.",
+        "closed": "The recovered work item is closed."
+      })[state.handoffWorkItem]],
+      ["Copilot repair", state => state.pullRequest !== "not-created", state => ({
+        "not-created": "Copilot has not created a pull request.",
+        "draft": "A linked draft pull request awaits review.",
+        "merged": "The reviewed repair is merged."
+      })[state.pullRequest]],
+      ["Azure deployment", state => state.deployed === "reviewed-repair", state => state.deployed === "reviewed-repair" ? "Azure runs the reviewed repair." : "Azure still runs the starting revision."],
+      ["Recovery evidence", state => state.applicationRecovery === "validated" && state.telemetryRecovery === "confirmed", state => state.applicationRecovery === "validated" && state.telemetryRecovery === "confirmed" ? "Deterministic and telemetry checks both succeeded." : "Recovery evidence is incomplete."],
+      ["Workshop closure", state => state.cleanup, state => state.cleanup ? "Participant resources are cleaned up." : "The workshop remains active."]
+    ];
+
+    const actionOrder = Object.keys(ACTIONS).filter(action => action !== "RESET");
+
+    const walkthroughs = [
+      {
+        name: "Happy path",
+        description: "Walk the complete journey from onboarding through cleanup. Watch the four independent learner gates: work-item creation, Copilot invocation, merge, and deployment.",
+        actions: [
+          "COMPLETE_ONBOARDING", "DEPLOY_STARTING_SYSTEM", "VERIFY_CONTROL_EVENTS", "ONBOARD_SRE_AGENT",
+          "INJECT_SCHEMA_DRIFT", "OBSERVE_ALERT", "INVESTIGATE", "DRAFT_HANDOFF", "APPROVE_HANDOFF",
+          "CREATE_HANDOFF", "INVOKE_COPILOT", "COPILOT_OPENS_PR", "CI_PASSES", "VERIFY_TRACEABILITY",
+          "MERGE_PR", "UPDATE_MAIN", "DEPLOY_REPAIR", "VALIDATE_APPLICATION", "CONFIRM_TELEMETRY",
+          "CLOSE_HANDOFF", "CLEAN_UP"
+        ]
+      },
+      {
+        name: "Approval revision",
+        description: "Test whether rejecting the proposed handoff prevents tracker writes and forces material content to be shown again before fresh approval.",
+        actions: [
+          "COMPLETE_ONBOARDING", "DEPLOY_STARTING_SYSTEM", "VERIFY_CONTROL_EVENTS", "ONBOARD_SRE_AGENT",
+          "INJECT_SCHEMA_DRIFT", "OBSERVE_ALERT", "INVESTIGATE", "DRAFT_HANDOFF", "REJECT_HANDOFF",
+          "CREATE_HANDOFF", "DRAFT_HANDOFF", "APPROVE_HANDOFF", "CREATE_HANDOFF"
+        ]
+      },
+      {
+        name: "Premature merge",
+        description: "Try to merge immediately after Copilot opens the pull request. The model should require both passing CI and visible Azure Boards traceability.",
+        actions: [
+          "COMPLETE_ONBOARDING", "DEPLOY_STARTING_SYSTEM", "VERIFY_CONTROL_EVENTS", "ONBOARD_SRE_AGENT",
+          "INJECT_SCHEMA_DRIFT", "OBSERVE_ALERT", "INVESTIGATE", "DRAFT_HANDOFF", "APPROVE_HANDOFF",
+          "CREATE_HANDOFF", "INVOKE_COPILOT", "COPILOT_OPENS_PR", "MERGE_PR", "CI_PASSES",
+          "MERGE_PR", "VERIFY_TRACEABILITY", "MERGE_PR"
+        ]
+      },
+      {
+        name: "Premature closure",
+        description: "Test that a merged or deployed fix is not treated as recovery. The work item stays open until deterministic validation and telemetry confirmation both succeed.",
+        actions: [
+          "COMPLETE_ONBOARDING", "DEPLOY_STARTING_SYSTEM", "VERIFY_CONTROL_EVENTS", "ONBOARD_SRE_AGENT",
+          "INJECT_SCHEMA_DRIFT", "OBSERVE_ALERT", "INVESTIGATE", "DRAFT_HANDOFF", "APPROVE_HANDOFF",
+          "CREATE_HANDOFF", "INVOKE_COPILOT", "COPILOT_OPENS_PR", "CI_PASSES", "VERIFY_TRACEABILITY",
+          "MERGE_PR", "CLOSE_HANDOFF", "UPDATE_MAIN", "DEPLOY_REPAIR", "CLOSE_HANDOFF",
+          "VALIDATE_APPLICATION", "CLOSE_HANDOFF", "CONFIRM_TELEMETRY", "CLOSE_HANDOFF"
+        ]
+      }
+    ];
+
+    let state = initialState();
+    let selectedWalkthrough = 0;
+    let walkthroughStep = 0;
+
+    const phaseTitle = document.querySelector("#phase-title");
+    const phaseExplanation = document.querySelector("#phase-explanation");
+    const progressPill = document.querySelector("#progress-pill");
+    const stateGrid = document.querySelector("#state-grid");
+    const result = document.querySelector("#result");
+    const freePlayActions = document.querySelector("#free-play-actions");
+    const tabs = document.querySelector("#tabs");
+    const walkthrough = document.querySelector("#walkthrough");
+    const history = document.querySelector("#history");
+
+    function dispatch(action, fromWalkthrough = false) {
+      state = transition(state, action);
+      if (fromWalkthrough) walkthroughStep += 1;
+      render();
+    }
+
+    function currentPhase() {
+      return phases.find(phase => !phase.complete(state)) || phases[phases.length - 1];
+    }
+
+    function renderState() {
+      const phase = currentPhase();
+      const completeCount = phases.filter(item => item.complete(state)).length;
+      phaseTitle.textContent = phase.title;
+      phaseExplanation.textContent = phase.explanation;
+      progressPill.textContent = `${completeCount} of ${phases.length} phases complete`;
+
+      stateGrid.innerHTML = stateCards.map(([title, complete, description]) => `
+        <article class="state-card" data-complete="${complete(state)}">
+          <h3>${complete(state) ? "Complete" : "Pending"} · ${title}</h3>
+          <p>${description(state)}</p>
+        </article>
+      `).join("");
+
+      result.textContent = state.lastMessage;
+      result.dataset.kind = state.lastKind;
+    }
+
+    function renderFreePlay() {
+      freePlayActions.innerHTML = actionOrder.map(action => `
+        <button type="button" data-action="${action}">${ACTIONS[action]}</button>
+      `).join("") + `<button type="button" class="secondary" data-action="RESET">${ACTIONS.RESET}</button>`;
+
+      freePlayActions.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          walkthroughStep = 0;
+          dispatch(button.dataset.action);
+        });
+      });
+    }
+
+    function renderTabs() {
+      tabs.innerHTML = walkthroughs.map((item, index) => `
+        <button type="button" role="tab" aria-selected="${selectedWalkthrough === index}" data-index="${index}">
+          ${item.name}
+        </button>
+      `).join("");
+
+      tabs.querySelectorAll("button").forEach(button => {
+        button.addEventListener("click", () => {
+          selectedWalkthrough = Number(button.dataset.index);
+          walkthroughStep = 0;
+          state = initialState();
+          render();
+        });
+      });
+    }
+
+    function renderWalkthrough() {
+      const item = walkthroughs[selectedWalkthrough];
+      walkthrough.innerHTML = `
+        <h3>${item.name}</h3>
+        <p>${item.description}</p>
+        <button type="button" class="secondary" id="restart-walkthrough">Restart this walkthrough</button>
+        <div class="steps">
+          ${item.actions.map((action, index) => `
+            <div class="step" data-done="${index < walkthroughStep}">
+              <span class="step-number">${index < walkthroughStep ? "✓" : index + 1}</span>
+              <button type="button"
+                class="${index === walkthroughStep ? "primary" : ""}"
+                data-step="${index}"
+                ${index === walkthroughStep ? "" : "disabled"}>
+                ${ACTIONS[action]}
+              </button>
+            </div>
+          `).join("")}
+        </div>
+      `;
+
+      walkthrough.querySelector("#restart-walkthrough").addEventListener("click", () => {
+        walkthroughStep = 0;
+        state = initialState();
+        render();
+      });
+
+      const nextButton = walkthrough.querySelector(`button[data-step="${walkthroughStep}"]`);
+      if (nextButton) {
+        nextButton.addEventListener("click", () => dispatch(item.actions[walkthroughStep], true));
+      }
+    }
+
+    function renderHistory() {
+      history.innerHTML = state.history.length
+        ? [...state.history].reverse().map(item => `
+            <li><span>${item.accepted ? "Accepted" : "Rejected"}</span> <strong>${item.action}</strong><br>${item.outcome}</li>
+          `).join("")
+        : "<li>No actions yet.</li>";
+    }
+
+    function render() {
+      renderState();
+      renderFreePlay();
+      renderTabs();
+      renderWalkthrough();
+      renderHistory();
+    }
+
+    render();
+  </script>
+</body>
+</html>
