@@ -241,7 +241,8 @@
     </div>
     <p class="notice">
       This file prototypes the learning-state model only. It is not workshop content or production code.
-      Use the free-play actions to challenge the rules, or follow a guided walkthrough.
+      Use the free-play actions to challenge the rules, or follow a guided walkthrough. The canonical
+      journey requires the real Azure Boards integration; it has no simulated or local fallback.
     </p>
 
     <section aria-labelledby="current-state-heading">
@@ -354,7 +355,7 @@
       switch (action) {
         case "COMPLETE_ONBOARDING":
           return accept(state, action, { onboarding: true },
-            "The learner has the required GitHub App connection, paid Copilot access, repository permissions, and Azure DevOps access.");
+            "The facilitator-managed GitHub App connection is ready, and the learner verified paid Copilot access, repository permissions, Azure DevOps access, and visibility of the Copilot action.");
         case "DEPLOY_STARTING_SYSTEM":
           if (!state.onboarding) return reject(state, action, "Complete integration onboarding first so the handoff can be exercised later.");
           return accept(state, action, { startingSystem: true },
@@ -486,7 +487,7 @@
     ];
 
     const stateCards = [
-      ["Connected setup", state => state.onboarding, state => state.onboarding ? "Azure Boards, GitHub, and Copilot prerequisites are ready." : "Integration prerequisites are incomplete."],
+      ["Connected setup", state => state.onboarding, state => state.onboarding ? "The facilitator-managed connection is ready and learner access is verified." : "The shared connection or learner access verification is incomplete."],
       ["Healthy baseline", state => state.controlEvidence && state.sreAgentReady, state => state.controlEvidence && state.sreAgentReady ? "v1 receipts and incident response are proven." : "The known-good path or SRE Agent onboarding is incomplete."],
       ["Incident diagnosis", state => state.investigation === "diagnosed", state => state.investigation === "diagnosed" ? "Schema drift is supported by queue, Function, and receipt evidence." : "The incident has not been diagnosed."],
       ["Handoff work item", state => state.handoffWorkItem !== "not-created", state => ({
