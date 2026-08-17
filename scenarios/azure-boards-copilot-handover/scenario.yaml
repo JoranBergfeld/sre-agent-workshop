@@ -1,0 +1,29 @@
+id: azure-boards-copilot-handover
+title: Azure Boards Copilot Handover
+platform: Azure Functions + Service Bus
+incidentType: Service Bus schema drift
+summary: Valid unsupported v2 order events accumulate as an active backlog when the Function only handles the supported order event schema.
+severity: 2
+estimatedMinutes: 45
+difficulty: intermediate
+costProfile: low
+learningObjectives:
+  - Distinguish unsupported order events from invalid order events.
+  - Use Service Bus active-message metrics to recognize schema drift.
+  - Prepare a Copilot handover without allowing the SRE Agent to change application code directly.
+guide: README.md
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
+inject:
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
+validate:
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1
+signal:
+  alertModule: infra/bicep/modules/active-backlog-alert.bicep
+  alertName: active-message-backlog
