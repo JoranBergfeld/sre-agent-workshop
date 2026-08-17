@@ -15,3 +15,13 @@ scenarios/cloud-agent-handover/src/obj/
 scenarios/cloud-agent-handover/tests/bin/
 scenarios/cloud-agent-handover/tests/obj/
 scenarios/cloud-agent-handover/**/TestResults/
+
+# Azure Boards Copilot Handover scenario: Python build/tooling artifacts
+scenarios/azure-boards-copilot-handover/app/.venv/
+scenarios/azure-boards-copilot-handover/app/__pycache__/
+scenarios/azure-boards-copilot-handover/app/**/__pycache__/
+scenarios/azure-boards-copilot-handover/app/.pytest_cache/
+scenarios/azure-boards-copilot-handover/app/.ruff_cache/
+scenarios/azure-boards-copilot-handover/app/.mypy_cache/
+scenarios/azure-boards-copilot-handover/app/.coverage
+scenarios/azure-boards-copilot-handover/app/uv.lock

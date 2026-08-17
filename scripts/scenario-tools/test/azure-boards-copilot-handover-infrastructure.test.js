@@ -116,6 +116,8 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(functionApp, /WEBSITE_MAX_DYNAMIC_APPLICATION_SCALE_OUT[\s\S]*value:\s*'1'/);
   assert.match(functionApp, /ServiceBusConnection__fullyQualifiedNamespace/);
   assert.match(functionApp, /TABLE_SERVICE_ENDPOINT/);
+  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_DELAY_SECONDS[\s\S]*value:\s*'5'/);
+  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_MAX_DELAY_SECONDS[\s\S]*value:\s*'30'/);
 
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces@/);
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces\/queues@/);
@@ -126,6 +128,7 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(storage, /scenariostate/i);
 
   assert.match(rbac, /azureServiceBusDataReceiverRoleId/);
+  assert.match(rbac, /azureServiceBusDataSenderRoleId/);
   assert.match(rbac, /storageTableDataContributorRoleId/);
   assert.match(rbac, /Microsoft\.Authorization\/roleAssignments@/);
   assert.match(storage, /output receiptTableId string = normalizedReceiptsTable\.id/);
@@ -140,6 +143,8 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(rbac, /name:\s*guid\(scenarioStateTableId, principalId, storageTableDataContributorRoleId\)/);
   assert.doesNotMatch(rbac, /scope:\s*storageAccount/);
   assert.match(rbac, /scope:\s*orderEventsQueue/);
+  assert.match(rbac, /name:\s*guid\(orderEventsQueue\.id, principalId, azureServiceBusDataReceiverRoleId\)/);
+  assert.match(rbac, /name:\s*guid\(orderEventsQueue\.id, principalId, azureServiceBusDataSenderRoleId\)/);
   assert.match(main, /principalId:\s*functionApp\.outputs\.principalId/);
 });
 
