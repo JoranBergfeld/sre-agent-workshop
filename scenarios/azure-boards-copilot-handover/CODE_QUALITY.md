@@ -1,10 +1,14 @@
 # Azure Boards Copilot Handover code quality
 
-The Function application is intentionally v1-only: it processes v1 order
-events correctly and raises `UnsupportedReceiptSchemaError` for valid v2
-events, producing the Service Bus schema-drift incident the scenario teaches.
-The quality suite pins that starting state and defines the exact,
-normalizer-only acceptance criteria the follow-up Copilot repair must satisfy.
+The Function application's receipt normalizer is intentionally v1-only: it
+processes v1 order events correctly and raises
+`UnsupportedReceiptSchemaError` for valid v2 events, producing the Service Bus
+schema-drift incident the scenario teaches. Separately, the keyed
+`submit-v2-orders`/`status` workshop surface must remain deterministic and
+idempotent: failed sends release their claims, failed completion writes leave
+the batch pending (and therefore reported as not yet injected) for a later
+retry, and completed batches never re-send duplicates. The quality suite pins
+both constraints.
 
 ## Gates
 
@@ -12,8 +16,8 @@ normalizer-only acceptance criteria the follow-up Copilot repair must satisfy.
 | --- | --- | --- |
 | Formatting | `ruff format --check .` | Whole `app/` tree |
 | Lint | `ruff check .` | Whole `app/` tree |
-| Static types | `mypy` | `function_app.py` and `order_events` (adapters/workshop/batches checked; `order_events/contracts.py` and `order_events/normalizer` additionally run under `strict`) |
-| Baseline tests | `pytest` | Every test except the `repair`-marked acceptance suite |
+| Static types | `mypy` | `function_app.py` and every `order_events` module under global `strict = true` |
+| Baseline tests | `pytest` | Every test except the `repair`-marked acceptance suite, including the incident-batch claim/retry/idempotency regressions |
 | Repair acceptance criteria | `pytest -m repair` | Only the `repair`-marked v2 acceptance suite |
 | Branch coverage | `pytest --cov=order_events --cov-report=term-missing` | `order_events`; the repair-scoped normalizer (`order_events/normalizer`) must stay at 100% |
 
@@ -43,17 +47,22 @@ Before this scenario's repair, that command must fail only with
 correct repair, both `pytest` and `pytest -m repair` must pass, and
 `order_events/normalizer` must retain 100% branch coverage.
 
-## Repair scope
+## Normalizer repair scope
 
-Copilot's repair may change only `order_events/normalizer/**` and its
-directly related tests (`tests/test_receipt_normalizer.py` and
-`tests/test_repair_v2_normalizer.py`, including removing the `repair` marker
-from acceptance tests once they pass). Infrastructure, adapters
-(`order_events/adapters/**`), the Function entry point (`function_app.py`),
-lifecycle scripts, workflows, and learner documentation are outside the
-repair scope. The repair must keep dead-lettering genuinely invalid
-payloads through `InvalidReceiptEventError`; it must not weaken that
+The follow-up Copilot normalizer repair is intentionally narrow: it may change
+only `order_events/normalizer/**` and its directly related tests
+(`tests/test_receipt_normalizer.py` and `tests/test_repair_v2_normalizer.py`,
+including removing the `repair` marker from acceptance tests once they pass).
+Infrastructure, lifecycle scripts, workflows, and learner documentation are
+outside that repair scope. The repair must keep dead-lettering genuinely
+invalid payloads through `InvalidReceiptEventError`; it must not weaken that
 validation to make v2 events pass.
+
+That narrow restriction applies only to the v2 normalizer repair. Core
+Function-app implementation and maintenance work may update their directly
+tested files, including the keyed workshop surface in `function_app.py`,
+`order_events/workshop.py`, `order_events/adapters/storage.py`, and the
+corresponding regression tests.
 
 ## Run the tests
 

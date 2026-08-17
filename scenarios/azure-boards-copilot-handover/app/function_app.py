@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import UTC, datetime
+from typing import cast
 
 import azure.functions as func
 from azure.data.tables import TableServiceClient
@@ -11,7 +12,11 @@ from order_events.adapters.service_bus import (
     ServiceBusIncidentEventSender,
     process_order_event_message,
 )
-from order_events.adapters.storage import ReceiptTableStore, ScenarioStateTableStore
+from order_events.adapters.storage import (
+    ReceiptTableStore,
+    ScenarioStateTableClient,
+    ScenarioStateTableStore,
+)
 from order_events.workshop import get_workshop_status, submit_incident_batch
 
 app = func.FunctionApp()
@@ -36,7 +41,9 @@ def _receipt_store() -> ReceiptTableStore:
 
 def _scenario_state_store() -> ScenarioStateTableStore:
     table_client = _table_service_client().get_table_client(os.environ["SCENARIO_STATE_TABLE_NAME"])
-    return ScenarioStateTableStore(table_client)
+    # azure.data.tables.TableClient supports the required methods, but its overload-rich
+    # type stubs do not structurally satisfy our narrower protocol under mypy strict mode.
+    return ScenarioStateTableStore(cast(ScenarioStateTableClient, table_client))
 
 
 def _retry_settings() -> RetrySettings:
