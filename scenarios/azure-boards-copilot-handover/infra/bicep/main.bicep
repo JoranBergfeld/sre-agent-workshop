@@ -93,6 +93,10 @@ module rbac 'modules/rbac.bicep' = {
     serviceBusNamespaceName: messaging.outputs.namespaceName
     queueName: messaging.outputs.queueName
     storageAccountName: storage.outputs.storageAccountName
+    receiptTableName: storage.outputs.receiptTableName
+    receiptTableId: storage.outputs.receiptTableId
+    scenarioStateTableName: storage.outputs.scenarioStateTableName
+    scenarioStateTableId: storage.outputs.scenarioStateTableId
   }
 }
 

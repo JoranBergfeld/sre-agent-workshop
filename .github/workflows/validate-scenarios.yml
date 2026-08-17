@@ -37,6 +37,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Set up Bicep
+        run: az bicep install
+
       - name: Install scenario-tools
         working-directory: scripts/scenario-tools
         run: npm ci
@@ -103,9 +106,6 @@ jobs:
               exit 1
             fi
           done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0 | sort -z)
-
-      - name: Set up Bicep
-        run: az bicep install
 
       - name: Build validated scenario artifacts
         run: |

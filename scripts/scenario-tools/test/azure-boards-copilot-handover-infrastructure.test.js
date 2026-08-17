@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import yaml from 'js-yaml';
@@ -12,6 +14,22 @@ function readScenarioFile(path) {
   const fullPath = resolve(scenarioRoot, path);
   assert.ok(existsSync(fullPath), `missing scenario file: ${path}`);
   return readFileSync(fullPath, 'utf8');
+}
+
+function runBicepTest(testFile) {
+  const azureConfigDirectory = process.env.AZURE_CONFIG_DIR ?? resolve(homedir(), '.azure');
+  const candidates = ['bicep', resolve(azureConfigDirectory, 'bin', 'bicep')];
+
+  for (const command of candidates) {
+    const result = spawnSync(command, ['test', testFile], {
+      cwd: bicepRoot,
+      encoding: 'utf8',
+    });
+    if (result.error?.code === 'ENOENT') continue;
+    return result;
+  }
+
+  assert.fail('Bicep CLI is required to execute the workload-name contract test');
 }
 
 test('Azure Boards handover manifest defines the schema-drift signal and scaffold lifecycle', () => {
@@ -58,12 +76,13 @@ test('Azure Boards handover uses a distinct workload name and scenario-owned res
 });
 
 test('Azure Boards handover rejects workload names outside its Azure-safe contract', () => {
-  const main = readScenarioFile('infra/bicep/main.bicep');
+  const result = runBicepTest('tests/invalid-workload-name.test.bicep');
+  const output = `${result.stdout}\n${result.stderr}`;
 
-  assert.match(main, /var invalidWorkloadNameCharacters = filter\(range\(0, length\(workloadName\)\), index => !contains\('abcdefghijklmnopqrstuvwxyz0123456789-', substring\(workloadName, index, 1\)\)\)/);
-  assert.match(main, /var workloadNameIsAzureSafe = empty\(invalidWorkloadNameCharacters\) && contains\('abcdefghijklmnopqrstuvwxyz', substring\(workloadName, 0, 1\)\) && contains\('abcdefghijklmnopqrstuvwxyz0123456789', substring\(workloadName, length\(workloadName\) - 1, 1\)\)/);
-  assert.match(main, /var validatedWorkloadName = workloadNameIsAzureSafe \? workloadName : fail\('workloadName must contain 6-24 lowercase letters, numbers, or hyphens, start with a letter, and end with a letter or number\.'\)/);
-  assert.match(main, /var resourceGroupName = '\$\{validatedWorkloadName\}-rg'/);
+  assert.equal(result.status, 1, output);
+  assert.match(output, /workloadName must contain 6-24 lowercase letters, numbers, or hyphens/);
+  assert.match(output, /"workloadName":\s*\{\s*"value":\s*"Invalid_Name"/);
+  assert.match(output, /Evaluation Summary: Failure!/);
 });
 
 test('Azure Boards handover storage name preserves its deterministic suffix at maximum workload length', () => {
@@ -109,6 +128,18 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(rbac, /azureServiceBusDataReceiverRoleId/);
   assert.match(rbac, /storageTableDataContributorRoleId/);
   assert.match(rbac, /Microsoft\.Authorization\/roleAssignments@/);
+  assert.match(storage, /output receiptTableId string = normalizedReceiptsTable\.id/);
+  assert.match(storage, /output scenarioStateTableId string = scenarioStateTable\.id/);
+  assert.match(main, /receiptTableId:\s*storage\.outputs\.receiptTableId/);
+  assert.match(main, /scenarioStateTableId:\s*storage\.outputs\.scenarioStateTableId/);
+  assert.match(rbac, /param receiptTableId string/);
+  assert.match(rbac, /param scenarioStateTableId string/);
+  assert.match(rbac, /scope:\s*normalizedReceiptsTable/);
+  assert.match(rbac, /scope:\s*scenarioStateTable/);
+  assert.match(rbac, /name:\s*guid\(receiptTableId, principalId, storageTableDataContributorRoleId\)/);
+  assert.match(rbac, /name:\s*guid\(scenarioStateTableId, principalId, storageTableDataContributorRoleId\)/);
+  assert.doesNotMatch(rbac, /scope:\s*storageAccount/);
+  assert.match(rbac, /scope:\s*orderEventsQueue/);
   assert.match(main, /principalId:\s*functionApp\.outputs\.principalId/);
 });
 

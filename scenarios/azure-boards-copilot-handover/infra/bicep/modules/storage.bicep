@@ -40,4 +40,6 @@ output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
 output tableServiceEndpoint string = storageAccount.properties.primaryEndpoints.table
 output receiptTableName string = normalizedReceiptsTable.name
+output receiptTableId string = normalizedReceiptsTable.id
 output scenarioStateTableName string = scenarioStateTable.name
+output scenarioStateTableId string = scenarioStateTable.id

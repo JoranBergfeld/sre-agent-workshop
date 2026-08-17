@@ -2,6 +2,10 @@ param principalId string
 param serviceBusNamespaceName string
 param queueName string
 param storageAccountName string
+param receiptTableName string
+param receiptTableId string
+param scenarioStateTableName string
+param scenarioStateTableId string
 
 var azureServiceBusDataReceiverRoleId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
@@ -25,6 +29,21 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing 
   name: storageAccountName
 }
 
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' existing = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource normalizedReceiptsTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+  parent: tableService
+  name: receiptTableName
+}
+
+resource scenarioStateTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' existing = {
+  parent: tableService
+  name: scenarioStateTableName
+}
+
 resource serviceBusDataReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(orderEventsQueue.id, principalId, azureServiceBusDataReceiverRoleId)
   scope: orderEventsQueue
@@ -35,9 +54,19 @@ resource serviceBusDataReceiver 'Microsoft.Authorization/roleAssignments@2022-04
   }
 }
 
-resource storageTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, principalId, storageTableDataContributorRoleId)
-  scope: storageAccount
+resource normalizedReceiptsTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(receiptTableId, principalId, storageTableDataContributorRoleId)
+  scope: normalizedReceiptsTable
+  properties: {
+    principalId: principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: storageTableDataContributorRoleId
+  }
+}
+
+resource scenarioStateTableDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(scenarioStateTableId, principalId, storageTableDataContributorRoleId)
+  scope: scenarioStateTable
   properties: {
     principalId: principalId
     principalType: 'ServicePrincipal'
