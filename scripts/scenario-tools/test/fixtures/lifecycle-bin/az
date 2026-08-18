@@ -33,6 +33,92 @@ case " $* " in
     echo 'unexpected CosmosDB role assignment creation' >&2
     exit 99
     ;;
+  *" deployment sub create "*)
+    if [ "${LIFECYCLE_AZ_FAIL_DEPLOYMENT:-}" = "1" ]; then
+      echo 'simulated subscription deployment failure' >&2
+      exit 43
+    fi
+    cat <<JSON
+{
+  "resourceGroupName": {"value": "${LIFECYCLE_AZ_RESOURCE_GROUP_NAME:-srelabboardshandover-rg}"},
+  "functionAppName": {"value": "${LIFECYCLE_AZ_FUNCTION_APP_NAME:-srelabboardshandover-func-abc123}"},
+  "functionAppHostName": {"value": "${LIFECYCLE_AZ_FUNCTION_HOSTNAME:-srelabboardshandover-func-abc123.azurewebsites.net}"},
+  "serviceBusNamespaceName": {"value": "${LIFECYCLE_AZ_SERVICE_BUS_NAMESPACE:-srelabboardshandover-sb-abc123}"},
+  "queueName": {"value": "${LIFECYCLE_AZ_QUEUE_NAME:-order-events}"},
+  "storageAccountName": {"value": "${LIFECYCLE_AZ_STORAGE_ACCOUNT_NAME:-srelabboardshandoverabc123st}"},
+  "applicationInsightsName": {"value": "${LIFECYCLE_AZ_APP_INSIGHTS_NAME:-srelabboardshandover-ai}"}
+}
+JSON
+    ;;
+  *" functionapp keys list "*)
+    if [ -n "${LIFECYCLE_AZ_KEYS_COUNTER_FILE:-}" ]; then
+      attempt=0
+      [ -f "$LIFECYCLE_AZ_KEYS_COUNTER_FILE" ] && attempt=$(cat "$LIFECYCLE_AZ_KEYS_COUNTER_FILE")
+      attempt=$((attempt + 1))
+      printf '%s' "$attempt" > "$LIFECYCLE_AZ_KEYS_COUNTER_FILE"
+      if [ "$attempt" -le "${LIFECYCLE_AZ_KEYS_FAIL_ATTEMPTS:-0}" ]; then
+        echo 'simulated function key propagation delay' >&2
+        exit 44
+      fi
+    fi
+    printf '%s\n' "${LIFECYCLE_AZ_FUNCTION_KEY:-test-function-key}"
+    ;;
+  *" functionapp show "*)
+    printf '%s\n' "${LIFECYCLE_AZ_FUNCTION_HOSTNAME:-srelabboardshandover-func-abc123.azurewebsites.net}"
+    ;;
+  *" functionapp list "*)
+    printf '%s\n' "${LIFECYCLE_AZ_FUNCTION_APP_NAME:-srelabboardshandover-func-abc123}"
+    ;;
+  *" functionapp config appsettings list "*)
+    printf '%s\n' "${LIFECYCLE_AZ_SCM_BUILD_SETTING:-}"
+    ;;
+  *" functionapp config appsettings set "*)
+    if [ "${LIFECYCLE_AZ_FAIL_APPSETTINGS_SET:-}" = "1" ]; then
+      echo 'simulated app settings write failure' >&2
+      exit 45
+    fi
+    if [ -n "${LIFECYCLE_AZ_ATUTC_MARKER_FILE:-}" ]; then
+      case " $* " in
+        *"DEPLOYED_AT_UTC="*) printf '1' > "$LIFECYCLE_AZ_ATUTC_MARKER_FILE" ;;
+      esac
+    fi
+    ;;
+  *" functionapp deploy "*)
+    if [ "${LIFECYCLE_AZ_FAIL_FUNCTION_DEPLOY:-}" = "1" ]; then
+      echo 'simulated zip deploy failure' >&2
+      exit 46
+    fi
+    ;;
+  *" servicebus namespace list "*)
+    printf '%s\n' "${LIFECYCLE_AZ_SERVICE_BUS_NAMESPACE:-srelabboardshandover-sb-abc123}"
+    ;;
+  *" resource list "*"Microsoft.Insights/components"*)
+    printf '%s\n' "${LIFECYCLE_AZ_APP_INSIGHTS_NAME:-srelabboardshandover-ai}"
+    ;;
+  *" servicebus queue show "*)
+    if [ "${LIFECYCLE_AZ_FAIL_QUEUE_SHOW:-}" = "1" ]; then
+      echo 'simulated Service Bus queue query failure' >&2
+      exit 47
+    fi
+    printf '{"active": %s, "dlq": %s}\n' \
+      "${LIFECYCLE_AZ_QUEUE_ACTIVE:-0}" "${LIFECYCLE_AZ_QUEUE_DLQ:-0}"
+    ;;
+  *" monitor app-insights query "*)
+    if [ "${LIFECYCLE_AZ_FAIL_APP_INSIGHTS_QUERY:-}" = "1" ]; then
+      echo 'simulated Application Insights query failure' >&2
+      exit 48
+    fi
+    printf '{"tables": [{"name": "PrimaryResult", "columns": [{"name": "count_"}], "rows": [[%s]]}]}\n' \
+      "${LIFECYCLE_AZ_EXCEPTION_COUNT:-0}"
+    ;;
+  *" group show "*)
+    if [ "${LIFECYCLE_AZ_GROUP_NOT_FOUND:-}" = "1" ]; then
+      echo 'simulated resource group not found' >&2
+      exit 3
+    fi
+    ;;
+  *" group delete "*)
+    ;;
   *)
     echo "unexpected az command: $*" >&2
     exit 98

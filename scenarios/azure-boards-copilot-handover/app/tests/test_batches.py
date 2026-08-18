@@ -1,8 +1,14 @@
 from order_events.batches import (
+    CONTROL_BATCH_ID,
     INCIDENT_BATCH_ID,
     build_control_events_v1,
     build_incident_events_v2,
 )
+
+
+def test_control_batch_id_is_stable_and_distinct_from_the_incident_batch() -> None:
+    assert CONTROL_BATCH_ID == "v1-control-events"
+    assert CONTROL_BATCH_ID != INCIDENT_BATCH_ID
 
 
 def test_control_batch_contains_exactly_three_v1_events_with_stable_ids() -> None:

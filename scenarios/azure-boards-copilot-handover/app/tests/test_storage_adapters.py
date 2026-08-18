@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 
 from azure.core import MatchConditions
@@ -7,15 +7,23 @@ from azure.data.tables import UpdateMode
 
 from order_events.adapters.storage import ReceiptTableStore, ScenarioStateTableStore
 from order_events.normalizer import NormalizedReceipt
-from order_events.workshop import BatchClaim, ClaimOutcome
+from order_events.workshop import BatchClaim, ClaimOutcome, ReceiptCounts
 
 
 class FakeReceiptTableClient:
-    def __init__(self) -> None:
+    def __init__(self, *, entities: list[dict[str, object]] | None = None) -> None:
         self.calls: list[tuple[dict[str, object], UpdateMode]] = []
+        self._entities = entities or []
+        self.query_filters: list[tuple[str, Sequence[str] | None]] = []
 
     def upsert_entity(self, entity: dict[str, object], mode: UpdateMode) -> None:
         self.calls.append((entity, mode))
+
+    def query_entities(
+        self, query_filter: str, *, select: Sequence[str] | None = None
+    ) -> list[Mapping[str, object]]:
+        self.query_filters.append((query_filter, select))
+        return list(self._entities)
 
 
 class _FakeStoredEntity(dict[str, object]):
@@ -137,6 +145,32 @@ def test_receipt_store_upserts_receipts_idempotently_for_order_rows() -> None:
             UpdateMode.REPLACE,
         )
     ]
+
+
+def test_receipt_store_counts_receipts_split_by_schema_version() -> None:
+    table_client = FakeReceiptTableClient(
+        entities=[
+            {"sourceSchemaVersion": "v1"},
+            {"sourceSchemaVersion": "v1"},
+            {"sourceSchemaVersion": "v1"},
+            *({"sourceSchemaVersion": "v2"} for _ in range(20)),
+        ]
+    )
+    store = ReceiptTableStore(table_client)
+
+    counts = store.count_receipts()
+
+    assert counts == ReceiptCounts(total=23, v1=3, v2=20)
+    query_filter, select = table_client.query_filters[0]
+    assert query_filter == "PartitionKey eq 'orders'"
+    assert select == ["sourceSchemaVersion"]
+
+
+def test_receipt_store_counts_zero_receipts_before_any_are_processed() -> None:
+    table_client = FakeReceiptTableClient(entities=[])
+    store = ReceiptTableStore(table_client)
+
+    assert store.count_receipts() == ReceiptCounts(total=0, v1=0, v2=0)
 
 
 def test_scenario_state_store_claims_an_incident_batch_once() -> None:

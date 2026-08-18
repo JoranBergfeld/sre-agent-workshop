@@ -6,10 +6,15 @@ import azure.functions as func
 import pytest
 
 import function_app
-from order_events.batches import INCIDENT_BATCH_ID, build_incident_events_v2
-from order_events.contracts import ReceiptEventV2
+from order_events.batches import (
+    CONTROL_BATCH_ID,
+    INCIDENT_BATCH_ID,
+    build_control_events_v1,
+    build_incident_events_v2,
+)
+from order_events.contracts import ReceiptEvent
 from order_events.normalizer import NormalizedReceipt
-from order_events.workshop import BatchClaim, ClaimOutcome
+from order_events.workshop import BatchClaim, ClaimOutcome, ReceiptCounts
 
 
 class FakeReceiptStore:
@@ -18,6 +23,11 @@ class FakeReceiptStore:
 
     def upsert_receipt(self, receipt: NormalizedReceipt, *, processed_at: datetime) -> None:
         self.calls.append((receipt, processed_at))
+
+    def count_receipts(self) -> ReceiptCounts:
+        v1_count = sum(1 for receipt, _ in self.calls if receipt.sourceSchemaVersion == "v1")
+        v2_count = sum(1 for receipt, _ in self.calls if receipt.sourceSchemaVersion == "v2")
+        return ReceiptCounts(total=v1_count + v2_count, v1=v1_count, v2=v2_count)
 
 
 class FakeScenarioStateStore:
@@ -66,9 +76,9 @@ class FakeScenarioStateStore:
 class FakeIncidentEventSender:
     def __init__(self, *, error: Exception | None = None) -> None:
         self._error = error
-        self.send_calls: list[tuple[ReceiptEventV2, ...]] = []
+        self.send_calls: list[tuple[ReceiptEvent, ...]] = []
 
-    def send_events(self, events: Sequence[ReceiptEventV2]) -> None:
+    def send_events(self, events: Sequence[ReceiptEvent]) -> None:
         self.send_calls.append(tuple(events))
         if self._error is not None:
             raise self._error
@@ -106,6 +116,9 @@ def test_workshop_status_reports_injection_state(monkeypatch: pytest.MonkeyPatch
         "_scenario_state_store",
         lambda: FakeScenarioStateStore(already_injected=True),
     )
+    monkeypatch.setattr(function_app, "_receipt_store", lambda: FakeReceiptStore())
+    monkeypatch.delenv("DEPLOYED_COMMIT_SHA", raising=False)
+    monkeypatch.delenv("DEPLOYED_AT_UTC", raising=False)
 
     response = function_app.workshop_status(_http_request(method="GET", route="status"))
 
@@ -113,6 +126,61 @@ def test_workshop_status_reports_injection_state(monkeypatch: pytest.MonkeyPatch
     assert json.loads(response.get_body()) == {
         "incidentBatchId": INCIDENT_BATCH_ID,
         "incidentBatchInjected": True,
+        "deployedCommitSha": None,
+        "deployedAtUtc": None,
+        "normalizedReceiptCount": 0,
+        "v1ReceiptCount": 0,
+        "v2ReceiptCount": 0,
+    }
+
+
+def test_workshop_status_reports_deployment_provenance_and_receipt_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipt_store = FakeReceiptStore()
+    processed_at = datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC)
+    for index in range(1, 4):
+        receipt_store.upsert_receipt(
+            NormalizedReceipt(
+                sourceSchemaVersion="v1",
+                customerId=f"control-customer-{index:03d}",
+                amountMinor=100,
+                currency="USD",
+                orderId=f"control-order-{index:03d}",
+            ),
+            processed_at=processed_at,
+        )
+    for index in range(1, 21):
+        receipt_store.upsert_receipt(
+            NormalizedReceipt(
+                sourceSchemaVersion="v2",
+                customerId=f"incident-customer-{index:03d}",
+                amountMinor=10050,
+                currency="USD",
+                orderId=f"incident-order-{index:03d}",
+            ),
+            processed_at=processed_at,
+        )
+    monkeypatch.setattr(
+        function_app,
+        "_scenario_state_store",
+        lambda: FakeScenarioStateStore(already_injected=True),
+    )
+    monkeypatch.setattr(function_app, "_receipt_store", lambda: receipt_store)
+    monkeypatch.setenv("DEPLOYED_COMMIT_SHA", "a26ce2cd82b704ebd201f5990f12ce47b53b3948")
+    monkeypatch.setenv("DEPLOYED_AT_UTC", "2026-08-17T13:52:55Z")
+
+    response = function_app.workshop_status(_http_request(method="GET", route="status"))
+
+    assert response.status_code == 200
+    assert json.loads(response.get_body()) == {
+        "incidentBatchId": INCIDENT_BATCH_ID,
+        "incidentBatchInjected": True,
+        "deployedCommitSha": "a26ce2cd82b704ebd201f5990f12ce47b53b3948",
+        "deployedAtUtc": "2026-08-17T13:52:55Z",
+        "normalizedReceiptCount": 23,
+        "v1ReceiptCount": 3,
+        "v2ReceiptCount": 20,
     }
 
 
@@ -205,6 +273,9 @@ def test_submit_v2_orders_recovers_a_pending_batch_after_a_failed_completion_wri
     sender = FakeIncidentEventSender()
     monkeypatch.setattr(function_app, "_scenario_state_store", lambda: state_store)
     monkeypatch.setattr(function_app, "_event_sender", lambda: sender)
+    monkeypatch.setattr(function_app, "_receipt_store", lambda: FakeReceiptStore())
+    monkeypatch.delenv("DEPLOYED_COMMIT_SHA", raising=False)
+    monkeypatch.delenv("DEPLOYED_AT_UTC", raising=False)
     monkeypatch.setattr(
         function_app, "_clock", lambda: datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC)
     )
@@ -219,6 +290,11 @@ def test_submit_v2_orders_recovers_a_pending_batch_after_a_failed_completion_wri
     assert json.loads(status_response.get_body()) == {
         "incidentBatchId": INCIDENT_BATCH_ID,
         "incidentBatchInjected": False,
+        "deployedCommitSha": None,
+        "deployedAtUtc": None,
+        "normalizedReceiptCount": 0,
+        "v1ReceiptCount": 0,
+        "v2ReceiptCount": 0,
     }
 
     state_store.completion_error = None
@@ -250,13 +326,61 @@ def test_submit_v2_orders_recovers_a_pending_batch_after_a_failed_completion_wri
     assert sender.send_calls == [build_incident_events_v2(), build_incident_events_v2()]
 
 
+def test_seed_v1_controls_enqueues_the_control_batch_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state_store = FakeScenarioStateStore()
+    sender = FakeIncidentEventSender()
+    monkeypatch.setattr(function_app, "_scenario_state_store", lambda: state_store)
+    monkeypatch.setattr(function_app, "_event_sender", lambda: sender)
+    monkeypatch.setattr(
+        function_app, "_clock", lambda: datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC)
+    )
+
+    response = function_app.seed_v1_controls(_http_request(method="POST", route="seed-v1-controls"))
+
+    assert response.status_code == 202
+    assert json.loads(response.get_body()) == {
+        "controlBatchAlreadyInjected": False,
+        "eventsEnqueued": 3,
+    }
+    assert sender.send_calls == [build_control_events_v1()]
+    assert state_store.is_batch_injected(CONTROL_BATCH_ID) is True
+
+
+def test_seed_v1_controls_is_idempotent_when_already_injected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sender = FakeIncidentEventSender()
+    monkeypatch.setattr(
+        function_app,
+        "_scenario_state_store",
+        lambda: FakeScenarioStateStore(already_injected=True),
+    )
+    monkeypatch.setattr(function_app, "_event_sender", lambda: sender)
+
+    response = function_app.seed_v1_controls(_http_request(method="POST", route="seed-v1-controls"))
+
+    assert response.status_code == 200
+    assert json.loads(response.get_body()) == {
+        "controlBatchAlreadyInjected": True,
+        "eventsEnqueued": 0,
+    }
+    assert sender.send_calls == []
+
+
 def test_function_app_registers_the_expected_keyed_functions_without_output_bindings() -> None:
     # azure-functions' FunctionApp.get_functions() accumulates function names across
     # calls and raises on a second invocation within the same process, so every
     # assertion needing the registered functions lives in this single test.
     registered = {fn.get_function_name(): fn for fn in function_app.app.get_functions()}
 
-    assert set(registered) == {"ProcessOrderEvent", "WorkshopStatus", "SubmitV2Orders"}
+    assert set(registered) == {
+        "ProcessOrderEvent",
+        "WorkshopStatus",
+        "SubmitV2Orders",
+        "SeedV1Controls",
+    }
 
     status_trigger = registered["WorkshopStatus"].get_trigger()
     assert status_trigger is not None
@@ -265,6 +389,10 @@ def test_function_app_registers_the_expected_keyed_functions_without_output_bind
     submit_trigger = registered["SubmitV2Orders"].get_trigger()
     assert submit_trigger is not None
     assert submit_trigger.auth_level.value == "function"
+
+    seed_trigger = registered["SeedV1Controls"].get_trigger()
+    assert seed_trigger is not None
+    assert seed_trigger.auth_level.value == "function"
 
     # The Python Service Bus queue output binding does not support sending a list of
     # messages per invocation, so SubmitV2Orders must send via the Service Bus SDK
