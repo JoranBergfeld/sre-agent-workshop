@@ -1,0 +1,60 @@
+name: Validate Azure Boards Copilot Handover Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/azure-boards-copilot-handover/infra/**'
+      - '.github/workflows/validate-azure-boards-copilot-handover-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/azure-boards-copilot-handover/infra/**'
+      - '.github/workflows/validate-azure-boards-copilot-handover-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bicep
+        run: az bicep install
+
+      - name: Validate Bicep syntax
+        run: >-
+          az bicep build --file
+          scenarios/azure-boards-copilot-handover/infra/bicep/main.bicep
+          --stdout >/dev/null
+
+      - name: Verify the invalid workload-name contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          bicep_cli="$(command -v bicep || true)"
+          if [[ -z "$bicep_cli" ]]; then
+            bicep_cli="${AZURE_CONFIG_DIR:-$HOME/.azure}/bin/bicep"
+          fi
+          if [[ ! -x "$bicep_cli" ]]; then
+            echo "::error::Unable to locate the Bicep CLI after installation."
+            exit 1
+          fi
+
+          test_file=scenarios/azure-boards-copilot-handover/infra/bicep/tests/invalid-workload-name.test.bicep
+
+          set +e
+          "$bicep_cli" test "$test_file" 2>&1 | tee bicep-test-output.txt
+          test_status="${PIPESTATUS[0]}"
+          set -e
+
+          if [[ "$test_status" -ne 1 ]] ||
+             ! grep -qF "Evaluation Summary: Failure!" bicep-test-output.txt ||
+             ! grep -qF "workloadName must contain 6-24 lowercase letters, numbers, or hyphens" \
+               bicep-test-output.txt; then
+            echo "::error::The invalid workload-name test did not fail for the expected contract."
+            exit 1
+          fi
