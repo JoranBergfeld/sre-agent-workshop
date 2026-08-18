@@ -1,3 +1,5 @@
+import json
+import logging
 from datetime import UTC, datetime
 
 import pytest
@@ -50,6 +52,34 @@ def test_process_order_event_message_persists_supported_receipts() -> None:
             datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC),
         )
     ]
+
+
+def test_process_order_event_message_logs_persisted_receipt_telemetry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.INFO):
+        process_order_event_message(
+            FakeMessage(
+                b'{"schemaVersion":"v1","orderId":"order-1001","customerId":"customer-2001",'
+                b'"total":"12.34","currency":"USD"}'
+            ),
+            receipt_store=FakeReceiptStore(),
+            clock=lambda: datetime(2026, 8, 17, 13, 52, 55, tzinfo=UTC),
+        )
+
+    record = next(
+        record
+        for record in caplog.records
+        if record.message.startswith("Normalized receipt persisted ")
+    )
+    telemetry = json.loads(record.message.removeprefix("Normalized receipt persisted "))
+    assert telemetry == {
+        "amount_minor": 1234,
+        "currency": "USD",
+        "customer_id": "customer-2001",
+        "order_id": "order-1001",
+        "source_schema_version": "v1",
+    }
 
 
 def test_process_order_event_message_delays_and_reraises_unsupported_events() -> None:

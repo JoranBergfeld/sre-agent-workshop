@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ from order_events.normalizer import (
     UnsupportedReceiptSchemaError,
     normalize_receipt,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class InboundOrderEventMessage(Protocol):
@@ -118,6 +121,19 @@ def process_order_event_message(
         raise
 
     receipt_store.upsert_receipt(receipt, processed_at=clock())
+    logger.info(
+        "Normalized receipt persisted %s",
+        json.dumps(
+            {
+                "order_id": receipt.orderId,
+                "source_schema_version": receipt.sourceSchemaVersion,
+                "customer_id": receipt.customerId,
+                "amount_minor": receipt.amountMinor,
+                "currency": receipt.currency,
+            },
+            sort_keys=True,
+        ),
+    )
 
 
 def _decode_json_body(body: bytes) -> object:

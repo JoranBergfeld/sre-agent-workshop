@@ -63,6 +63,7 @@ module messaging 'modules/messaging.bicep' = {
     location: location
     namespaceName: serviceBusNamespaceName
     queueName: queueName
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     tags: tags
   }
 }
