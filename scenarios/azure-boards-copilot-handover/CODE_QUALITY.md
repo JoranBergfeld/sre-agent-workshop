@@ -47,8 +47,10 @@ repair_status="${PIPESTATUS[0]}"
 set -e
 
 expected_failures="$(
-  grep -cF "UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported" \
-    repair-output.txt || true
+  grep -cF \
+    "E       order_events.normalizer.errors.UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported" \
+    repair-output.txt \
+    || true
 )"
 
 if [[ "$repair_status" -ne 1 ]] ||

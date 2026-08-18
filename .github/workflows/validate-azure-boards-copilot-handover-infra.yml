@@ -35,7 +35,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          bicep_cli="${AZURE_CONFIG_DIR:-$HOME/.azure}/bin/bicep"
+          bicep_cli="$(command -v bicep || true)"
+          if [[ -z "$bicep_cli" ]]; then
+            bicep_cli="${AZURE_CONFIG_DIR:-$HOME/.azure}/bin/bicep"
+          fi
+          if [[ ! -x "$bicep_cli" ]]; then
+            echo "::error::Unable to locate the Bicep CLI after installation."
+            exit 1
+          fi
+
           test_file=scenarios/azure-boards-copilot-handover/infra/bicep/tests/invalid-workload-name.test.bicep
 
           set +e

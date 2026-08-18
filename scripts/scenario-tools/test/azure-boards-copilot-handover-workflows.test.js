@@ -10,6 +10,10 @@ const qualityGuide = readFileSync(
   resolve(repositoryRoot, scenarioPath, 'CODE_QUALITY.md'),
   'utf8',
 );
+const scenarioValidationWorkflow = readFileSync(
+  resolve(workflowRoot, 'validate-scenarios.yml'),
+  'utf8',
+);
 
 function readWorkflow(name) {
   const path = resolve(workflowRoot, name);
@@ -32,7 +36,11 @@ test('Azure Boards handover application workflow runs every documented quality i
   assert.match(workflow, /pytest -m repair/);
   assert.match(workflow, /repair_status="\$\{PIPESTATUS\[0\]\}"/);
   assert.match(workflow, /\[\[ "\$repair_status" -ne 1 \]\]/);
-  assert.match(workflow, /grep -cF "UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported"/);
+  assert.match(workflow, /grep -cF/);
+  assert.match(
+    workflow,
+    /E       order_events\.normalizer\.errors\.UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported/,
+  );
   assert.match(workflow, /\[\[ "\$expected_failures" -ne 3 \]\]/);
   assert.match(
     workflow,
@@ -51,7 +59,9 @@ test('Azure Boards handover infrastructure workflow validates the entry point an
       `az bicep build --file\\s+${scenarioPath}/infra/bicep/main\\.bicep\\s+--stdout`,
     ),
   );
+  assert.match(workflow, /bicep_cli="\$\(command -v bicep \|\| true\)"/);
   assert.match(workflow, /bicep_cli="\$\{AZURE_CONFIG_DIR:-\$HOME\/\.azure\}\/bin\/bicep"/);
+  assert.match(workflow, /\[\[ ! -x "\$bicep_cli" \]\]/);
   assert.match(
     workflow,
     new RegExp(
@@ -72,7 +82,23 @@ test('Azure Boards handover quality guide separates green gates from the expecte
   assert.match(qualityGuide, /\[\[ "\$expected_failures" -ne 3 \]\]/);
   assert.match(
     qualityGuide,
+    /E       order_events\.normalizer\.errors\.UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported/,
+  );
+  assert.match(
+    qualityGuide,
     /grep -Eq '\^=\+ 3 failed, \[0-9\]\+ deselected in \[0-9\.\]\+s =\+\$'/,
   );
   assert.match(qualityGuide, /The check succeeds only when all three repair tests fail/);
+});
+
+test('global scenario validation installs the handover Python quality dependencies', () => {
+  const pythonSetup = scenarioValidationWorkflow.indexOf('uses: actions/setup-python@v5');
+  const dependencyInstall = scenarioValidationWorkflow.indexOf(
+    'pip install -r scenarios/azure-boards-copilot-handover/app/requirements-dev.txt',
+  );
+  const unitTests = scenarioValidationWorkflow.indexOf('name: Unit tests');
+
+  assert.ok(pythonSetup >= 0);
+  assert.ok(dependencyInstall > pythonSetup);
+  assert.ok(unitTests > dependencyInstall);
 });
