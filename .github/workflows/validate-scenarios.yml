@@ -33,13 +33,25 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scenarios/azure-boards-copilot-handover/app/requirements*.txt
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
+      - name: Set up Bicep
+        run: az bicep install
+
       - name: Install scenario-tools
         working-directory: scripts/scenario-tools
         run: npm ci
+
+      - name: Install Azure Boards handover quality dependencies
+        run: pip install -r scenarios/azure-boards-copilot-handover/app/requirements-dev.txt
 
       - name: Unit tests
         working-directory: scripts/scenario-tools
@@ -103,9 +115,6 @@ jobs:
               exit 1
             fi
           done < <(find scenarios -mindepth 2 -maxdepth 2 -name scenario.yaml -print0 | sort -z)
-
-      - name: Set up Bicep
-        run: az bicep install
 
       - name: Build validated scenario artifacts
         run: |
