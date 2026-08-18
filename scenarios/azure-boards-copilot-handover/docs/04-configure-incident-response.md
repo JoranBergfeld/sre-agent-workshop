@@ -31,7 +31,11 @@ Use these instructions:
 
 Index
 `scenarios/azure-boards-copilot-handover/knowledge/operational-guidelines.md`
-as knowledge. Enable only read and investigation tools at this stage.
+as knowledge. Enable the Azure DevOps work-item creation operation in addition
+to read and investigation tools. Do not enable repository writes, pull-request
+creation, merge, deployment, or Azure modification operations. The work-item
+operation remains approval-gated by the instructions and response-plan review
+mode.
 
 ## Create the automatic response plan
 
@@ -84,3 +88,5 @@ stopped after the deployment cutover, and v2 receipt telemetry is present.
 
 Do not close the handoff work item or incident until the deterministic
 validator and this read-only confirmation both succeed.
+
+Next: [Trigger and investigate schema drift](./05-trigger-and-investigate.md).

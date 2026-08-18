@@ -4,16 +4,17 @@
 
 ## Overview
 
-This capsule provides the Azure foundation for a Service Bus schema drift
-incident. A Linux Python Function will eventually normalize supported order
-events into receipts. Valid but unsupported v2 order events remain active in
-the queue and create the primary backlog signal. Invalid order events are a
-separate domain concept and are not treated as synonyms for unsupported events.
+This capsule teaches an end-to-end, approval-gated recovery through Azure SRE
+Agent, Azure Boards, and GitHub Copilot cloud agent. The starting Python
+Function normalizes v1 order events into Table Storage receipts but does not
+understand valid v2 events. The v2 events remain recoverable in Service Bus,
+creating an active backlog without entering the dead-letter queue.
 
-This capsule's Function application, lifecycle scripts, Azure Monitor
-investigation query, and SRE Agent operational guidance are implemented. The
-Azure Boards learner journey and connected (live-Azure) validation are
-delivered separately.
+The SRE Agent investigates the schema drift and, after learner approval,
+creates one unassigned Azure Boards Bug. The learner separately starts Copilot
+from that work item, reviews and merges the linked draft pull request, deploys
+the reviewed revision, and proves recovery through both deterministic
+validation and read-only SRE Agent confirmation.
 
 ## Cost profile
 
@@ -23,24 +24,20 @@ Storage transactions, and Log Analytics/Application Insights ingestion and
 retention. Confirm current pricing for the deployment region before
 provisioning, and run cleanup immediately after completing the scenario.
 
-## Flow
+## Follow the workshop modules
 
-`scripts/setup.sh`/`.ps1` provision infrastructure, deploy the starting
-application, and seed deterministic v1 control events. `scripts/deploy.sh`/
-`.ps1` ship the current checkout. `scripts/inject.sh`/`.ps1` submits the v2
-incident batch. `scripts/validate.sh`/`.ps1` proves recovery. `scripts/
-cleanup.sh`/`.ps1` deletes only the scenario resource group. The
-infrastructure entry point is `infra/bicep/main.bicep`.
+Run every command from the repository root.
 
-Configure the automatic SRE Agent trigger with
-[Module 4](./docs/04-configure-incident-response.md). The investigation query
-is under [`investigation/`](./investigation/query.kql), and the governed
-diagnosis and recovery contract is under
-[`knowledge/`](./knowledge/operational-guidelines.md).
+1. [00 Prerequisites and integration checks](./docs/00-prerequisites.md)
+2. [01 Deploy the starting application](./docs/01-deploy-starting-application.md)
+3. [02 Verify the healthy v1 path](./docs/02-verify-starting-state.md)
+4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
+5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+6. [05 Trigger and investigate schema drift](./docs/05-trigger-and-investigate.md)
+7. [06 Approve the Azure Boards handoff](./docs/06-approve-azure-boards-handoff.md)
+8. [90 Review, deploy, and validate recovery](./docs/90-review-deploy-validate.md)
+9. [99 Close and clean up](./docs/99-cleanup.md)
 
-## Notes
-
-The deployment owns a resource group, Function host storage, two dedicated
-tables, one Service Bus namespace and queue, monitoring resources, and both the
-active-backlog and dead-letter safety alerts. It shares no runtime resources
-with `cloud-agent-handover`.
+This scenario has no simulated, local, or GitHub-issue fallback. It requires
+the real Azure Boards GitHub integration and paid Copilot access because those
+surfaces are the primary learning outcome.
