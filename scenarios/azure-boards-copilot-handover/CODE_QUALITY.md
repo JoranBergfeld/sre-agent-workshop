@@ -10,7 +10,7 @@ the batch pending (and therefore reported as not yet injected) for a later
 retry, and completed batches never re-send duplicates. The quality suite pins
 both constraints.
 
-## Gates
+## Green gates
 
 | Gate | Command | Scope |
 | --- | --- | --- |
@@ -18,13 +18,12 @@ both constraints.
 | Lint | `ruff check .` | Whole `app/` tree |
 | Static types | `mypy` | `function_app.py` and every `order_events` module under global `strict = true` |
 | Baseline tests | `pytest` | Every test except the `repair`-marked acceptance suite, including the incident-batch claim/retry/idempotency regressions |
-| Repair acceptance criteria | `pytest -m repair` | Only the `repair`-marked v2 acceptance suite |
 | Branch coverage | `pytest --cov=order_events --cov-report=term-missing` | `order_events`; the repair-scoped normalizer (`order_events/normalizer`) must stay at 100% |
 
 Run all commands from `scenarios/azure-boards-copilot-handover/app` with the
 project virtual environment active (`pip install -r requirements-dev.txt`).
 
-## The `repair` marker
+## Expected-red starting-state invariant
 
 `tests/test_repair_v2_normalizer.py` is the acceptance criteria for the
 Copilot repair: it asserts that valid v2 order events normalize to the same
@@ -36,16 +35,36 @@ instead of some unrelated bug.
 
 `pyproject.toml` excludes the `repair` marker from the default `pytest`
 invocation (`addopts` includes `-m "not repair"`), so the baseline gate stays
-green. Run the acceptance suite separately:
+green. Before the learner repair, use this exact check to prove that the suite
+is red only for the intended reason:
 
 ```bash
-pytest -m repair
+set -euo pipefail
+
+set +e
+pytest -m repair 2>&1 | tee repair-output.txt
+repair_status="${PIPESTATUS[0]}"
+set -e
+
+expected_failures="$(
+  grep -cF "UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported" \
+    repair-output.txt || true
+)"
+
+if [[ "$repair_status" -ne 1 ]] ||
+   [[ "$expected_failures" -ne 3 ]] ||
+   ! grep -Eq '^=+ 3 failed, [0-9]+ deselected in [0-9.]+s =+$' \
+     repair-output.txt; then
+  echo "The repair suite must fail only for the three intentionally unsupported v2 events." >&2
+  exit 1
+fi
 ```
 
-Before this scenario's repair, that command must fail only with
+The check succeeds only when all three repair tests fail with
 `UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported`. After a
-correct repair, both `pytest` and `pytest -m repair` must pass, and
-`order_events/normalizer` must retain 100% branch coverage.
+correct repair, remove the expected-red check: both `pytest` and
+`pytest -m repair` must pass, and `order_events/normalizer` must retain 100%
+branch coverage.
 
 ## Normalizer repair scope
 
@@ -72,5 +91,6 @@ ruff format --check .
 ruff check .
 mypy
 pytest --cov=order_events --cov-report=term-missing
-pytest -m repair
 ```
+
+Then run the expected-red starting-state check above.

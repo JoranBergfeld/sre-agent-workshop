@@ -1,0 +1,72 @@
+name: Validate Azure Boards Copilot Handover Application
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/azure-boards-copilot-handover/app/**'
+      - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
+      - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
+  pull_request:
+    paths:
+      - 'scenarios/azure-boards-copilot-handover/app/**'
+      - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
+      - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scenarios/azure-boards-copilot-handover/app
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scenarios/azure-boards-copilot-handover/app/requirements*.txt
+
+      - name: Install quality dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Lint application
+        run: ruff check .
+
+      - name: Check static types
+        run: mypy
+
+      - name: Run baseline tests with branch coverage
+        run: pytest --cov=order_events --cov-report=term-missing
+
+      - name: Verify the repair acceptance suite is intentionally red
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          set +e
+          pytest -m repair 2>&1 | tee repair-output.txt
+          repair_status="${PIPESTATUS[0]}"
+          set -e
+
+          expected_failures="$(
+            grep -cF "UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported" \
+              repair-output.txt || true
+          )"
+
+          if [[ "$repair_status" -ne 1 ]] ||
+             [[ "$expected_failures" -ne 3 ]] ||
+             ! grep -Eq '^=+ 3 failed, [0-9]+ deselected in [0-9.]+s =+$' \
+               repair-output.txt; then
+            echo "::error::The repair suite must fail only for the three intentionally unsupported v2 events."
+            exit 1
+          fi
