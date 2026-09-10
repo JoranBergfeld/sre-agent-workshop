@@ -107,9 +107,15 @@ if ([string]::IsNullOrWhiteSpace($FunctionApp)) {
 Write-Host "Function app: $FunctionApp"
 
 # --- Baseline quality gates (run against the current checkout) ------------
-$venvBin = Join-Path $AppDir '.venv/bin'
-if (Test-Path $venvBin) {
-    $env:PATH = "$venvBin$([System.IO.Path]::PathSeparator)$($env:PATH)"
+# Windows venvs place scripts under Scripts/, not bin/ (the POSIX layout
+# deploy.sh looks for); check both so auto-discovery works cross-platform
+# even when the caller hasn't pre-activated the venv.
+foreach ($venvBinDir in @('.venv/Scripts', '.venv/bin')) {
+    $venvBin = Join-Path $AppDir $venvBinDir
+    if (Test-Path $venvBin) {
+        $env:PATH = "$venvBin$([System.IO.Path]::PathSeparator)$($env:PATH)"
+        break
+    }
 }
 
 foreach ($requiredTool in @('ruff', 'mypy', 'pytest')) {
@@ -160,7 +166,12 @@ try {
     }
 
     # --- Ensure remote build is enabled (idempotent) ---------------------------
-    $currentBuildSetting = [string](az functionapp config appsettings list --resource-group $ResourceGroup --name $FunctionApp --query "[?name=='SCM_DO_BUILD_DURING_DEPLOYMENT'].value | [0]" --output tsv)
+    # A query against a not-yet-set app setting returns zero output lines, and
+    # `[string](...)` around a zero-output external command stays $null rather
+    # than coercing to "" (unlike `[string]$null`), so this must be read into a
+    # variable first and null-checked before calling .Trim() on it.
+    $currentBuildSettingRaw = az functionapp config appsettings list --resource-group $ResourceGroup --name $FunctionApp --query "[?name=='SCM_DO_BUILD_DURING_DEPLOYMENT'].value | [0]" --output tsv
+    $currentBuildSetting = if ($null -eq $currentBuildSettingRaw) { '' } else { [string]$currentBuildSettingRaw }
     if ($currentBuildSetting.Trim() -ne 'true') {
         Write-Host "Enabling remote build (SCM_DO_BUILD_DURING_DEPLOYMENT)..."
         az functionapp config appsettings set --resource-group $ResourceGroup --name $FunctionApp --settings 'SCM_DO_BUILD_DURING_DEPLOYMENT=true' --output none
@@ -186,8 +197,18 @@ try {
     # known to intermittently fail with "This API isn't available in this
     # environment yet!" (see Azure/azure-cli#33014), which config-zip does
     # not hit.
+    #
+    # --build-remote true is required, not just the SCM_DO_BUILD_DURING_DEPLOYMENT
+    # app setting above: on a freshly-provisioned app, that setting write and
+    # this deploy race — the Kudu build engine can still be starting up on the
+    # old (false) value when the zip lands, silently skipping the Oryx
+    # dependency build and shipping a package with no installed packages
+    # (import errors for every third-party dependency, e.g.
+    # ModuleNotFoundError: No module named 'azure.data'). Passing
+    # --build-remote true forces the build for this deploy regardless of that
+    # race.
     Write-Host "Deploying zip package to Function app '$FunctionApp' ..."
-    az functionapp deployment source config-zip --resource-group $ResourceGroup --name $FunctionApp --src $zipPath --output none
+    az functionapp deployment source config-zip --resource-group $ResourceGroup --name $FunctionApp --src $zipPath --build-remote true --output none
     if ($LASTEXITCODE -ne 0) { throw "Function zip deploy failed." }
 
     # On Linux Consumption, the Python worker can keep serving the previous

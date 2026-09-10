@@ -204,11 +204,21 @@ az functionapp config appsettings set \
 # `functionapp deploy --type zip`: the latter's OneDeploy API has been known
 # to intermittently fail with "This API isn't available in this environment
 # yet!" (see Azure/azure-cli#33014), which config-zip does not hit.
+#
+# --build-remote true is required, not just the SCM_DO_BUILD_DURING_DEPLOYMENT
+# app setting above: on a freshly-provisioned app, that setting write and this
+# deploy race — the Kudu build engine can still be starting up on the old
+# (false) value when the zip lands, silently skipping the Oryx dependency
+# build and shipping a package with no installed packages (import errors for
+# every third-party dependency, e.g. ModuleNotFoundError: No module named
+# 'azure.data'). Passing --build-remote true forces the build for this
+# deploy regardless of that race.
 echo "Deploying zip package to Function app '$FUNCTION_APP' ..."
 az functionapp deployment source config-zip \
   --resource-group "$RESOURCE_GROUP" \
   --name "$FUNCTION_APP" \
   --src "$WORK_DIR/app.zip" \
+  --build-remote true \
   --output none
 
 # On Linux Consumption, the Python worker can keep serving the previous
