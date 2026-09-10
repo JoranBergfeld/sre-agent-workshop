@@ -194,12 +194,15 @@ az functionapp config appsettings set \
   --output none
 
 # --- Deploy the zip ---------------------------------------------------------
+# Uses the long-stable `deployment source config-zip` API rather than
+# `functionapp deploy --type zip`: the latter's OneDeploy API has been known
+# to intermittently fail with "This API isn't available in this environment
+# yet!" (see Azure/azure-cli#33014), which config-zip does not hit.
 echo "Deploying zip package to Function app '$FUNCTION_APP' ..."
-az functionapp deploy \
+az functionapp deployment source config-zip \
   --resource-group "$RESOURCE_GROUP" \
   --name "$FUNCTION_APP" \
-  --src-path "$WORK_DIR/app.zip" \
-  --type zip \
+  --src "$WORK_DIR/app.zip" \
   --output none
 
 FUNCTION_HOSTNAME=$(az functionapp show --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --query defaultHostName --output tsv)

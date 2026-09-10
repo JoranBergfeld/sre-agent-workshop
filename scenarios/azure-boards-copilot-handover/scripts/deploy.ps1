@@ -175,8 +175,13 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Failed to stamp DEPLOYED_COMMIT_SHA." }
 
     # --- Deploy the zip ---------------------------------------------------------
+    # Uses the long-stable `deployment source config-zip` API rather than
+    # `functionapp deploy --type zip`: the latter's OneDeploy API has been
+    # known to intermittently fail with "This API isn't available in this
+    # environment yet!" (see Azure/azure-cli#33014), which config-zip does
+    # not hit.
     Write-Host "Deploying zip package to Function app '$FunctionApp' ..."
-    az functionapp deploy --resource-group $ResourceGroup --name $FunctionApp --src-path $zipPath --type zip --output none
+    az functionapp deployment source config-zip --resource-group $ResourceGroup --name $FunctionApp --src $zipPath --output none
     if ($LASTEXITCODE -ne 0) { throw "Function zip deploy failed." }
 
     $functionHostname = [string](az functionapp show --resource-group $ResourceGroup --name $FunctionApp --query defaultHostName --output tsv).Trim()
