@@ -2,12 +2,14 @@
 # Deploys the current checkout of the Azure Boards Copilot Handover Function
 # app to an already-provisioned scenario resource group. Runs the app's
 # baseline quality gates first, ships a clean runtime-only zip (no venv, no
-# tests), stamps the exact deployed git commit as a Function app setting, and
-# waits (bounded) for the keyed status endpoint to confirm the new commit is
-# live before stamping the DEPLOYED_AT_UTC cutover timestamp used by
-# validate.sh/.ps1 to scope post-deployment exception checks. Re-polls
-# (bounded) after that second settings write to confirm the app is still
-# coherent (settings changes can restart the app).
+# tests), stamps the exact deployed git commit as a Function app setting,
+# deploys it via zip-push, and explicitly restarts the app (Linux Consumption
+# Python workers can keep serving the previous package after a config-zip
+# deploy without one). Then waits (bounded) for the keyed status endpoint to
+# confirm the new commit is live before stamping the DEPLOYED_AT_UTC cutover
+# timestamp used by validate.sh/.ps1 to scope post-deployment exception
+# checks. Re-polls (bounded) after that second settings write to confirm the
+# app is still coherent (settings changes can restart the app).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,7 +23,11 @@ RESOURCE_GROUP_SET=false
 FUNCTION_APP=""
 KEEP_TEMP=false
 
-STATUS_POLL_ATTEMPTS="${STATUS_POLL_ATTEMPTS:-20}"
+# Linux Consumption (Y1) remote builds (Oryx installing azure-identity,
+# azure-servicebus, azure-data-tables, etc.) can take several minutes,
+# especially on a cold plan right after provisioning; 90 attempts * 10s
+# gives a 15-minute bound instead of cutting off a build still in progress.
+STATUS_POLL_ATTEMPTS="${STATUS_POLL_ATTEMPTS:-90}"
 STATUS_POLL_DELAY_SECONDS="${STATUS_POLL_DELAY_SECONDS:-10}"
 
 usage() {
@@ -205,6 +211,13 @@ az functionapp deployment source config-zip \
   --src "$WORK_DIR/app.zip" \
   --output none
 
+# On Linux Consumption, the Python worker can keep serving the previous
+# package after a config-zip deploy until the app is explicitly restarted;
+# without this, the go-live poll below can time out even though the new
+# package deployed successfully.
+echo "Restarting Function app to ensure the new package is loaded..."
+az functionapp restart --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --output none
+
 FUNCTION_HOSTNAME=$(az functionapp show --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --query defaultHostName --output tsv)
 FUNCTION_KEY=$(az functionapp keys list --resource-group "$RESOURCE_GROUP" --name "$FUNCTION_APP" --query "functionKeys.default" --output tsv)
 STATUS_URL="https://$FUNCTION_HOSTNAME/api/status?code=$FUNCTION_KEY"
@@ -219,11 +232,17 @@ wait_for_deployed_sha() {
   local confirmed=false
   local status_body_file
   local reported_sha
+  local last_http_code=""
+  local last_body=""
 
   while [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; do
     attempt=$((attempt + 1))
     status_body_file="$WORK_DIR/status-$phase_label-$attempt.json"
-    curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" >/dev/null 2>&1 || true
+    last_http_code=$(curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" 2>&1)
+    if [ -z "$last_http_code" ]; then
+      last_http_code="(no response / request failed)"
+    fi
+    last_body=$(cat "$status_body_file" 2>/dev/null || true)
     reported_sha=$(jq -er '.deployedCommitSha // empty' "$status_body_file" 2>/dev/null || true)
     if [ "$reported_sha" = "$DEPLOYED_COMMIT_SHA" ]; then
       confirmed=true
@@ -236,6 +255,8 @@ wait_for_deployed_sha() {
 
   if [ "$confirmed" != true ]; then
     echo "Timed out after $STATUS_POLL_ATTEMPTS attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$DEPLOYED_COMMIT_SHA during the $phase_label check." >&2
+    echo "Last observed HTTP status: $last_http_code" >&2
+    echo "Last observed response body: $last_body" >&2
     exit 1
   fi
 }

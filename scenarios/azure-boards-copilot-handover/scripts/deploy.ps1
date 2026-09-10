@@ -2,12 +2,14 @@
 # Deploys the current checkout of the Azure Boards Copilot Handover Function
 # app to an already-provisioned scenario resource group. Runs the app's
 # baseline quality gates first, ships a clean runtime-only zip (no venv, no
-# tests), stamps the exact deployed git commit as a Function app setting, and
-# waits (bounded) for the keyed status endpoint to confirm the new commit is
-# live before stamping the DEPLOYED_AT_UTC cutover timestamp used by
-# validate.sh/.ps1 to scope post-deployment exception checks. Re-polls
-# (bounded) after that second settings write to confirm the app is still
-# coherent (settings changes can restart the app).
+# tests), stamps the exact deployed git commit as a Function app setting,
+# deploys it via zip-push, and explicitly restarts the app (Linux Consumption
+# Python workers can keep serving the previous package after a config-zip
+# deploy without one). Then waits (bounded) for the keyed status endpoint to
+# confirm the new commit is live before stamping the DEPLOYED_AT_UTC cutover
+# timestamp used by validate.sh/.ps1 to scope post-deployment exception
+# checks. Re-polls (bounded) after that second settings write to confirm the
+# app is still coherent (settings changes can restart the app).
 
 param()
 
@@ -23,7 +25,11 @@ $ResourceGroupSet = $false
 $FunctionApp = ''
 $KeepTemp = $false
 
-$StatusPollAttempts = if ($env:STATUS_POLL_ATTEMPTS) { [int]$env:STATUS_POLL_ATTEMPTS } else { 20 }
+# Linux Consumption (Y1) remote builds (Oryx installing azure-identity,
+# azure-servicebus, azure-data-tables, etc.) can take several minutes,
+# especially on a cold plan right after provisioning; 90 attempts * 10s
+# gives a 15-minute bound instead of cutting off a build still in progress.
+$StatusPollAttempts = if ($env:STATUS_POLL_ATTEMPTS) { [int]$env:STATUS_POLL_ATTEMPTS } else { 90 }
 $StatusPollDelaySeconds = if ($env:STATUS_POLL_DELAY_SECONDS) { [int]$env:STATUS_POLL_DELAY_SECONDS } else { 10 }
 
 function Show-Usage {
@@ -184,6 +190,14 @@ try {
     az functionapp deployment source config-zip --resource-group $ResourceGroup --name $FunctionApp --src $zipPath --output none
     if ($LASTEXITCODE -ne 0) { throw "Function zip deploy failed." }
 
+    # On Linux Consumption, the Python worker can keep serving the previous
+    # package after a config-zip deploy until the app is explicitly
+    # restarted; without this, the go-live poll below can time out even
+    # though the new package deployed successfully.
+    Write-Host "Restarting Function app to ensure the new package is loaded..."
+    az functionapp restart --resource-group $ResourceGroup --name $FunctionApp --output none
+    if ($LASTEXITCODE -ne 0) { throw "Failed to restart the Function app after deploy." }
+
     $functionHostname = [string](az functionapp show --resource-group $ResourceGroup --name $FunctionApp --query defaultHostName --output tsv).Trim()
     $functionKey = [string](az functionapp keys list --resource-group $ResourceGroup --name $FunctionApp --query "functionKeys.default" --output tsv).Trim()
     $statusUrl = "https://$functionHostname/api/status?code=$functionKey"
@@ -198,11 +212,15 @@ try {
         )
 
         $confirmed = $false
+        $lastHttpCode = ''
+        $lastBody = ''
         for ($attempt = 1; $attempt -le $StatusPollAttempts; $attempt++) {
             $statusBodyFile = Join-Path $WorkDir.FullName "status-$PhaseLabel-$attempt.json"
-            curl -sS -o $statusBodyFile -w '%{http_code}' $statusUrl 2>$null | Out-Null
+            $lastHttpCode = (curl -sS -o $statusBodyFile -w '%{http_code}' $statusUrl 2>&1 | Out-String).Trim()
+            if ([string]::IsNullOrWhiteSpace($lastHttpCode)) { $lastHttpCode = '(no response / request failed)' }
             $reportedSha = $null
             if (Test-Path $statusBodyFile) {
+                $lastBody = Get-Content $statusBodyFile -Raw -ErrorAction SilentlyContinue
                 $reportedSha = [string](jq -er '.deployedCommitSha // empty' $statusBodyFile 2>$null)
             }
             if ($reportedSha -eq $deployedCommitSha) {
@@ -215,7 +233,7 @@ try {
         }
 
         if (-not $confirmed) {
-            throw "Timed out after $StatusPollAttempts attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$deployedCommitSha during the $PhaseLabel check."
+            throw "Timed out after $StatusPollAttempts attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=$deployedCommitSha during the $PhaseLabel check.`nLast observed HTTP status: $lastHttpCode`nLast observed response body: $lastBody"
         }
     }
 
