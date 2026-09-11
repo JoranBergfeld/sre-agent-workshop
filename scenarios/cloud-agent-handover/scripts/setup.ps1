@@ -137,13 +137,13 @@ query($owner:String!, $name:String!) {
     ))
     $legacyPrincipalId = ""
     if ($managedIdentityState.Trim() -ceq "Registered") {
-        $legacyPrincipalId = [string](Invoke-NativeCommand -Command "az" -Arguments @(
+        $legacyPrincipalIdRaw = Invoke-NativeCommand -Command "az" -Arguments @(
             "identity", "list",
             "--resource-group", $resourceGroup,
             "--query", "[?name=='$legacyIdentityName'].principalId | [0]",
             "--output", "tsv"
-        ))
-        $legacyPrincipalId = $legacyPrincipalId.Trim()
+        )
+        $legacyPrincipalId = if ($null -eq $legacyPrincipalIdRaw) { "" } else { ([string]$legacyPrincipalIdRaw).Trim() }
     }
 
     if (-not [string]::IsNullOrWhiteSpace($legacyPrincipalId)) {
