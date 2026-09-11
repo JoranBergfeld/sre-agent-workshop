@@ -31,6 +31,11 @@
     "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
     "costProfile": { "type": "string", "enum": ["low", "medium", "high"] },
     "guide": { "$ref": "#/$defs/localPath" },
+    "pages": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/page" }
+    },
     "learningObjectives": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
@@ -89,6 +94,38 @@
         "bash": { "$ref": "#/$defs/localPath" },
         "powershell": { "$ref": "#/$defs/localPath" }
       }
+    },
+    "page": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stage", "path"],
+          "properties": {
+            "stage": {
+              "type": "string",
+              "enum": [
+                "prerequisites",
+                "deploy-infrastructure",
+                "onboard-sre-agent",
+                "configure-incident-response",
+                "run-observe-scenario",
+                "cleanup"
+              ]
+            },
+            "path": { "$ref": "#/$defs/localPath" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["optional", "path"],
+          "properties": {
+            "optional": { "const": true },
+            "path": { "$ref": "#/$defs/localPath" }
+          }
+        }
+      ]
     }
   }
 }
