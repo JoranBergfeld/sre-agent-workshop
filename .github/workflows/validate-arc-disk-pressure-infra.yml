@@ -16,10 +16,13 @@ permissions:
 
 jobs:
   validate:
+    name: Build Arc Disk Pressure Bicep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate Arc disk-pressure Bicep syntax
-        run: az bicep build --file scenarios/arc-disk-pressure/infra/bicep/main.bicep --stdout >/dev/null
+        run: |
+          az bicep build --file scenarios/arc-disk-pressure/infra/bicep/main.bicep --stdout >/dev/null
+          az bicep build --file scenarios/arc-disk-pressure/infra/bicep/modules/alert.bicep --stdout >/dev/null

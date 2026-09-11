@@ -1,0 +1,31 @@
+name: Validate VM Size Retirement Capsule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/vm-size-retirement/**'
+      - '.github/workflows/validate-vm-size-retirement-capsule.yml'
+  pull_request:
+    paths:
+      - 'scenarios/vm-size-retirement/**'
+      - '.github/workflows/validate-vm-size-retirement-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test VM Size Retirement capsule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run capsule tests
+        run: node --test scenarios/vm-size-retirement/tests/capsule.test.js
