@@ -5,7 +5,6 @@ import { resolve } from 'node:path';
 import * as validateApi from '../lib/validate.js';
 import {
   MANDATORY_PAGE_STAGES,
-  checkPageFlow,
   makeValidator,
   checkScenario,
   findDuplicateActions,
@@ -94,18 +93,16 @@ test('valid scenario yields no cross-field errors', () => {
   assert.deepEqual(errs, []);
 });
 
-test('manifest schema allows page flow to be omitted during migration', () => {
+test('manifest schema requires an ordered page flow after migration', () => {
   const validate = makeValidator();
   const manifest = { ...baseManifest };
   delete manifest.pages;
 
-  assert.equal(validate(manifest), true, JSON.stringify(validate.errors));
-  assert.deepEqual(
-    checkPageFlow(
-      { manifest, dir: '/x/disk-full' },
-      { fileExists, readFile: () => '' },
+  assert.equal(validate(manifest), false);
+  assert.ok(
+    validate.errors.some(
+      (error) => error.keyword === 'required' && error.params.missingProperty === 'pages',
     ),
-    [],
   );
 });
 
