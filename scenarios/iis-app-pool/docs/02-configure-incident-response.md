@@ -26,4 +26,4 @@ operator supplies a `CHG-<number>` or `INC-<number>` ticket and types
 `output/actions-audit.log`; no external workflow substitutes for that ticket,
 confirmation, and audit trail.
 
-Next: [04 Onboard the SRE Agent and GitHub context](./04-onboard-sre-agent.md).
+Next: [90 Run and observe the scenario](./90-watch-agent-workflow.md).

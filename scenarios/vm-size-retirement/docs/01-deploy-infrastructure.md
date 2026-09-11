@@ -27,40 +27,8 @@ az deployment group create `
 The deployment creates two `Standard_B2s` IIS VMs, a Bastion-first network,
 and monitoring resources. The resources are tagged exactly with
 `scenario: vm-size-retirement` and `environment: demo`.
-
-## Assign the actual SRE Agent identity
-
-After creating the SRE Agent, copy its managed identity's **object (principal)
-ID** from the Azure portal. Do not use its client ID. Run the setup check and
-re-run the deployment with that parameter:
-
-```bash
-export SRE_AGENT_PRINCIPAL_ID='<SRE-Agent-managed-identity-object-id>'
-./scenarios/vm-size-retirement/scripts/setup.sh \
-  --sre-agent-principal-id "$SRE_AGENT_PRINCIPAL_ID"
-az deployment group create \
-  --resource-group rg-srelabretirement \
-  --template-file ./scenarios/vm-size-retirement/infra/bicep/main.bicep \
-  --parameters ./scenarios/vm-size-retirement/infra/bicep/main.bicepparam \
-  --parameters adminPassword="$VM_ADMIN_PASSWORD" \
-  --parameters sreAgentPrincipalId="$SRE_AGENT_PRINCIPAL_ID"
-```
-
-```powershell
-$env:SRE_AGENT_PRINCIPAL_ID = '<SRE-Agent-managed-identity-object-id>'
-./scenarios/vm-size-retirement/scripts/setup.ps1 `
-  -SreAgentPrincipalId $env:SRE_AGENT_PRINCIPAL_ID
-az deployment group create `
-  --resource-group rg-srelabretirement `
-  --template-file ./scenarios/vm-size-retirement/infra/bicep/main.bicep `
-  --parameters ./scenarios/vm-size-retirement/infra/bicep/main.bicepparam `
-  --parameters adminPassword=$env:VM_ADMIN_PASSWORD `
-  --parameters sreAgentPrincipalId=$env:SRE_AGENT_PRINCIPAL_ID
-```
-
-The identity module grants **Reader** and **Monitoring Reader** only to this
-configured SRE Agent principal. Local capsule tools use the signed-in
-operator's Azure CLI identity; they do not use a separate managed identity.
+The next module assigns the SRE Agent through the `sreAgentPrincipalId`
+deployment parameter.
 
 `main.bicep` deliberately has no scenario-alerts module. The standalone
 `service-health-alert.bicep` is a production reference for a real
@@ -79,4 +47,4 @@ Use Bastion rather than public VM addresses:
 ./scenarios/vm-size-retirement/scripts/access/start-rdp-tunnel.ps1
 ```
 
-Continue to [02 Configure incident response](./02-configure-incident-response.md).
+Continue to [03 Onboard the SRE Agent](./03-onboard-sre-agent.md).
