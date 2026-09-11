@@ -50,11 +50,17 @@ fi
 
 write_ok "Azure subscription verified"
 
-SIZE=$(az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name" -o tsv 2>/dev/null || true)
-if [ -n "$SIZE" ]; then
-  write_ok "Standard_B2s available in $LOCATION"
+VM_SIZE="${VM_SIZE:-Standard_D2s_v7}"
+# az vm list-sizes ignores capacity restrictions and reports unavailable SKUs as
+# present, so query list-skus and inspect the restrictions collection instead.
+RESTRICTIONS=$(az vm list-skus --location "$LOCATION" --resource-type virtualMachines \
+  --query "[?name=='$VM_SIZE'] | [0].restrictions | length(@)" -o tsv 2>/dev/null || true)
+if [ -z "$RESTRICTIONS" ]; then
+  write_fail "$VM_SIZE is not offered in $LOCATION for this subscription; choose another region or pass vmSize"
+elif [ "$RESTRICTIONS" != "0" ]; then
+  write_fail "$VM_SIZE is restricted in $LOCATION (capacity or quota); choose another region or pass vmSize"
 else
-  write_fail "Standard_B2s unavailable in $LOCATION; update vmSize in scenarios/arc-disk-pressure/infra/bicep/modules/vm.bicep"
+  write_ok "$VM_SIZE available and unrestricted in $LOCATION"
 fi
 
 echo "========================================"

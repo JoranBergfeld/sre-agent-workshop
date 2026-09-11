@@ -45,11 +45,27 @@ az deployment group create `
   adminPassword=$adminPassword
 ```
 
-Capture the deployment outputs for the ARM VM names, Windows computer names,
-Bastion name, and Log Analytics workspace ID. The deployment associates the
-Azure Monitor Agent on both VMs with a data collection rule that sends
-`\LogicalDisk(C:)\% Free Space` to that workspace. Access is Bastion-only;
-no VM NIC has a public IP.
+Capture the deployment outputs for the ARM VM name, Windows computer name,
+Bastion name, and Log Analytics workspace ID. Then onboard the evaluation host
+to Arc. Onboarding installs Azure Monitor Agent through Arc and associates the
+data collection rule that sends `\LogicalDisk(C:)\% Free Space` to the
+workspace.
+
+```bash
+./scenarios/arc-disk-pressure/scripts/onboard-arc.sh \
+  --resource-group "$RESOURCE_GROUP" \
+  --vm-name "${WORKLOAD_NAME}-vm01" \
+  --location "$LOCATION"
+```
+
+```powershell
+./scenarios/arc-disk-pressure/scripts/onboard-arc.ps1 `
+  -ResourceGroup $resourceGroup `
+  -VmName "$workloadName-vm01" `
+  -Location $location
+```
+
+Access is Bastion-only; the VM NIC has no public IP.
 
 ```bash
 ./scenarios/arc-disk-pressure/scripts/access/start-http-tunnel.sh \

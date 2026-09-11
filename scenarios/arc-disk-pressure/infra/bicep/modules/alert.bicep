@@ -16,7 +16,7 @@ resource diskPressureAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-pr
   tags: tags
   properties: {
     displayName: 'Arc Disk Free Space Critical'
-    description: 'Alerts when C: free space drops below 8 percent on the Arc evaluation host.'
+    description: 'Alerts when C: free space drops below 10 percent on the Arc evaluation host.'
     severity: 2
     enabled: true
     evaluationFrequency: 'PT5M'

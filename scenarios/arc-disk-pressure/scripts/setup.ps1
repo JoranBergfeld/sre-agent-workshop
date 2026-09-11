@@ -27,11 +27,17 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 
 Write-Ok "Azure subscription verified"
 
-$size = az vm list-sizes --location $Location --query "[?name=='Standard_B2s'].name" -o tsv 2>$null
-if ($size) {
-    Write-Ok "Standard_B2s available in $Location"
+$vmSize = if ($env:VM_SIZE) { $env:VM_SIZE } else { 'Standard_D2s_v7' }
+# az vm list-sizes ignores capacity restrictions and reports unavailable SKUs as
+# present, so query list-skus and inspect the restrictions collection instead.
+$restrictions = az vm list-skus --location $Location --resource-type virtualMachines `
+    --query "[?name=='$vmSize'] | [0].restrictions | length(@)" -o tsv 2>$null
+if (-not $restrictions) {
+    Write-Fail "$vmSize is not offered in $Location for this subscription; choose another region or pass vmSize"
+} elseif ($restrictions -ne '0') {
+    Write-Fail "$vmSize is restricted in $Location (capacity or quota); choose another region or pass vmSize"
 } else {
-    Write-Fail "Standard_B2s unavailable in $Location; update vmSize in scenarios/arc-disk-pressure/infra/bicep/modules/vm.bicep"
+    Write-Ok "$vmSize available and unrestricted in $Location"
 }
 
 Write-Host "========================================"

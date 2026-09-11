@@ -29,6 +29,9 @@ param adminUsername string = 'azureuser'
 @description('Admin password for Windows VMs')
 param adminPassword string
 
+@description('VM size for the disposable evaluation Arc host. Verify regional availability with: az vm list-skus --location <region> --resource-type virtualMachines --query "[?name==\'<size>\'].restrictions"')
+param vmSize string = 'Standard_D2s_v7'
+
 // ──────────────────────────────────────────────
 // 1. Monitoring (Log Analytics + App Insights)
 //    Deployed first because VM agents and the alert use the workspace.
@@ -66,6 +69,7 @@ module vm 'modules/vm.bicep' = {
     tags: tags
     adminUsername: adminUsername
     adminPassword: adminPassword
+    vmSize: vmSize
     subnetId: network.outputs.subnetId
     logAnalyticsResourceId: monitoring.outputs.logAnalyticsId
   }

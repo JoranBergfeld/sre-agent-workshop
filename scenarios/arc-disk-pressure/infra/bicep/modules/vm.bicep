@@ -20,6 +20,9 @@ param subnetId string
 @description('Log Analytics workspace resource ID for disk capacity telemetry')
 param logAnalyticsResourceId string
 
+@description('VM size for the disposable evaluation Arc host')
+param vmSize string = 'Standard_D2s_v7'
+
 var vmNames = [
   '${workloadName}-vm01'
 ]
@@ -63,7 +66,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = [for (vmName, i) in
   }
   properties: {
     hardwareProfile: {
-      vmSize: 'Standard_B2s'
+      vmSize: vmSize
     }
     osProfile: {
       computerName: computerNames[i]
@@ -125,20 +128,8 @@ resource installIis 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = 
 }]
 
 // ──────────────────────────────────────────────
-// Azure Monitor + Dependency agents (VM Insights signals)
+// Dependency agent (VM Insights dependency signals)
 // ──────────────────────────────────────────────
-resource amaExtension 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = [for (vmName, i) in vmNames: {
-  parent: vm[i]
-  name: 'AzureMonitorWindowsAgent'
-  location: location
-  properties: {
-    publisher: 'Microsoft.Azure.Monitor'
-    type: 'AzureMonitorWindowsAgent'
-    typeHandlerVersion: '1.20'
-    autoUpgradeMinorVersion: true
-  }
-}]
-
 resource dependencyAgent 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = [for (vmName, i) in vmNames: {
   parent: vm[i]
   name: 'DependencyAgentWindows'
@@ -194,17 +185,6 @@ resource diskFreeSpaceDcr 'Microsoft.Insights/dataCollectionRules@2022-06-01' = 
     ]
   }
 }
-
-resource diskFreeSpaceDcrAssociation 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = [for (vmName, i) in vmNames: {
-  name: 'disk-free-space'
-  scope: vm[i]
-  properties: {
-    dataCollectionRuleId: diskFreeSpaceDcr.id
-  }
-  dependsOn: [
-    amaExtension[i]
-  ]
-}]
 
 // ──────────────────────────────────────────────
 // Daily auto-shutdown (UTC 19:00) — keeps lab cost contained

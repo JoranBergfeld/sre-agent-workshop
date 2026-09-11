@@ -32,31 +32,29 @@ completing the scenario.
 
 ```bash
 ./scenarios/arc-disk-pressure/scripts/setup.sh
+./scenarios/arc-disk-pressure/scripts/onboard-arc.sh
 ./scenarios/arc-disk-pressure/scripts/inject.sh
 ./scenarios/arc-disk-pressure/scripts/validate.sh
 ```
 
 ```powershell
 ./scenarios/arc-disk-pressure/scripts/setup.ps1
+./scenarios/arc-disk-pressure/scripts/onboard-arc.ps1
 ./scenarios/arc-disk-pressure/scripts/inject.ps1
 ./scenarios/arc-disk-pressure/scripts/validate.ps1
 ```
 
 The injector writes bounded 512 MB files under `C:\Temp\diskfill` until C:
 free space reaches approximately 8%, while preserving a 2 GiB reserve. The
-alert in `infra/bicep/modules/alert.bicep` fires below 8% free space.
+alert in `infra/bicep/modules/alert.bicep` fires below 10% free space.
 
 ## Incident and remediation flow
 
-The normal recovery path is exactly:
-
-**incident evidence → one GitHub issue assigned to `@copilot` → Copilot PR →
-human review and merge → controlled Bicep deployment by an authorized human**.
-
-The Bicep deployment corrects the desired state. Direct remediation is an
-approved manual fallback only when that path cannot restore service in time.
-It must use the scenario-owned approval gate, a `CHG-` or `INC-` ticket, and
-the exact `APPROVE` confirmation:
+The SRE Agent investigates and proposes recovery only. An authorized learner
+supplies a `CHG-` or `INC-` ticket, types exact `APPROVE`, and invokes the
+scenario-owned approval gate. The normal recovery runs the surgical cleanup
+through Arc Run Command. If Arc is unhealthy, stop and require fresh approval
+before performing the same bounded action locally:
 
 ```bash
 ./scenarios/arc-disk-pressure/tools/invoke-approved-remediation.sh \
