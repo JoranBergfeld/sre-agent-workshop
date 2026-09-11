@@ -8,18 +8,17 @@ Space` from the scenario's Log Analytics workspace.
 Configure the incident response plan to collect the local
 `investigation/query.kql` evidence and follow this exact recovery flow:
 
-1. Record the evidence in **one GitHub issue** and assign it to `@copilot`.
-2. Copilot authors the remediation **PR**.
-3. A human reviews and merges the Copilot PR.
-4. An authorized human performs the controlled Bicep deployment of the merged
-   change.
+1. Record the evidence in the investigation trace and postmortem.
+2. Review the proposed surgical cleanup and its evidence snapshot.
+3. Supply a `CHG-<number>` or `INC-<number>` ticket and invoke the approval gate
+   with the exact uppercase `APPROVE` confirmation.
+4. If Arc is unhealthy, require fresh approval and perform the bounded cleanup
+   locally on the host.
 
-The SRE Agent must not delete files or invoke Azure run commands as the normal
-path. If recovery cannot wait for the issue → `@copilot` → Copilot PR → human
-merge → controlled deployment flow, an authorized operator may use only the
-scenario-owned approval gate. It requires a valid `CHG-<number>` or
-`INC-<number>` ticket and the exact uppercase `APPROVE` confirmation. Every
-approved execution is recorded in `output/actions-audit.log`.
+The SRE Agent investigates and proposes only. The learner invokes the
+scenario-owned approval gate, which executes surgical cleanup through Arc Run
+Command on the normal path. Every approved execution is recorded in
+`output/actions-audit.log`; failed and rejected attempts must fail closed.
 
 ```bash
 ./scenarios/arc-disk-pressure/tools/invoke-approved-remediation.sh \

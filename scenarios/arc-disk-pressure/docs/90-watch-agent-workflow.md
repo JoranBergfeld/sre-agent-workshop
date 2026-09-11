@@ -22,7 +22,7 @@ tool with the Log Analytics workspace ID collected at deployment:
   --workspace-id <LOG_ANALYTICS_WORKSPACE_ID> \
   --resource-group rg-srelabarcdisk \
   --machine-name srelabarcdisk-vm01 \
-  --computer-name sredisk01
+  --computer-name srearc01
 ```
 
 It writes an investigation trace and postmortem to `output/`. Confirm the
@@ -31,9 +31,11 @@ AwaitApproval, Execute, Validate, and Postmortem.
 Use the ARM VM name for run-command and Bastion operations, but use
 `srearc01` when querying Perf data for the evaluation Arc-enabled server.
 
-The recovery remains **issue → `@copilot` → Copilot PR → human merge →
-controlled deployment**. The approval gate is a direct, ticketed manual
-fallback only. After recovery, validate the IIS workload through Bastion:
+The SRE Agent proposes recovery only. The learner supplies a change or incident
+ticket, types exact `APPROVE`, and invokes the scenario-owned approval gate. The
+normal recovery executes surgical cleanup through Arc Run Command. If Arc is
+unhealthy, stop and escalate for a fresh approval and local execution. After
+recovery, validate the IIS workload through Bastion:
 
 ```bash
 ./scenarios/arc-disk-pressure/scripts/validate.sh \

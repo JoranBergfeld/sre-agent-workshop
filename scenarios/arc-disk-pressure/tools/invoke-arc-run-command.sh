@@ -32,6 +32,15 @@ if [ -n "$requested_subscription_id" ]; then
 fi
 az account show >/dev/null || { echo "Azure CLI is not authenticated. Run 'az login'." >&2; exit 1; }
 
+cleanup_command() {
+  az connectedmachine run-command delete \
+    --resource-group "$RESOURCE_GROUP" \
+    --machine-name "$MACHINE_NAME" \
+    --run-command-name "$COMMAND_NAME" \
+    --yes >/dev/null 2>&1 || true
+}
+trap cleanup_command EXIT
+
 az connectedmachine run-command create \
   --resource-group "$RESOURCE_GROUP" \
   --machine-name "$MACHINE_NAME" \
@@ -53,9 +62,3 @@ for attempt in $(seq 1 24); do
   if [ "$attempt" -eq 24 ]; then echo "Arc Run Command $COMMAND_NAME timed out." >&2; exit 1; fi
   sleep 5
 done
-
-az connectedmachine run-command delete \
-  --resource-group "$RESOURCE_GROUP" \
-  --machine-name "$MACHINE_NAME" \
-  --run-command-name "$COMMAND_NAME" \
-  --yes >/dev/null
