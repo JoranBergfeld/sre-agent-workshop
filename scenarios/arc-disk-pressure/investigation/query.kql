@@ -1,0 +1,19 @@
+let target = "{{COMPUTER_NAME}}";
+union isfuzzy=true
+(
+  Heartbeat
+  | where Computer =~ target
+  | project TimeGenerated, Signal="Heartbeat", Computer, Status="Connected"
+),
+(
+  Perf
+  | where Computer =~ target
+  | where ObjectName == "LogicalDisk" and CounterName == "% Free Space" and InstanceName == "C:"
+  | project TimeGenerated, Signal="DiskFreeSpace", Computer, FreePercent=CounterValue
+),
+(
+  W3CIISLog
+  | where Computer =~ target
+  | summarize Requests=count(), Errors=countif(scStatus startswith "5") by bin(TimeGenerated, 5m), Computer
+)
+| top 100 by TimeGenerated desc
