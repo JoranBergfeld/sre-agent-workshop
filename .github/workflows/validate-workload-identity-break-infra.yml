@@ -16,10 +16,13 @@ permissions:
 
 jobs:
   validate:
+    name: Build Workload Identity Break Bicep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate Bicep syntax
-        run: az bicep build --file scenarios/workload-identity-break/infra/bicep/main.bicep --stdout >/dev/null
+        run: |
+          az bicep build --file scenarios/workload-identity-break/infra/bicep/main.bicep --stdout >/dev/null
+          az bicep build --file scenarios/workload-identity-break/infra/bicep/modules/alert.bicep --stdout >/dev/null

@@ -1,0 +1,39 @@
+name: Validate IIS App Pool Capsule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/iis-app-pool/**'
+      - '.github/workflows/validate-iis-app-pool-capsule.yml'
+  pull_request:
+    paths:
+      - 'scenarios/iis-app-pool/**'
+      - '.github/workflows/validate-iis-app-pool-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test IIS App Pool capsule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run capsule tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t test_files < <(
+            find scenarios/iis-app-pool/tests -maxdepth 1 -type f -name '*.test.sh' | sort
+          )
+          if (( ${#test_files[@]} == 0 )); then
+            echo "No executable capsule tests found." >&2
+            exit 1
+          fi
+          for test_file in "${test_files[@]}"; do
+            test -x "$test_file"
+            bash "$test_file"
+          done

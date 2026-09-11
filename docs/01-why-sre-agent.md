@@ -31,10 +31,10 @@ specific incident rather than a platform hierarchy:
   [Workload Identity Break](../scenarios/workload-identity-break/README.md)
   show evidence-led GitOps recovery for AKS workloads.
 - [CPU Runaway](../scenarios/cpu-runaway/README.md),
-  [Disk Full](../scenarios/disk-full/README.md), and
+  [Arc-Enabled Server Disk Pressure](../scenarios/arc-disk-pressure/README.md),
   [IIS App Pool Failure](../scenarios/iis-app-pool/README.md), and
   [VM Size Retirement](../scenarios/vm-size-retirement/README.md) demonstrate
-  approval-gated VM remediation.
+  approval-gated remediation.
 - [SRE Agent to Copilot Handover](../scenarios/cloud-agent-handover/README.md)
   shows an approved issue-to-Copilot-pull-request flow with automatic
   application deployment after human merge.

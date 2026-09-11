@@ -3,14 +3,12 @@ name: Validate Cloud Agent Handover Application
 on:
   pull_request:
     paths:
-      - 'scenarios/cloud-agent-handover/src/**'
-      - 'scenarios/cloud-agent-handover/tests/**'
+      - 'scenarios/cloud-agent-handover/**'
       - '.github/workflows/validate-appservice-app.yml'
   push:
     branches: [main]
     paths:
-      - 'scenarios/cloud-agent-handover/src/**'
-      - 'scenarios/cloud-agent-handover/tests/**'
+      - 'scenarios/cloud-agent-handover/**'
       - '.github/workflows/validate-appservice-app.yml'
 
 permissions:
@@ -18,6 +16,7 @@ permissions:
 
 jobs:
   validate:
+    name: Test Cloud Agent Handover capsule
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

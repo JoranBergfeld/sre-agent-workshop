@@ -83,11 +83,13 @@ JSON
       esac
     fi
     ;;
-  *" functionapp deploy "*)
+  *" functionapp deployment source config-zip "*)
     if [ "${LIFECYCLE_AZ_FAIL_FUNCTION_DEPLOY:-}" = "1" ]; then
       echo 'simulated zip deploy failure' >&2
       exit 46
     fi
+    ;;
+  *" functionapp restart "*)
     ;;
   *" servicebus namespace list "*)
     printf '%s\n' "${LIFECYCLE_AZ_SERVICE_BUS_NAMESPACE:-srelabboardshandover-sb-abc123}"

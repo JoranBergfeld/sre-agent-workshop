@@ -25,13 +25,15 @@ cp "$REMEDIATION" "$FIXTURE/scripts/remediation/start-iis-app-pool.sh"
 cat > "$FIXTURE/bin/az" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "$1 $2" == "account show" ]]; then
-  if [[ " $* " == *" --query name "* ]]; then
-    printf 'test-subscription\n'
-  else
-    printf '00000000-0000-0000-0000-000000000000\n'
-  fi
+if [[ "${1:-} ${2:-}" == "account show" ]]; then
+  case "$*" in
+    *"--query id"*) printf '%s\n' '00000000-0000-0000-0000-000000000000' ;;
+    *"--query name"*) printf '%s\n' 'test-subscription' ;;
+    *) exit 2 ;;
+  esac
+  exit 0
 fi
+exit 2
 EOF
 
 cat > "$FIXTURE/tools/invoke-vm-run-command.sh" <<'EOF'

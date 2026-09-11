@@ -12,6 +12,25 @@ learningObjectives:
   - Use Service Bus active-message metrics to recognize schema drift.
   - Prepare a Copilot handover without allowing the SRE Agent to change application code directly.
 guide: README.md
+pages:
+  - stage: prerequisites
+    path: docs/00-prerequisites.md
+  - stage: deploy-infrastructure
+    path: docs/01-deploy-starting-application.md
+  - optional: true
+    path: docs/02-verify-starting-state.md
+  - stage: onboard-sre-agent
+    path: docs/03-onboard-sre-agent.md
+  - stage: configure-incident-response
+    path: docs/04-configure-incident-response.md
+  - stage: run-observe-scenario
+    path: docs/05-trigger-and-investigate.md
+  - optional: true
+    path: docs/06-approve-azure-boards-handoff.md
+  - optional: true
+    path: docs/90-review-deploy-validate.md
+  - stage: cleanup
+    path: docs/99-cleanup.md
 setup:
   bash: scripts/setup.sh
   powershell: scripts/setup.ps1

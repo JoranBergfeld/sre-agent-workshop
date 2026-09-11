@@ -386,11 +386,13 @@ test('Deploy stamps DEPLOYED_COMMIT_SHA and deploys before proving go-live, and 
     const shaSettingLineIndex = lines.findIndex((line) =>
       line.includes(`DEPLOYED_COMMIT_SHA=${localHeadSha}`)
     );
-    const deployLineIndex = lines.findIndex((line) => line.includes('functionapp deploy'));
+    const deployLineIndex = lines.findIndex((line) =>
+      line.includes('functionapp deployment source config-zip')
+    );
     const atUtcSettingLineIndex = lines.findIndex((line) => line.includes('DEPLOYED_AT_UTC='));
 
     assert.ok(shaSettingLineIndex >= 0, `${shell}: DEPLOYED_COMMIT_SHA setting missing from az log`);
-    assert.ok(deployLineIndex >= 0, `${shell}: functionapp deploy missing from az log`);
+    assert.ok(deployLineIndex >= 0, `${shell}: config-zip deploy missing from az log`);
     assert.ok(atUtcSettingLineIndex >= 0, `${shell}: DEPLOYED_AT_UTC setting missing from az log`);
 
     assert.ok(
@@ -540,7 +542,7 @@ test('PowerShell setup retries a transient deploy.ps1 throw instead of aborting 
   assert.match(result.stdout, /Deploy attempt 1 failed; retrying in 0s\./);
   assert.match(result.stdout, /Timed out after 2 attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=/);
   assert.equal(
-    readFileSync(azLogPath, 'utf8').match(/functionapp deploy /g)?.length,
+    readFileSync(azLogPath, 'utf8').match(/functionapp deployment source config-zip /g)?.length,
     2,
     'setup.ps1 should invoke deploy.ps1 twice when the first attempt throws transiently'
   );

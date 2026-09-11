@@ -18,9 +18,10 @@ completing the scenario.
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)
 2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
-3. [02 Configure incident response](./docs/02-configure-incident-response.md)
-4. [90 Watch the agent workflow](./docs/90-watch-agent-workflow.md)
-5. [99 Cleanup](./docs/99-cleanup.md)
+3. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
+4. [02 Configure incident response](./docs/02-configure-incident-response.md)
+5. [90 Run and observe the scenario](./docs/90-watch-agent-workflow.md)
+6. [99 Cleanup](./docs/99-cleanup.md)
 
 ## What breaks
 
@@ -81,5 +82,3 @@ do not replace this approval gate and cannot run remediation directly.
 ```powershell
 .\scenarios\cpu-runaway\scripts\validate.ps1
 ```
-
-Finish with [99 Cleanup](./docs/99-cleanup.md).

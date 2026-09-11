@@ -3,7 +3,17 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import * as validateApi from '../lib/validate.js';
-import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
+import {
+  MANDATORY_PAGE_STAGES,
+  makeValidator,
+  checkScenario,
+  findDuplicateActions,
+} from '../lib/validate.js';
+
+const pages = MANDATORY_PAGE_STAGES.map((stage, index) => ({
+  stage,
+  path: `docs/${String(index).padStart(2, '0')}-${stage}.md`,
+}));
 
 const baseManifest = {
   id: 'disk-full',
@@ -16,6 +26,7 @@ const baseManifest = {
   difficulty: 'beginner',
   costProfile: 'medium',
   guide: 'README.md',
+  pages,
   setup: { bash: 'scripts/setup.sh', powershell: 'scripts/setup.ps1' },
   inject: { bash: 'scripts/inject.sh', powershell: 'scripts/inject.ps1' },
   validate: { bash: 'scripts/validate.sh', powershell: 'scripts/validate.ps1' },
@@ -32,6 +43,7 @@ const baseManifest = {
 const present = new Set([
   'scenario.yaml',
   'README.md',
+  ...pages.map((page) => page.path),
   'setup',
   'setup.sh',
   'setup.ps1',
@@ -53,6 +65,8 @@ const fileExists = (p) => present.has(p.split('/').pop());
 
 test('validation library exports only the top-level scenario validator API', () => {
   assert.deepEqual(Object.keys(validateApi).sort(), [
+    'MANDATORY_PAGE_STAGES',
+    'checkPageFlow',
     'checkReferencedPath',
     'checkScenario',
     'findDuplicateActions',
@@ -77,6 +91,33 @@ test('valid scenario yields no cross-field errors', () => {
     { fileExists }
   );
   assert.deepEqual(errs, []);
+});
+
+test('manifest schema requires an ordered page flow after migration', () => {
+  const validate = makeValidator();
+  const manifest = { ...baseManifest };
+  delete manifest.pages;
+
+  assert.equal(validate(manifest), false);
+  assert.ok(
+    validate.errors.some(
+      (error) => error.keyword === 'required' && error.params.missingProperty === 'pages',
+    ),
+  );
+});
+
+test('manifest page entries are either mandatory stages or optional pages', () => {
+  const validate = makeValidator();
+  const invalid = {
+    ...baseManifest,
+    pages: [
+      ...pages,
+      { stage: 'appendix', path: 'docs/appendix.md' },
+      { stage: 'cleanup', optional: true, path: 'docs/both.md' },
+    ],
+  };
+
+  assert.equal(validate(invalid), false);
 });
 
 test('missing guide is reported', () => {
