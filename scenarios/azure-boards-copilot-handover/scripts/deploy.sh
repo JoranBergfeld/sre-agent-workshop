@@ -248,7 +248,11 @@ wait_for_deployed_sha() {
   while [ "$attempt" -lt "$STATUS_POLL_ATTEMPTS" ]; do
     attempt=$((attempt + 1))
     status_body_file="$WORK_DIR/status-$phase_label-$attempt.json"
-    last_http_code=$(curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" 2>&1)
+    # Guard with `|| true`: under `set -e`, a failed command substitution
+    # (e.g. a transient connection failure) would otherwise abort the whole
+    # deploy immediately instead of letting the poll loop retry and report
+    # diagnostics on eventual timeout.
+    last_http_code=$(curl -sS -o "$status_body_file" -w '%{http_code}' "$STATUS_URL" 2>&1) || true
     if [ -z "$last_http_code" ]; then
       last_http_code="(no response / request failed)"
     fi
