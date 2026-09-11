@@ -22,12 +22,27 @@ mkdir -p "$FIXTURE"/{bin,output,scripts/remediation,tools}
 cp "$GATE" "$FIXTURE/tools/invoke-approved-remediation.sh"
 cp "$REMEDIATION" "$FIXTURE/scripts/remediation/start-iis-app-pool.sh"
 
+cat > "$FIXTURE/bin/az" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-} ${2:-}" == "account show" ]]; then
+  case "$*" in
+    *"--query id"*) printf '%s\n' '00000000-0000-0000-0000-000000000000' ;;
+    *"--query name"*) printf '%s\n' 'test-subscription' ;;
+    *) exit 2 ;;
+  esac
+  exit 0
+fi
+exit 2
+EOF
+
 cat > "$FIXTURE/tools/invoke-vm-run-command.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" > "$FIXTURE/run-command-arguments.txt"
 EOF
 chmod +x \
+  "$FIXTURE/bin/az" \
   "$FIXTURE/tools/invoke-approved-remediation.sh" \
   "$FIXTURE/tools/invoke-vm-run-command.sh" \
   "$FIXTURE/scripts/remediation/start-iis-app-pool.sh"
@@ -35,7 +50,7 @@ chmod +x \
 export FIXTURE
 
 run_gate() {
-  printf '%s\n' "$1" | "$FIXTURE/tools/invoke-approved-remediation.sh" \
+  printf '%s\n' "$1" | PATH="$FIXTURE/bin:$PATH" "$FIXTURE/tools/invoke-approved-remediation.sh" \
     --action start-iis-app-pool \
     --change-ticket CHG-12345 \
     --resource-group rg-test \

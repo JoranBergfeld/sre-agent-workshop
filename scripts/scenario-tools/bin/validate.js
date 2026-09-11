@@ -3,7 +3,7 @@ import { basename, resolve } from 'node:path';
 import yaml from 'js-yaml';
 import { ROOT_README } from '../lib/paths.js';
 import { scenarioCandidateDirs } from '../lib/scenarios.js';
-import { makeValidator, checkScenario, findDuplicateActions } from '../lib/validate.js';
+import { makeValidator, checkPageFlow, checkScenario, findDuplicateActions } from '../lib/validate.js';
 import { extractCatalogBlock, renderCatalog } from '../lib/generate.js';
 
 const fileExists = (p) => existsSync(p);
@@ -52,6 +52,15 @@ for (const dir of scenarioCandidateDirs()) {
   let isValidScenario = true;
 
   for (const error of checkScenario(scenario, { fileExists, isExecutable, realpath: realpathSync })) {
+    fail(`${scenario.id}: ${error}`);
+    isValidScenario = false;
+  }
+
+  for (const error of checkPageFlow(scenario, {
+    fileExists,
+    realpath: realpathSync,
+    readFile: (path) => readFileSync(path, 'utf8'),
+  })) {
     fail(`${scenario.id}: ${error}`);
     isValidScenario = false;
   }

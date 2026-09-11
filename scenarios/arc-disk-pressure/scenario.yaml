@@ -1,0 +1,51 @@
+id: arc-disk-pressure
+title: Arc-Enabled Server Disk Pressure
+platform: Azure Arc-enabled Servers
+incidentType: Storage capacity
+summary: "A bounded process fills the C: drive of an evaluation Arc-enabled server to approximately 8% free space while Arc and IIS remain healthy."
+severity: 2
+estimatedMinutes: 45
+difficulty: intermediate
+costProfile: high
+learningObjectives:
+ - Investigate an off-Azure server through Azure Monitor, Log Analytics, and Resource Graph.
+ - Distinguish Arc connectivity from telemetry health.
+ - Execute one approval-gated cleanup through Arc Run Command.
+ - Escalate locally with fresh approval when Arc is unhealthy.
+guide: README.md
+pages:
+  - stage: prerequisites
+    path: docs/00-prerequisites.md
+  - stage: deploy-infrastructure
+    path: docs/01-deploy-infrastructure.md
+  - stage: onboard-sre-agent
+    path: docs/03-onboard-sre-agent.md
+  - stage: configure-incident-response
+    path: docs/02-configure-incident-response.md
+  - stage: run-observe-scenario
+    path: docs/90-watch-agent-workflow.md
+  - stage: cleanup
+    path: docs/99-cleanup.md
+setup:
+ bash: scripts/setup.sh
+ powershell: scripts/setup.ps1
+signal:
+ alertModule: infra/bicep/modules/alert.bicep
+ alertName: arc-disk-pressure
+inject:
+ bash: scripts/inject.sh
+ powershell: scripts/inject.ps1
+validate:
+ bash: scripts/validate.sh
+ powershell: scripts/validate.ps1
+cleanup:
+ bash: scripts/cleanup.sh
+ powershell: scripts/cleanup.ps1
+remediate:
+ - action: cleanup-arc-disk-pressure
+   bash: scripts/remediation/cleanup-arc-disk-pressure.sh
+   powershell: scripts/remediation/cleanup-arc-disk-pressure.ps1
+   description: Stop only the positively attributed injector and remove scenario-owned disk-fill artifacts.
+investigation:
+ query: investigation/query.kql
+tests: tests/capsule.test.sh

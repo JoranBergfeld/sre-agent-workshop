@@ -1,0 +1,28 @@
+name: Validate Arc Disk Pressure Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/arc-disk-pressure/infra/**'
+      - '.github/workflows/validate-arc-disk-pressure-infra.yml'
+  pull_request:
+    paths:
+      - 'scenarios/arc-disk-pressure/infra/**'
+      - '.github/workflows/validate-arc-disk-pressure-infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build Arc Disk Pressure Bicep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Arc disk-pressure Bicep syntax
+        run: |
+          az bicep build --file scenarios/arc-disk-pressure/infra/bicep/main.bicep --stdout >/dev/null
+          az bicep build --file scenarios/arc-disk-pressure/infra/bicep/modules/alert.bicep --stdout >/dev/null

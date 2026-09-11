@@ -1,4 +1,0 @@
-Perf
-| where ObjectName == "LogicalDisk" and CounterName == "% Free Space" and InstanceName == "C:"
-| where Computer has "{{COMPUTER_NAME}}"
-| top 5 by TimeGenerated desc

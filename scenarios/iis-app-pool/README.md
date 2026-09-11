@@ -17,9 +17,9 @@ completing the scenario.
 
 1. [00 Prerequisites](./docs/00-prerequisites.md)
 2. [01 Deploy infrastructure](./docs/01-deploy-infrastructure.md)
-3. [02 Configure incident response](./docs/02-configure-incident-response.md)
-4. [04 Onboard the SRE Agent and GitHub context](./docs/04-onboard-sre-agent.md)
-5. [90 Watch the SRE Agent](./docs/90-watch-agent-workflow.md)
+3. [04 Onboard the SRE Agent and GitHub context](./docs/04-onboard-sre-agent.md)
+4. [02 Configure incident response](./docs/02-configure-incident-response.md)
+5. [90 Run and observe the scenario](./docs/90-watch-agent-workflow.md)
 6. [99 Cleanup](./docs/99-cleanup.md)
 
 ## What breaks
@@ -79,5 +79,3 @@ not replace the CHG/INC approval, exact confirmation, and audit record.
 ```powershell
 ./scenarios/iis-app-pool/scripts/validate.ps1
 ```
-
-Continue to [99 Cleanup](./docs/99-cleanup.md) after recovery.
