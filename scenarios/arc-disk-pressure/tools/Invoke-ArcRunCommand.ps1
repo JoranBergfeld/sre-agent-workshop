@@ -10,19 +10,32 @@ if ($LASTEXITCODE) { throw "Unable to select the requested Azure subscription." 
 az account show | Out-Null
 if ($LASTEXITCODE) { throw "Azure CLI is not authenticated. Run 'az login'." }
 $commandName = "arc-disk-pressure-$([DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))-$PID"
-$result = az connectedmachine run-command create `
+az connectedmachine run-command create `
     --resource-group $ResourceGroup `
     --machine-name $MachineName `
     --run-command-name $commandName `
     --script $Script `
-    --query "properties.instanceView.executionState" `
-    --output tsv
+    --output none
 if ($LASTEXITCODE) { throw "Failed to create Arc Run Command '$commandName'." }
 try {
-    if ($result -and $result.Trim() -notin @('Succeeded','success','succeeded')) {
-        throw "Arc Run Command '$commandName' returned state '$result'."
+    $state = ''
+    for ($attempt = 1; $attempt -le 24; $attempt++) {
+        $state = az connectedmachine run-command show `
+            --resource-group $ResourceGroup `
+            --machine-name $MachineName `
+            --run-command-name $commandName `
+            --query "properties.instanceView.executionState" `
+            --output tsv 2>$null
+        if ($LASTEXITCODE -eq 0 -and $state.Trim() -in @('Succeeded','success','succeeded')) {
+            Write-Host "Arc Run Command '$commandName' completed."
+            break
+        }
+        if ($state.Trim() -in @('Failed','failed','Canceled','canceled')) {
+            throw "Arc Run Command '$commandName' returned state '$state'."
+        }
+        if ($attempt -eq 24) { throw "Arc Run Command '$commandName' timed out." }
+        Start-Sleep -Seconds 5
     }
-    Write-Host "Arc Run Command '$commandName' completed."
 } finally {
     az connectedmachine run-command delete `
         --resource-group $ResourceGroup `

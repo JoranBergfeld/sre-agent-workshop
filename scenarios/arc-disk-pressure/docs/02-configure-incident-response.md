@@ -26,5 +26,6 @@ approved execution is recorded in `output/actions-audit.log`.
   --action cleanup-arc-disk-pressure --change-ticket INC-12345
 ```
 
-The alternative `cleanup-arc-disk-pressure` action is broader: it removes all content under
-`C:\Temp`, so use it only when the ticket explicitly authorizes that scope.
+The `cleanup-arc-disk-pressure` action is intentionally narrow: it stops only the
+positively attributed injector and removes only its marker, ownership record, PID,
+and `C:\Temp\diskfill` artifacts. It never performs broad temporary-folder cleanup.

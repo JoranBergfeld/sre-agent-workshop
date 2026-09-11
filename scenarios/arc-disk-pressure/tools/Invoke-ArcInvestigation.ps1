@@ -5,7 +5,7 @@ param(
     [string]$WorkspaceId,
     [string]$ResourceGroup = "rg-srelabarcdisk",
     [string]$VmName = "srelabarcdisk-vm01",
-    [string]$ComputerName = "sredisk01"
+    [string]$ComputerName = "srearc01"
 )
 
 $queryFile = Join-Path $PSScriptRoot "..\investigation\query.kql"

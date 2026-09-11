@@ -29,7 +29,7 @@ It writes an investigation trace and postmortem to `output/`. Confirm the
 trace progresses through Observe, Investigate, Correlate, Hypothesis, Propose,
 AwaitApproval, Execute, Validate, and Postmortem.
 Use the ARM VM name for run-command and Bastion operations, but use
-`sredisk01` for VM 01 (or `sredisk02` for VM 02) when querying Perf data.
+`srearc01` when querying Perf data for the evaluation Arc-enabled server.
 
 The recovery remains **issue → `@copilot` → Copilot PR → human merge →
 controlled deployment**. The approval gate is a direct, ticketed manual

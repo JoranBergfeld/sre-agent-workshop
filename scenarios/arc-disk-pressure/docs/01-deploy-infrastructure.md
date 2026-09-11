@@ -6,13 +6,12 @@ network, VM, and identity modules, then deploys
 `modules/alert.bicep` directly against the Log Analytics resource ID.
 
 The default workload is `srelabarcdisk`, which creates
-`srelabarcdisk-vm01`, `srelabarcdisk-vm02`, and
-`srelabarcdisk-bas`. For a unique custom workload, replace
-`srelabarcdisk` everywhere below; for example,
+`srelabarcdisk-vm01` and `srelabarcdisk-bas`. For a unique custom workload,
+replace `srelabarcdisk` everywhere below; for example,
 `srelabarcdiskjordan` creates `srelabarcdiskjordan-vm01`.
-The Windows `computerName` values remain `sredisk01` and `sredisk02` so they
-stay within the Windows 15-character limit; Azure Monitor Perf records use
-these computer names rather than the longer ARM VM names.
+The Windows `computerName` is `srearc01`, matching the alert and investigation
+queries; Azure Monitor Perf records use this name rather than the longer ARM
+VM name.
 
 ```bash
 export RESOURCE_GROUP=rg-srelabarcdisk

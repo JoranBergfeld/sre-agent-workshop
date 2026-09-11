@@ -10,7 +10,7 @@ OUTPUT_DIR="$SCRIPT_DIR/../output"
 WORKSPACE_ID=""
 RESOURCE_GROUP="rg-srelabarcdisk"
 MACHINE_NAME="srelabarcdisk-vm01"
-COMPUTER_NAME="sredisk01"
+COMPUTER_NAME="srearc01"
 
 while [ $# -gt 0 ]; do
   case "$1" in

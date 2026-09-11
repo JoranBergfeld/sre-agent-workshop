@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
     -n|--machine-name) MACHINE_NAME="$2"; shift 2 ;;
     -t|--change-ticket) CHANGE_TICKET="$2"; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 --action <cleanup-arc-disk-pressure|cleanup-arc-disk-pressure> --change-ticket <CHG-12345> [--resource-group <rg>] [--machine-name <vm>]"
+      echo "Usage: $0 --action <cleanup-arc-disk-pressure> --change-ticket <CHG-12345> [--resource-group <rg>] [--machine-name <arc-machine>]"
       exit 0
       ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
