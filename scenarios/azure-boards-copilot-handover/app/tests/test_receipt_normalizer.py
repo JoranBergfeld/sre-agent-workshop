@@ -60,6 +60,7 @@ def test_normalize_receipt_raises_unsupported_schema_error_for_valid_v2_payload(
     [
         ({}, "schemaVersion is required"),
         ("not-a-mapping", "payload must be an object"),
+        ({"schemaVersion": []}, "schemaVersion must be one of: v1, v2"),
         (
             {
                 "schemaVersion": "v1",

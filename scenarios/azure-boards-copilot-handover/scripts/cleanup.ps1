@@ -77,8 +77,11 @@ $activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = 
 if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', but active subscription is '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }
 Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 
-$rg = az group show --name $ResourceGroup 2>$null
-if (-not $rg) {
+$resourceGroupExists = [string](az group exists --name $ResourceGroup --output tsv)
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to determine whether resource group '$ResourceGroup' exists."
+}
+if ($resourceGroupExists.Trim() -eq 'false') {
     Write-Host "Resource group '$ResourceGroup' not found. Nothing to delete."
     exit 0
 }

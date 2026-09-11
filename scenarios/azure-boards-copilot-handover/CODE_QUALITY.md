@@ -18,7 +18,7 @@ both constraints.
 | Lint | `ruff check .` | Whole `app/` tree |
 | Static types | `mypy` | `function_app.py` and every `order_events` module under global `strict = true` |
 | Baseline tests | `pytest` | Every test except the `repair`-marked acceptance suite, including the incident-batch claim/retry/idempotency regressions |
-| Branch coverage | `pytest --cov=order_events --cov-report=term-missing` | `order_events`; the repair-scoped normalizer (`order_events/normalizer`) must stay at 100% |
+| Branch coverage | `pytest --cov=order_events --cov-report=term-missing` followed by `coverage report --include='order_events/normalizer/*' --fail-under=100` | `order_events`; the repair-scoped normalizer (`order_events/normalizer`) must stay at 100% |
 
 Run all commands from `scenarios/azure-boards-copilot-handover/app` with the
 project virtual environment active (`pip install -r requirements-dev.txt`).
@@ -53,6 +53,10 @@ expected_failures="$(
     || true
 )"
 
+if [[ "$repair_status" -eq 0 ]]; then
+  exit 0
+fi
+
 if [[ "$repair_status" -ne 1 ]] ||
    [[ "$expected_failures" -ne 3 ]] ||
    ! grep -Eq '^=+ 3 failed, [0-9]+ deselected in [0-9.]+s =+$' \
@@ -62,9 +66,9 @@ if [[ "$repair_status" -ne 1 ]] ||
 fi
 ```
 
-The check succeeds only when all three repair tests fail with
-`UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported`. After a
-correct repair, remove the expected-red check: both `pytest` and
+The check succeeds when the three repair tests either fail only with
+`UnsupportedReceiptSchemaError: schemaVersion 'v2' is not supported`, or all
+pass after a correct repair. In the repaired state, both `pytest` and
 `pytest -m repair` must pass, and `order_events/normalizer` must retain 100%
 branch coverage.
 
@@ -93,6 +97,7 @@ ruff format --check .
 ruff check .
 mypy
 pytest --cov=order_events --cov-report=term-missing
+coverage report --include='order_events/normalizer/*' --fail-under=100
 ```
 
 Then run the expected-red starting-state check above.

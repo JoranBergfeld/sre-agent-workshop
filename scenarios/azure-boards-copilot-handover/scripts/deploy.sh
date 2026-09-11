@@ -147,6 +147,11 @@ echo "Running baseline quality gates from $APP_DIR ..."
 (cd "$APP_DIR" && mypy)
 (cd "$APP_DIR" && pytest)
 
+if [ -n "$(cd "$REPO_ROOT" && git status --porcelain --untracked-files=no)" ]; then
+  echo "Refusing to deploy from a checkout with tracked changes. Commit or discard the changes and try again." >&2
+  exit 1
+fi
+
 # --- Stage a clean runtime-only zip (no venv, no tests, no caches) ---------
 WORK_DIR="$(mktemp -d)"
 

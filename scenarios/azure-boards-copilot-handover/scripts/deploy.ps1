@@ -136,6 +136,18 @@ finally {
     Pop-Location
 }
 
+Push-Location $RepoRoot
+try {
+    $trackedChanges = git status --porcelain --untracked-files=no
+    if ($LASTEXITCODE -ne 0) { throw "Unable to inspect the checkout status." }
+}
+finally {
+    Pop-Location
+}
+if ($trackedChanges) {
+    throw 'Refusing to deploy from a checkout with tracked changes. Commit or discard the changes and try again.'
+}
+
 # --- Stage a clean runtime-only zip (no venv, no tests, no caches) ---------
 $WorkDir = New-Item -ItemType Directory -Path (Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName()))
 $StageDir = New-Item -ItemType Directory -Path (Join-Path $WorkDir.FullName 'stage')

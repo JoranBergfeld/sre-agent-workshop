@@ -113,11 +113,16 @@ JSON
     printf '{"tables": [{"name": "PrimaryResult", "columns": [{"name": "count_"}], "rows": [[%s]]}]}\n' \
       "${LIFECYCLE_AZ_EXCEPTION_COUNT:-0}"
     ;;
-  *" group show "*)
-    if [ "${LIFECYCLE_AZ_GROUP_NOT_FOUND:-}" = "1" ]; then
-      echo 'simulated resource group not found' >&2
-      exit 3
+  *" group exists "*)
+    if [ "${LIFECYCLE_AZ_FAIL_GROUP_EXISTS:-}" = "1" ]; then
+      echo 'simulated resource group existence query failure' >&2
+      exit 49
     fi
+    if [ "${LIFECYCLE_AZ_GROUP_NOT_FOUND:-}" = "1" ]; then
+      printf 'false\n'
+      exit 0
+    fi
+    printf 'true\n'
     ;;
   *" group delete "*)
     ;;

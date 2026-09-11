@@ -33,8 +33,13 @@ test('Azure Boards handover application workflow runs every documented quality i
   assert.match(workflow, /ruff check \./);
   assert.match(workflow, /run: mypy/);
   assert.match(workflow, /pytest --cov=order_events --cov-report=term-missing/);
+  assert.match(
+    workflow,
+    /coverage report --include='order_events\/normalizer\/\*' --fail-under=100/,
+  );
   assert.match(workflow, /pytest -m repair/);
   assert.match(workflow, /repair_status="\$\{PIPESTATUS\[0\]\}"/);
+  assert.match(workflow, /\[\[ "\$repair_status" -eq 0 \]\]/);
   assert.match(workflow, /\[\[ "\$repair_status" -ne 1 \]\]/);
   assert.match(workflow, /grep -cF/);
   assert.match(
@@ -78,6 +83,7 @@ test('Azure Boards handover quality guide separates green gates from the expecte
   assert.match(qualityGuide, /## Green gates/);
   assert.match(qualityGuide, /## Expected-red starting-state invariant/);
   assert.match(qualityGuide, /repair_status="\$\{PIPESTATUS\[0\]\}"/);
+  assert.match(qualityGuide, /\[\[ "\$repair_status" -eq 0 \]\]/);
   assert.match(qualityGuide, /\[\[ "\$repair_status" -ne 1 \]\]/);
   assert.match(qualityGuide, /\[\[ "\$expected_failures" -ne 3 \]\]/);
   assert.match(
@@ -88,7 +94,7 @@ test('Azure Boards handover quality guide separates green gates from the expecte
     qualityGuide,
     /grep -Eq '\^=\+ 3 failed, \[0-9\]\+ deselected in \[0-9\.\]\+s =\+\$'/,
   );
-  assert.match(qualityGuide, /The check succeeds only when all three repair tests fail/);
+  assert.match(qualityGuide, /The check succeeds when the three repair tests either fail only/);
 });
 
 test('global scenario validation installs the handover Python quality dependencies', () => {

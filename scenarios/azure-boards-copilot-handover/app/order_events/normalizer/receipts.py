@@ -47,7 +47,7 @@ def _require_schema_version(event: dict[str, object]) -> SchemaVersion:
     raw_schema_version = event.get("schemaVersion")
     if raw_schema_version is None:
         raise InvalidReceiptEventError("schemaVersion is required")
-    if raw_schema_version not in {"v1", "v2"}:
+    if not isinstance(raw_schema_version, str) or raw_schema_version not in {"v1", "v2"}:
         raise InvalidReceiptEventError("schemaVersion must be one of: v1, v2")
 
     return cast(SchemaVersion, raw_schema_version)

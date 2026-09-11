@@ -209,6 +209,18 @@ test('Cleanup verifies the requested Azure subscription before deleting', () => 
   assert.match(powershell, /Azure subscription mismatch/);
 });
 
+test('Cleanup fails when the resource group existence query fails', () => {
+  for (const [shell, result] of bothShells(
+    'cleanup.sh',
+    ['--yes'],
+    ['-Yes'],
+    { LIFECYCLE_AZ_FAIL_GROUP_EXISTS: '1' }
+  )) {
+    assert.notEqual(result.status, 0, `${shell} accepted a failed existence query`);
+    assert.match(result.stderr, /Unable to determine whether resource group/i, shell);
+  }
+});
+
 test('Deploy stamps the current git HEAD SHA and a UTC timestamp as Function app settings', () => {
   for (const shell of ['Bash', 'PowerShell']) {
     const logPath = resolve(scratchDir(), 'az.log');
@@ -283,6 +295,16 @@ test('Deploy runs the app baseline quality gates from the current checkout', () 
     assert.match(source, /ruff["'\s]+check/);
     assert.match(source, /mypy/);
     assert.match(source, /pytest/);
+  }
+});
+
+test('Deploy refuses a checkout with tracked changes before resolving HEAD', () => {
+  const bash = readScript('deploy.sh');
+  const powershell = readScript('deploy.ps1');
+
+  for (const source of [bash, powershell]) {
+    assert.match(source, /git status --porcelain --untracked-files=no/);
+    assert.match(source, /Refusing to deploy from a checkout with tracked changes/);
   }
 });
 

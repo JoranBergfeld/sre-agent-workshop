@@ -46,7 +46,9 @@ jobs:
         run: mypy
 
       - name: Run baseline tests with branch coverage
-        run: pytest --cov=order_events --cov-report=term-missing
+        run: |
+          pytest --cov=order_events --cov-report=term-missing
+          coverage report --include='order_events/normalizer/*' --fail-under=100
 
       - name: Verify the repair acceptance suite is intentionally red
         shell: bash
@@ -64,6 +66,10 @@ jobs:
               repair-output.txt \
               || true
           )"
+
+          if [[ "$repair_status" -eq 0 ]]; then
+            exit 0
+          fi
 
           if [[ "$repair_status" -ne 1 ]] ||
              [[ "$expected_failures" -ne 3 ]] ||

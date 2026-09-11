@@ -106,7 +106,11 @@ if [ -z "$active_subscription_id" ] || [ -z "$active_subscription_name" ]; then 
 if [ -n "$requested_subscription_id" ] && [ "$active_subscription_id" != "$requested_subscription_id" ]; then echo "Azure subscription mismatch: requested '$requested_subscription_id', but active subscription is '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; fi
 echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 
-if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
+if ! resource_group_exists=$(az group exists --name "$RESOURCE_GROUP" --output tsv); then
+  echo "Unable to determine whether resource group '$RESOURCE_GROUP' exists." >&2
+  exit 1
+fi
+if [ "$resource_group_exists" = "false" ]; then
   echo "Resource group '$RESOURCE_GROUP' not found. Nothing to delete."
   exit 0
 fi
