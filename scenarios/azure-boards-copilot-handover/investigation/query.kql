@@ -1,0 +1,38 @@
+// Queue state: the intended incident has an active backlog and no dead-lettered messages.
+AzureMetrics
+| where TimeGenerated > ago(1h)
+| where MetricName in ("ActiveMessages", "DeadletteredMessages")
+| extend MetricValue = coalesce(Maximum, Average, Total)
+| project TimeGenerated, ResourceId, MetricName, MetricValue, Tags
+| order by TimeGenerated desc
+
+// Valid v2 events reach the Function but the starting normalizer rejects their schema.
+AppExceptions
+| where TimeGenerated > ago(1h)
+| where
+    ExceptionType endswith "UnsupportedReceiptSchemaError"
+    or OuterMessage has "UnsupportedReceiptSchemaError"
+    or tostring(Details) has "UnsupportedReceiptSchemaError"
+| project TimeGenerated, ExceptionType, OuterMessage, Details, OperationId
+| order by TimeGenerated desc
+
+// Supported controls continue to create receipts while v2 receipt telemetry is absent.
+AppTraces
+| where TimeGenerated > ago(1h)
+| where Message startswith "Normalized receipt persisted "
+| extend telemetry = parse_json(substring(Message, strlen("Normalized receipt persisted ")))
+| extend
+    order_id = tostring(telemetry.order_id),
+    source_schema_version = tostring(telemetry.source_schema_version),
+    customer_id = tostring(telemetry.customer_id),
+    amount_minor = tolong(telemetry.amount_minor),
+    currency = tostring(telemetry.currency)
+| project
+    TimeGenerated,
+    order_id,
+    source_schema_version,
+    customer_id,
+    amount_minor,
+    currency,
+    OperationId
+| order by TimeGenerated desc

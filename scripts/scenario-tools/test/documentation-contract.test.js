@@ -486,6 +486,48 @@ test('GitHub integration guide uses current OAuth connector terminology and poli
   assert.doesNotMatch(guide, /GitHub MCP connector/i);
 });
 
+test('Azure Boards handover documentation preserves the approved learner journey', () => {
+  const scenarioRoot = resolve(scenariosRoot, 'azure-boards-copilot-handover');
+  const guide = readFileSync(resolve(scenarioRoot, 'README.md'), 'utf8');
+  const prerequisites = readFileSync(resolve(scenarioRoot, 'docs/00-prerequisites.md'), 'utf8');
+  const onboarding = readFileSync(resolve(scenarioRoot, 'docs/03-onboard-sre-agent.md'), 'utf8');
+  const handoff = readFileSync(
+    resolve(scenarioRoot, 'docs/06-approve-azure-boards-handoff.md'),
+    'utf8',
+  );
+  const recovery = readFileSync(
+    resolve(scenarioRoot, 'docs/90-review-deploy-validate.md'),
+    'utf8',
+  );
+  const cleanup = readFileSync(resolve(scenarioRoot, 'docs/99-cleanup.md'), 'utf8');
+  const bugDraft = readFileSync(resolve(scenarioRoot, 'azure-boards-bug.md'), 'utf8');
+
+  assert.match(guide, /no simulated, local, or GitHub-issue fallback/i);
+  assert.match(prerequisites, /GitHub App[\s*]*authentication/i);
+  assert.match(prerequisites, /paid GitHub Copilot plan/i);
+  assert.match(prerequisites, /Azure DevOps \*\*Contributor\*\*/i);
+  assert.match(prerequisites, /requirements-dev\.txt/i);
+  assert.match(prerequisites, /\bzip\b/i);
+  assert.match(onboarding, /Azure DevOps OAuth connector/i);
+  assert.match(onboarding, /one unassigned Bug/i);
+  assert.match(handoff, /Gate 1[\s\S]*APPROVE CREATE BUG/i);
+  assert.match(handoff, /Gate 2[\s\S]*Create a pull request with GitHub Copilot/i);
+  assert.match(handoff, /cannot be cancelled/i);
+  assert.match(recovery, /normalizer\/\*\*/i);
+  assert.match(recovery, /pytest -m repair/i);
+  assert.match(recovery, /pytest --cov=order_events --cov-report=term-missing/i);
+  assert.match(recovery, /Merge does not deploy/i);
+  assert.match(recovery, /Exactly 23 receipts[\s\S]*3 v1 and 20 v2/i);
+  assert.match(recovery, /read-only SRE Agent confirmation/i);
+  assert.match(cleanup, /Do not[\s\S]*Azure Boards GitHub App installation/i);
+  assert.match(bugDraft, /^## Title$/m);
+  assert.match(bugDraft, /^## Evidence$/m);
+  assert.match(bugDraft, /^## Permitted source scope$/m);
+  assert.match(bugDraft, /^## Acceptance criteria$/m);
+  assert.match(bugDraft, /InvalidReceiptEventError/);
+  assert.doesNotMatch(bugDraft, /Function key|access token|personal information/i);
+});
+
 test('cost guidance rejects the unresolved scaffold marker', () => {
   const guide = `## Cost profile
 
