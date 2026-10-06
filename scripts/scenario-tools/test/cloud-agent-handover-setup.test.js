@@ -178,3 +178,68 @@ test('Shared Cloud Agent Handover guidance uses local deployment', () => {
     assert.doesNotMatch(document, /Deploy Cloud Agent Handover Application/);
   }
 });
+
+test('Cloud Agent Handover documents providers, CodeQL licensing, and recommended region', () => {
+  const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
+  const prerequisites = readFileSync(
+    resolve(scenarioRoot, 'docs/00-prerequisites.md'),
+    'utf8'
+  );
+  const deploymentGuide = readFileSync(
+    resolve(scenarioRoot, 'docs/01-deploy-infrastructure.md'),
+    'utf8'
+  );
+
+  for (const provider of [
+    'Microsoft.Web',
+    'Microsoft.Insights',
+    'Microsoft.OperationalInsights',
+  ]) {
+    assert.match(prerequisites, new RegExp(provider.replace('.', '\\.')));
+  }
+  assert.match(prerequisites, /public repositories[\s\S]*CodeQL[\s\S]*free/i);
+  assert.match(
+    prerequisites,
+    /private or internal[\s\S]*GitHub Code Security[\s\S]*GitHub Advanced Security/i
+  );
+  assert.match(prerequisites, /recommend[\s\S]*`swedencentral`/i);
+  assert.match(deploymentGuide, /recommended[\s\S]*`swedencentral`/i);
+});
+
+test('Cloud Agent Handover documents prescriptive SRE Agent setup', () => {
+  const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
+  const onboardingGuide = readFileSync(
+    resolve(scenarioRoot, 'docs/03-onboard-sre-agent.md'),
+    'utf8'
+  );
+
+  for (const panel of ['Code', 'Logs', 'Azure Resources', 'Incidents']) {
+    assert.match(onboardingGuide, new RegExp(`\\*\\*${panel}\\*\\*`));
+  }
+  assert.match(onboardingGuide, /Complete setup/i);
+  assert.match(onboardingGuide, /Azure Monitor/i);
+  assert.match(onboardingGuide, /`<workload>-ai`/i);
+  assert.match(onboardingGuide, /Logs[\s\S]*skip/i);
+  assert.match(onboardingGuide, /Code[\s\S]*green check/i);
+  assert.match(onboardingGuide, /Azure Resources[\s\S]*permissions complete/i);
+});
+
+test('Cloud Agent Handover documents current governed response-plan flow', () => {
+  const responsePlan = readFileSync(
+    resolve(
+      repositoryRoot,
+      'scenarios/cloud-agent-handover/docs/04-configure-incident-response.md'
+    ),
+    'utf8'
+  );
+
+  assert.match(responsePlan, /Azure Monitor[\s\S]*connected/i);
+  assert.match(responsePlan, /cloud-agent-handover-investigator/);
+  assert.match(responsePlan, /Builder[\s\S]*Agent Canvas/i);
+  assert.match(
+    responsePlan,
+    /Create[\s\S]*Trigger[\s\S]*Incident response plan/i
+  );
+  assert.match(responsePlan, /Agent autonomy level[\s\S]*Review/i);
+  assert.match(responsePlan, /one unassigned GitHub issue/i);
+});
