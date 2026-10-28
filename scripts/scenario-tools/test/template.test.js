@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import yaml from 'js-yaml';
-import { makeValidator, checkScenario } from '../lib/validate.js';
+import { makeValidator, checkPageFlow, checkScenario } from '../lib/validate.js';
 
 function materialize(id, title, platform) {
   const root = mkdtempSync(resolve(import.meta.dirname, 'template-'));
@@ -46,6 +46,12 @@ test('template materializes a valid standalone scenario capsule', (t) => {
 
   const required = [
     'README.md',
+    'docs/00-prerequisites.md',
+    'docs/01-deploy-infrastructure.md',
+    'docs/02-onboard-sre-agent.md',
+    'docs/03-configure-incident-response.md',
+    'docs/90-run-observe-scenario.md',
+    'docs/99-cleanup.md',
     'infra/bicep/main.bicep',
     'scenario.yaml',
     'scripts/setup.sh',
@@ -79,6 +85,13 @@ test('template materializes a valid standalone scenario capsule', (t) => {
   );
 
   assert.deepEqual(errors, []);
+  assert.deepEqual(
+    checkPageFlow(
+      { id: 'disk-full', manifest, dir: dest },
+      { fileExists: existsSync, realpath: (path) => path, readFile: readFileSync }
+    ),
+    []
+  );
 
   const readme = readFileSync(resolve(dest, 'README.md'), 'utf8');
   assert.match(readme, /# Scenario: Disk Full/);

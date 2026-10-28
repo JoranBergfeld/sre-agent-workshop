@@ -13,10 +13,6 @@ for the investigation.
 3. Grant the agent identity **Reader** and **Monitoring Reader** on
    `rg-srelabiisapppool`. The agent needs those roles to read the scheduled
    query rule and its `Event` telemetry.
-4. In **Builder** → **Incident response plans**, create a plan named
-   `iis-app-pool-review`. Include the **IIS App Pool Failure** alert and set
-   autonomy to **Review**. Do not select autonomous remediation.
-
 Verify the agent can read the alert and collected events:
 
 ```bash
@@ -51,5 +47,4 @@ The ticket must match `CHG-<number>` or `INC-<number>`. At the prompt, type
 timestamp, and execution status to `output/actions-audit.log`. GitHub context
 does not replace this approval and audit process.
 
-Next: inject the fault from the [scenario README](../README.md), then follow
-[90 Watch the SRE Agent](./90-watch-agent-workflow.md).
+Next: [02 Configure incident response](./02-configure-incident-response.md).

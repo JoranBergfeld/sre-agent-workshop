@@ -11,6 +11,19 @@ learningObjectives:
   - Detect a stopped IIS app pool from Windows Event telemetry.
   - Restart the pool through the approval gate.
 guide: README.md
+pages:
+  - stage: prerequisites
+    path: docs/00-prerequisites.md
+  - stage: deploy-infrastructure
+    path: docs/01-deploy-infrastructure.md
+  - stage: onboard-sre-agent
+    path: docs/04-onboard-sre-agent.md
+  - stage: configure-incident-response
+    path: docs/02-configure-incident-response.md
+  - stage: run-observe-scenario
+    path: docs/90-watch-agent-workflow.md
+  - stage: cleanup
+    path: docs/99-cleanup.md
 setup:
   bash: scripts/setup.sh
   powershell: scripts/setup.ps1

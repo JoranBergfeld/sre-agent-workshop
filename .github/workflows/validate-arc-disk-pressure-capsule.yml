@@ -1,0 +1,26 @@
+name: Validate Arc Disk Pressure Capsule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/arc-disk-pressure/**'
+      - '.github/workflows/validate-arc-disk-pressure-capsule.yml'
+  pull_request:
+    paths:
+      - 'scenarios/arc-disk-pressure/**'
+      - '.github/workflows/validate-arc-disk-pressure-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test Arc Disk Pressure capsule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run capsule tests
+        run: bash scenarios/arc-disk-pressure/tests/capsule.test.sh

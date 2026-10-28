@@ -1,0 +1,4 @@
+azure-data-tables>=12.7.0,<13.0.0
+azure-functions>=1.23.0,<2.0.0
+azure-identity>=1.24.0,<2.0.0
+azure-servicebus>=7.14.0,<8.0.0

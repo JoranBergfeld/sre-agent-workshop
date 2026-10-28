@@ -1,0 +1,54 @@
+# Surgical disk remediation. Stops only a verified diskfill process and removes
+# the scenario's artifacts under C:\Temp\diskfill — narrower than cleanup-arc-disk-pressure.
+param(
+    [string]$ResourceGroup = "rg-srelabarcdisk",
+    [string]$VmName = "srelabarcdisk-vm01"
+)
+$requestedSubscriptionId = $env:AZURE_SUBSCRIPTION_ID; if ($requestedSubscriptionId) { az account set --subscription $requestedSubscriptionId; if ($LASTEXITCODE) { throw "Unable to select Azure subscription '$requestedSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" } }
+$activeSubscriptionId = [string](az account show --query id -o tsv); if ($LASTEXITCODE -or -not $activeSubscriptionId) { throw "Azure CLI is not authenticated. Run 'az login'." }
+$activeSubscriptionName = [string](az account show --query name -o tsv); if ($LASTEXITCODE -or -not $activeSubscriptionName) { throw "Unable to read the active Azure subscription." }
+$activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim(); if ($requestedSubscriptionId -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', active '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }; Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
+$script = @'
+$pidPath = 'C:\Temp\diskfill.pid'
+$ownerPath = 'C:\Temp\diskfill.owner.json'
+$markerPath = 'C:\Temp\diskfill.marker'
+$ownershipMatches = $false
+
+if ((Test-Path $pidPath) -and (Test-Path $ownerPath)) {
+  $pidText = Get-Content -Path $pidPath -Raw -ErrorAction SilentlyContinue
+  $owner = Get-Content -Path $ownerPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
+  if ($pidText -match '^\s*\d+\s*$' -and $owner) {
+    $workloadPid = [int]$pidText.Trim()
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $workloadPid" -ErrorAction SilentlyContinue
+    $commandMatches = $process -and $owner.encodedCommand -and $process.CommandLine -match [regex]::Escape([string]$owner.encodedCommand)
+    $ownershipMatches = $process -and
+      $owner.scenario -eq 'arc-disk-pressure' -and
+      $owner.marker -eq 'sre-agent-workshop/arc-disk-pressure/v1' -and
+      [int]$owner.processId -eq $workloadPid -and
+      $owner.processName -eq 'powershell.exe' -and
+      $process.Name -match '^powershell(\.exe)?$' -and
+      $commandMatches
+    if ($ownershipMatches) {
+      Stop-Process -Id $workloadPid -Force -ErrorAction Stop
+      Write-Output "Stopped owned arc-disk-pressure fill process PID $workloadPid."
+    } elseif ($process) {
+      Write-Output "Safe condition: process PID $workloadPid did not match the arc-disk-pressure ownership record; left process untouched."
+    } else {
+      Write-Output "Safe condition: arc-disk-pressure PID $workloadPid is stale; no process was stopped."
+    }
+  } else {
+    Write-Output 'Safe condition: invalid arc-disk-pressure ownership record; no process was stopped.'
+  }
+} elseif ((Test-Path $pidPath) -or (Test-Path $ownerPath)) {
+  Write-Output 'Safe condition: incomplete arc-disk-pressure ownership record; no process was stopped.'
+} else {
+  Write-Output 'Safe condition: no arc-disk-pressure ownership record found; no process was stopped.'
+}
+
+Remove-Item $pidPath, $ownerPath, $markerPath -Force -ErrorAction SilentlyContinue
+Remove-Item 'C:\Temp\diskfill' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item 'C:\Temp\diskfill.complete' -Force -ErrorAction SilentlyContinue
+Write-Output 'Disk cleanup completed (scenario artifacts removed; only verified owned processes are stopped).'
+'@
+
+& "$PSScriptRoot\..\..\tools\Invoke-ArcRunCommand.ps1" -ResourceGroup $ResourceGroup -MachineName $VmName -Script $script

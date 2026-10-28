@@ -19,6 +19,8 @@ scenario.
 3. [02 Verify the application](./docs/02-deploy-application.md)
 4. [03 Onboard the SRE Agent](./docs/03-onboard-sre-agent.md)
 5. [04 Configure incident response](./docs/04-configure-incident-response.md)
+6. [90 Watch the handover](./docs/90-watch-sre-agent.md)
+7. [99 Cleanup](./docs/99-cleanup.md)
 
 ## What breaks
 
@@ -78,7 +80,7 @@ intended recovery path. When using Azure, the SRE Agent must still investigate,
 request approval, and create the issue without an assignee. The learner reviews
 the issue and assigns Copilot before this common flow begins.
 
-Continue with [90 Watch the handover](./docs/90-watch-sre-agent.md).
+Continue with module 90, **Watch the handover**.
 
 ## Deploy the reviewed change
 
@@ -134,4 +136,4 @@ Both validators print this exact healthy message:
 Healthy: POST /api/feature returned the implemented HTTP 200 contract.
 ```
 
-Finish with [99 Cleanup](./docs/99-cleanup.md).
+Finish with module 99, **Cleanup**.

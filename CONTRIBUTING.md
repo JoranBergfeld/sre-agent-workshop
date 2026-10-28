@@ -41,13 +41,22 @@ The platform is scenario metadata, not a directory hierarchy.
 3. Fill in `scenario.yaml`. Required fields are `id`, `title`, `platform`,
    `incidentType`, `summary`, `severity` (0–4), `estimatedMinutes`,
    `difficulty` (`beginner`, `intermediate`, or `advanced`), `costProfile`
-   (`low`, `medium`, or `high`), `guide`, `setup`, `inject`, `validate`, and
-   `cleanup`. `id` must match the directory name; all referenced paths are
-   relative to the capsule. See
+   (`low`, `medium`, or `high`), `guide`, `pages`, `setup`, `inject`,
+   `validate`, and `cleanup`. `id` must match the directory name; all
+   referenced paths are relative to the capsule. See
    [`schemas/scenario.schema.json`](schemas/scenario.schema.json) for the
    authoritative contract.
 
-4. Implement the lifecycle in both shells. `setup`, `inject`, `validate`, and
+4. Declare the learner journey in `pages`. Every scenario requires these
+   semantic stages exactly once and in this order: `prerequisites`,
+   `deploy-infrastructure`, `onboard-sre-agent`,
+   `configure-incident-response`, `run-observe-scenario`, and `cleanup`.
+   Additional pages use `optional: true` and may appear before, between, or
+   after mandatory stages. The guide must link every declared page exactly
+   once and in manifest order. Filenames and numeric prefixes remain
+   scenario-specific.
+
+5. Implement the lifecycle in both shells. `setup`, `inject`, `validate`, and
    `cleanup` each require Bash and PowerShell paths in the manifest. Every
    referenced Bash script must be executable. If the optional `remediate` list
    is present, each action also needs a Bash/PowerShell pair and an executable
@@ -64,7 +73,7 @@ The platform is scenario metadata, not a directory hierarchy.
    `main` checkout, and deploys it with the scenario's `deploy.sh` or
    `deploy.ps1` helper.
 
-5. Validate locally:
+6. Validate locally:
 
    ```bash
    npm --prefix scripts/scenario-tools ci
@@ -81,14 +90,17 @@ The platform is scenario metadata, not a directory hierarchy.
    `<!-- BEGIN SCENARIO CATALOG -->` and
    `<!-- END SCENARIO CATALOG -->` by hand.
 
-6. Open a pull request. Use a conventional commit prefix such as `feat:`,
+7. Open a pull request. Use a conventional commit prefix such as `feat:`,
    `fix:`, `docs:`, `refactor:`, `ci:`, or `test:`.
 
 ## Scenario workflows
 
-**Validate Scenarios** checks the manifest schema, capsule lifecycle files,
-scenario-tool tests, generated-catalog drift, and Bicep modules. Scenario
-infrastructure changes also run their named validation workflow, such as
+**Validate Scenarios** is the repository-wide structural gate. It checks the
+manifest schema, mandatory learner-page flow, guide links, capsule lifecycle
+files, scenario-tool tests, and generated-catalog drift. Executable capsule
+tests and Bicep builds run in path-scoped scenario workflows so one capsule's
+runtime failure does not obscure structural validation. Scenario
+infrastructure changes run their named validation workflow, such as
 **Validate Cosmos RBAC Removal Infrastructure** or **Validate CPU Runaway
 Infrastructure**. Deployment workflows are explicitly named for their
 scenario and are manually dispatched where deployment is required.

@@ -1,0 +1,32 @@
+[tool.coverage.report]
+show_missing = true
+
+[tool.coverage.run]
+branch = true
+source = ["order_events"]
+
+[tool.mypy]
+files = ["function_app.py", "order_events"]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -m \"not repair\""
+markers = [
+  "repair: acceptance tests for the follow-up v2 normalizer repair",
+]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "N", "SIM", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# NormalizedReceipt fields mirror the canonical Table Storage entity property
+# names (sourceSchemaVersion, customerId, amountMinor, orderId) by contract.
+"order_events/normalizer/receipts.py" = ["N815"]

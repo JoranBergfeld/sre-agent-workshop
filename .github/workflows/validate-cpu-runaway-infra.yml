@@ -16,10 +16,13 @@ permissions:
 
 jobs:
   validate:
+    name: Build CPU Runaway Bicep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate CPU Runaway Bicep syntax
-        run: az bicep build --file scenarios/cpu-runaway/infra/bicep/main.bicep --stdout >/dev/null
+        run: |
+          az bicep build --file scenarios/cpu-runaway/infra/bicep/main.bicep --stdout >/dev/null
+          az bicep build --file scenarios/cpu-runaway/infra/bicep/modules/alert.bicep --stdout >/dev/null

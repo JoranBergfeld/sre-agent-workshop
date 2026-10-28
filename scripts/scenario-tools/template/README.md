@@ -16,11 +16,12 @@ and run cleanup immediately after completing the scenario.
 
 ## Flow
 
-1. Run `./scripts/inject.sh` or `./scripts/inject.ps1` to create the fault.
-2. Run `./scripts/validate.sh` or `./scripts/validate.ps1` to confirm the failure.
-3. Investigate the app, logs, and metrics in this folder.
-4. Run `./scripts/cleanup.sh` or `./scripts/cleanup.ps1` to restore the starting state.
-5. Run validation again to confirm the scenario is clean.
+1. [Prerequisites](./docs/00-prerequisites.md)
+2. [Deploy infrastructure](./docs/01-deploy-infrastructure.md)
+3. [Onboard SRE Agent](./docs/02-onboard-sre-agent.md)
+4. [Configure incident response](./docs/03-configure-incident-response.md)
+5. [Run and observe the scenario](./docs/90-run-observe-scenario.md)
+6. [Cleanup](./docs/99-cleanup.md)
 
 ## Notes
 

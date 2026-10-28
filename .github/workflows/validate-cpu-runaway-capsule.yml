@@ -1,0 +1,26 @@
+name: Validate CPU Runaway Capsule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cpu-runaway/**'
+      - '.github/workflows/validate-cpu-runaway-capsule.yml'
+  pull_request:
+    paths:
+      - 'scenarios/cpu-runaway/**'
+      - '.github/workflows/validate-cpu-runaway-capsule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test CPU Runaway capsule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run capsule tests
+        run: bash scenarios/cpu-runaway/tests/test-capsule.sh

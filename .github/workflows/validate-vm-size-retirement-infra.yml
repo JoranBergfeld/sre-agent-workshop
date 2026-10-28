@@ -18,10 +18,13 @@ permissions:
 
 jobs:
   validate:
+    name: Build VM Size Retirement Bicep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Validate VM Size Retirement Bicep syntax
-        run: az bicep build --file scenarios/vm-size-retirement/infra/bicep/main.bicep --stdout >/dev/null
+        run: |
+          az bicep build --file scenarios/vm-size-retirement/infra/bicep/main.bicep --stdout >/dev/null
+          az bicep build --file scenarios/vm-size-retirement/infra/bicep/service-health-alert.bicep --stdout >/dev/null

@@ -268,7 +268,7 @@ If you're running this workshop with a group, this is a great moment for storyte
 
 ## Next Step
 
-→ **[Module 6: Watch the SRE Agent Work](./docs/90-watch-sre-agent.md)**
+→ **Module 6: Watch the SRE Agent Work**
 
 In the next module, you'll see the SRE Agent correlate logs, read your code,
 propose remediation, and request approval before creating the single issue for
@@ -284,4 +284,4 @@ After recovery, run the capsule validator:
 ./scenarios/cosmos-rbac-removal/scripts/validate.ps1
 ```
 
-Finish with [99 Cleanup](./docs/99-cleanup.md).
+Finish with module 99, **Cleanup**.
