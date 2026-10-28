@@ -134,7 +134,39 @@ reference, or a confirmation alone is not evidence that recovery succeeded.
 
 ## 4. Verify CPU and application recovery
 
-Run the same health check used for the baseline.
+Choose the IIS check that matches your tunnel state. The validation script
+creates its own temporary HTTP tunnel on local port 18080; it does **not**
+reuse an existing tunnel. If that port is already in use, do not start a
+second tunnel on the same port.
+
+### If your HTTP tunnel is still running
+
+Confirm the existing tunnel forwards local port **18080** to port **80** on
+`srelabcpurunaway-vm01` (or your custom target VM). Keep its terminal open and
+run the check in another terminal. If you selected a different local port,
+replace `18080` below. An RDP tunnel cannot be used for this HTTP check.
+
+**Bash**
+
+```bash
+curl --max-time 20 --silent --show-error --output /dev/null \
+  --write-out '%{http_code}\n' http://127.0.0.1:18080
+```
+
+**PowerShell 7**
+
+```powershell
+(Invoke-WebRequest -Uri http://127.0.0.1:18080 -TimeoutSec 20 -ErrorAction Stop).StatusCode
+```
+
+Expected result: `200`. A timeout, connection error, or another status code
+does not pass the IIS check.
+
+### If no HTTP tunnel is running
+
+Run the same health check used for the baseline. Ensure local port 18080 is
+free first. The script opens the tunnel, checks IIS, and closes its tunnel
+when finished.
 
 **Bash**
 
@@ -154,10 +186,12 @@ Run the same health check used for the baseline.
   -BastionName srelabcpurunaway-bas
 ```
 
-Expected result: `HTTP status: 200` and `Smoke test passed.` This checks IIS
-through Bastion; it does **not** check CPU or alert resolution.
+Expected result: `HTTP status: 200` and `Smoke test passed.`
 
-Also:
+### Verify CPU and alert recovery in either case
+
+Both options above check IIS through Bastion; neither checks CPU or alert
+resolution. Also:
 
 1. Re-run the `Perf` query from step 01. Confirm that samples **after the
    recovery time** fall below 85% and return toward the baseline.
