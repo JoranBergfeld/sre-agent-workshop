@@ -31,13 +31,15 @@ the scenario's local approval script, provide a ticket reference, and confirm
 the action in your terminal. The script stops only the lab's marked CPU
 workers. Step 05 explains exactly what the approval does and does not do.
 
-## Cost and naming
+## Cost profile
 
 The **high** profile is a qualitative cost estimate. The dominant cost drivers
 are two Windows VMs, Standard Azure Bastion, Application Insights and Log
 Analytics ingestion, and Azure SRE Agent usage. Confirm current pricing for
 your deployment region before provisioning, and run cleanup immediately after
 completing the scenario.
+
+## Resource naming
 
 The default workload name is `srelabcpurunaway`. Custom workload names must be
 unique; replace the resource group, VM, Bastion, and workspace values throughout
