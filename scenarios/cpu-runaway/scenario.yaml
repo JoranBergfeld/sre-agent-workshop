@@ -17,11 +17,13 @@ pages:
   - stage: deploy-infrastructure
     path: docs/01-deploy-infrastructure.md
   - stage: onboard-sre-agent
-    path: docs/03-onboard-sre-agent.md
+    path: docs/02-onboard-sre-agent.md
   - stage: configure-incident-response
-    path: docs/02-configure-incident-response.md
+    path: docs/03-configure-incident-response.md
+  - path: docs/04-inject-fault.md
+    optional: true
   - stage: run-observe-scenario
-    path: docs/90-watch-agent-workflow.md
+    path: docs/05-investigate-and-recover.md
   - stage: cleanup
     path: docs/99-cleanup.md
 setup:

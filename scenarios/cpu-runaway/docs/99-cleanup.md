@@ -45,3 +45,19 @@ deleting Azure resources:
 
 Authentication and Azure CLI errors are returned to the caller; only an
 explicit `ResourceGroupNotFound` result is treated as already cleaned up.
+
+After deletion completes, confirm that the resource group is gone (same
+command in either shell):
+
+```text
+az group exists --name rg-srelabcpurunaway
+```
+
+Expected result: `false`. If deletion is still in progress, wait and check
+again. Remove any scenario-specific resource mapping or response plan from
+an SRE Agent you are keeping. Deleting the scenario resource group does not
+delete an agent hosted elsewhere or the investigation and audit files in
+your local checkout.
+
+**Previous:** [05 Investigate, approve recovery, and verify](./05-investigate-and-recover.md) |
+**Return to:** [Scenario overview](../README.md).
