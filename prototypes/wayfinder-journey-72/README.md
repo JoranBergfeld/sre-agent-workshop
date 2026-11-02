@@ -2,8 +2,9 @@
 
 Disposable author-review outline, not a learner guide or implementation spec.
 No application, infrastructure, commands, or live validation are provided.
-Revision two incorporates live author feedback. The placement of review-agent
-work outside the measured passes awaits final confirmation.
+Accepted through live author feedback on 2026-11-02, including placement of
+review-agent work outside the measured passes. The canonical decision is the
+resolution comment on the linked ticket; this remains a throwaway asset.
 
 Question: can one experienced attendee complete the context comparison,
 customize both review surfaces, and follow a mandatory security repair loop
@@ -73,7 +74,7 @@ These are teaching phases, not a final manifest page list. The eventual capsule
 must preserve the repository's required semantic stages and paired shell
 lifecycle operations.
 
-### Placement proposed for confirmation
+### Accepted placement
 
 Put review-agent definition and the security review loop after both measured
 passes, on the separate security fixture PR. This makes security central without
@@ -151,11 +152,12 @@ One row per attempt, with baseline/customized and retry identifiers:
 - Finish the main journey at PR/security learning outcomes; retain deployment
   only as short operational follow-through.
 
-## Remaining author confirmation
+## Verdict
 
-Accept this revised journey, including locating the reviewer-configuration
+The author accepted this journey, including locating the reviewer-configuration
 exercise and mandatory security loop after the two measured passes, with their
-additional agent consumption recorded separately?
+additional agent consumption recorded separately. This validates the outline
+for planning, not the live operability of the combined workshop.
 
 Detailed timing, access/licensing gates, resource limits, acceptance thresholds,
 and exact lifecycle contracts remain with
