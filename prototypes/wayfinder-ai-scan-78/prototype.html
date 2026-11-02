@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prototype: two agent runs, separate security PR</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 16px/1.5 system-ui, sans-serif;
+      color: #17212b;
+      background: #f3f6f8;
+      --accent: #0969da;
+      --border: #d0d7de;
+      --muted: #57606a;
+    }
+    body { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    h1 { line-height: 1.15; }
+    h2 { margin-top: 2rem; }
+    .banner, .panel, .walkthrough { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+    .banner { border-left: 5px solid var(--accent); }
+    .muted { color: var(--muted); }
+    .state { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .75rem; }
+    .card { border: 1px solid var(--border); border-radius: 8px; padding: .8rem; }
+    .card h3 { margin: 0 0 .45rem; font-size: 1rem; }
+    .card p { margin: .25rem 0; }
+    button { border: 1px solid var(--border); border-radius: 6px; background: white; color: #17212b; padding: .55rem .8rem; cursor: pointer; margin: .2rem; }
+    button:hover, button:focus-visible { border-color: var(--accent); outline: 2px solid #0969da33; }
+    button.primary { color: white; background: var(--accent); border-color: var(--accent); }
+    .tabs { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .75rem; }
+    [hidden] { display: none !important; }
+    ol { padding-left: 1.25rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="muted">THROWAWAY WORKFLOW PROTOTYPE — NOT A LIVE PRODUCT DEMO</p>
+    <h1>Compare the agent runs; isolate the security check</h1>
+    <p>This prototype asks whether a solo learner can compare a naive and a context-disciplined SRE-to-Copilot handover without mixing in a separate PHP security exercise.</p>
+  </header>
+
+  <section class="banner" aria-label="Prototype boundary">
+    <strong>Prototype boundary</strong>
+    <p>Buttons below model recording a learner journey. They do not call Azure, GitHub, AI Scan, or Copilot, and they contain no measured token values or scan results.</p>
+  </section>
+
+  <h2>Journey state</h2>
+  <section id="state" class="state" aria-live="polite"></section>
+
+  <h2>Free play</h2>
+  <section class="panel">
+    <p>Record the stages in any order. Run outcomes and actual measurements must come from the live products.</p>
+    <button data-action="baseline">Record baseline run + PR</button>
+    <button data-action="context">Record context-disciplined run + PR</button>
+    <button data-action="security-pr">Record separate fixture PR</button>
+    <button data-action="scan">Record AI Scan attempt</button>
+    <button data-action="finding">Record finding observed</button>
+    <button data-action="no-finding">Record no finding</button>
+    <button data-action="autofix">Record named Autofix availability</button>
+    <button data-action="no-autofix">Record Autofix unavailable</button>
+    <button data-action="reset">Reset</button>
+  </section>
+
+  <h2>Guided walkthroughs</h2>
+  <div class="tabs" role="tablist" aria-label="Walkthroughs">
+    <button role="tab" aria-selected="true" data-tab="compare">Compare runs</button>
+    <button role="tab" aria-selected="false" data-tab="security">Separate security PR</button>
+  </div>
+  <section id="compare" class="walkthrough" role="tabpanel">
+    <p><strong>Same incident, changed context.</strong> Keep the seeded timing regression, request workload, and acceptance bar constant. Save both SRE traces and both coding-agent PRs, then compare correctness and actual per-run usage for each product.</p>
+    <ol>
+      <li><button data-action="baseline">Record baseline run + PR</button></li>
+      <li><button data-action="context">Record context-disciplined run + PR</button></li>
+    </ol>
+    <p class="muted">Do not treat a shorter parent context as lower total usage; include delegated work and keep measured counts distinct from estimates.</p>
+  </section>
+  <section id="security" class="walkthrough" role="tabpanel" hidden>
+    <p><strong>Separate changed-line fixture.</strong> Open a disposable PR containing the PHP fixture; scan that PR before fixing it. The incident injection does not trigger AI Scan.</p>
+    <ol>
+      <li><button data-action="security-pr">Record separate fixture PR</button></li>
+      <li><button data-action="scan">Record AI Scan attempt</button></li>
+      <li><button data-action="finding">Record finding observed</button> or <button data-action="no-finding">Record no finding</button></li>
+      <li><button data-action="autofix">Record named Autofix availability</button> or <button data-action="no-autofix">Record Autofix unavailable</button></li>
+    </ol>
+    <p class="muted">A reference example is not a live finding. Do not merge or deploy this fixture.</p>
+  </section>
+
+  <script>
+    const initialState = () => ({
+      baseline: { run: "not recorded", trace: "not recorded", issueAndPr: "not recorded", usage: "not measured" },
+      contextDisciplined: { run: "not recorded", trace: "not recorded", issueAndPr: "not recorded", usage: "not measured" },
+      security: { fixturePr: "not opened", aiScan: "not attempted", finding: "not observed", namedAutofix: "not checked", mergedOrDeployed: "no" },
+      comparison: "not ready: both runs and actual usage observations are required"
+    });
+
+    const reducer = (state, action) => {
+      const next = structuredClone(state);
+      if (action.type === "baseline") {
+        next.baseline = { run: "recorded", trace: "attached", issueAndPr: "opened", usage: "measure exact per-run values" };
+      } else if (action.type === "context") {
+        next.contextDisciplined = { run: "recorded", trace: "attached", issueAndPr: "opened", usage: "measure exact per-run values" };
+      } else if (action.type === "security-pr") {
+        next.security.fixturePr = "open; contains changed PHP fixture";
+      } else if (action.type === "scan") {
+        next.security.aiScan = "attempt recorded; verify actual PR result";
+      } else if (action.type === "finding") {
+        next.security.finding = "observed only if present on the live PR";
+      } else if (action.type === "no-finding") {
+        next.security.finding = "not observed; live detection unproven";
+      } else if (action.type === "autofix") {
+        next.security.namedAutofix = "check whether named suggestion is actually available";
+      } else if (action.type === "no-autofix") {
+        next.security.namedAutofix = "unavailable; live fix path unproven";
+      } else if (action.type === "reset") {
+        return initialState();
+      }
+
+      const runsReady = next.baseline.run === "recorded" && next.contextDisciplined.run === "recorded";
+      next.comparison = runsReady
+        ? "runs recorded; compare only after actual usage and correctness evidence are captured"
+        : "not ready: both runs and actual usage observations are required";
+      return next;
+    };
+
+    let state = initialState();
+    const renderCard = (title, fields) => {
+      const card = document.createElement("article");
+      card.className = "card";
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      card.append(heading);
+      for (const [label, value] of Object.entries(fields)) {
+        const row = document.createElement("p");
+        const name = document.createElement("strong");
+        name.textContent = `${label}: `;
+        row.append(name, document.createTextNode(value));
+        card.append(row);
+      }
+      return card;
+    };
+    const render = () => {
+      const root = document.querySelector("#state");
+      root.replaceChildren(
+        renderCard("Baseline run", state.baseline),
+        renderCard("Context-disciplined run", state.contextDisciplined),
+        renderCard("Separate security exercise", state.security),
+        renderCard("Comparison readiness", { status: state.comparison })
+      );
+    };
+    document.addEventListener("click", event => {
+      const button = event.target.closest("button[data-action]");
+      if (button) {
+        state = reducer(state, { type: button.dataset.action });
+        render();
+      }
+      const tab = event.target.closest("button[data-tab]");
+      if (tab) {
+        for (const item of document.querySelectorAll("[data-tab]")) {
+          const selected = item === tab;
+          item.setAttribute("aria-selected", String(selected));
+          document.getElementById(item.dataset.tab).hidden = !selected;
+        }
+      }
+    });
+    render();
+  </script>
+</body>
+</html>
