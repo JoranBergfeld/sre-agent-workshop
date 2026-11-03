@@ -27,6 +27,7 @@ for (const [workflow, identity] of Object.entries(workflows)) {
       const content = readFileSync(file, 'utf8');
       assert.match(content, /classic PAT/);
       assert.match(content, /read:packages/);
+      assert.match(content, /GHCR_READ_USERNAME/);
       assert.doesNotMatch(content, /fine-grained|Packages: read/);
     }
     const guide = readFileSync(paths[2], 'utf8');
@@ -44,7 +45,8 @@ for (const [workflow, identity] of Object.entries(workflows)) {
 
     assert.match(content, /DOCKER_CONFIG=\$\(mktemp -d\)/);
     assert.match(content, /trap 'rm -rf -- "\$DOCKER_CONFIG"' EXIT/);
-    assert.match(content, /docker --config "\$DOCKER_CONFIG" login ghcr\.io --username "\$\{\{ github\.repository_owner \}\}" --password-stdin/);
+    assert.match(content, /GHCR_READ_USERNAME: \$\{\{ vars\.GHCR_READ_USERNAME \|\| github\.repository_owner \}\}/);
+    assert.equal((content.match(/docker --config "\$DOCKER_CONFIG" login ghcr\.io --username "\$GHCR_READ_USERNAME" --password-stdin/g) ?? []).length, 2);
     assert.match(content, /docker --config "\$DOCKER_CONFIG" manifest inspect "\$\{IMAGE\}"/);
     assert.match(
       content,

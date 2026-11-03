@@ -61,6 +61,12 @@ Time to introduce a realistic infrastructure fault. You'll remove a critical rol
 
 Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a **classic PAT** that has the **`read:packages`** scope and access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
 
+Set repository variable `GHCR_READ_USERNAME` to the GitHub username of the
+individual who owns that PAT, not the organization name. It defaults to the
+repository owner for personal repositories; organization repositories and
+PATs belonging to another user must set it explicitly. Authorize the token
+for organization SSO when required.
+
 ## The Scenario
 
 > _A team member is reviewing the Bicep code during a cleanup initiative. They spot a role assignment on the CosmosDB account that they think might be leftover from an old project. No one is sure if it's needed, so they remove it, commit the change, and submit a PR. The code review looks good — the Bicep is syntactically valid. The PR gets merged. The team deploys the updated infrastructure. The deployment completes successfully._

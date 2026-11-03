@@ -69,6 +69,12 @@ This scenario introduces an **authentication** fault — a different failure cla
 
 Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a **classic PAT** that has the **`read:packages`** scope and access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
 
+Set repository variable `GHCR_READ_USERNAME` to the GitHub username of the
+individual who owns that PAT, not the organization name. It defaults to the
+repository owner for personal repositories; organization repositories and
+PATs belonging to another user must set it explicitly. Authorize the token
+for organization SSO when required.
+
 ## The Scenario
 
 > _During an identity hygiene review, an engineer is auditing user-assigned managed identities. They find a federated identity credential on `<workload>-id` (for example, `srelabidentity-id` with the default workload) with an unfamiliar issuer URL and a subject referencing a Kubernetes ServiceAccount. It looks like leftover federation from an old migration. They remove the `federatedCredential` block from the Bicep, commit, and the PR merges cleanly — the template is valid. The next infrastructure deploy reconciles it away._

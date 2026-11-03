@@ -7,6 +7,9 @@ on:
     paths:
       - 'README.md'
       - 'schemas/scenario.schema.json'
+      - 'schemas/placement.schema.json'
+      - 'scripts/placement/**'
+      - 'scripts/build-artifacts/**'
       - 'scripts/scenario-tools/**'
       - 'scripts/validate-scenarios.sh'
       - '.github/workflows/validate-scenarios.yml'
@@ -15,6 +18,9 @@ on:
     paths:
       - 'README.md'
       - 'schemas/scenario.schema.json'
+      - 'schemas/placement.schema.json'
+      - 'scripts/placement/**'
+      - 'scripts/build-artifacts/**'
       - 'scripts/scenario-tools/**'
       - 'scripts/validate-scenarios.sh'
       - '.github/workflows/validate-scenarios.yml'

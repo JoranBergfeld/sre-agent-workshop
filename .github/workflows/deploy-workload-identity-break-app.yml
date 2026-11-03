@@ -26,6 +26,7 @@ jobs:
       SCENARIO_ROOT: scenarios/workload-identity-break
       WORKLOAD: ${{ inputs.workloadName || vars.WORKLOAD_NAME || 'srelabidentity' }}
       IMAGE_TAG: ${{ inputs.imageTag }}
+      GHCR_READ_USERNAME: ${{ vars.GHCR_READ_USERNAME || github.repository_owner }}
     steps:
       - name: Validate image tag
         run: |
@@ -84,7 +85,7 @@ jobs:
 
           DOCKER_CONFIG=$(mktemp -d)
           trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
-          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "$GHCR_READ_USERNAME" --password-stdin >/dev/null
 
           if ! docker --config "$DOCKER_CONFIG" manifest inspect "${IMAGE}" >/dev/null; then
             echo "::error::Unable to inspect authenticated image ${IMAGE}"
@@ -110,7 +111,7 @@ jobs:
           set -euo pipefail
           DOCKER_CONFIG=$(mktemp -d)
           trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
-          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "${{ github.repository_owner }}" --password-stdin >/dev/null
+          printf '%s' "$GHCR_READ_TOKEN" | docker --config "$DOCKER_CONFIG" login ghcr.io --username "$GHCR_READ_USERNAME" --password-stdin >/dev/null
 
           kubectl create namespace workload-identity-break --dry-run=client -o yaml | kubectl apply -f -
           kubectl create secret generic ghcr-pull --namespace workload-identity-break --type=kubernetes.io/dockerconfigjson --from-file=.dockerconfigjson="$DOCKER_CONFIG/config.json" --dry-run=client -o yaml | kubectl apply -f -

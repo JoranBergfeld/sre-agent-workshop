@@ -6,11 +6,15 @@ on:
     paths:
       - 'scenarios/appservice-latency-context/**'
       - '.devcontainer/appservice-latency-context/**'
+      - 'scripts/placement/**'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-latency-context.yml'
   pull_request:
     paths:
       - 'scenarios/appservice-latency-context/**'
       - '.devcontainer/appservice-latency-context/**'
+      - 'scripts/placement/**'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-latency-context.yml'
   workflow_dispatch:
 

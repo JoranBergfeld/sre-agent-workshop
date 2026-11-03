@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import yaml from 'js-yaml';
 
 const workflow = readFileSync(
   resolve(import.meta.dirname, '..', '..', '..', '.github', 'workflows', 'validate-scenarios.yml'),
@@ -15,4 +16,20 @@ test('Validate Scenarios remains a structural-only repository gate', () => {
   assert.doesNotMatch(workflow, /print-test-target\.js/);
   assert.doesNotMatch(workflow, /dotnet test/);
   assert.doesNotMatch(workflow, /az bicep build/);
+});
+
+test('shared placement and artifact changes trigger both validation workflows on push and pull requests', () => {
+  const latency = readFileSync(
+    resolve(import.meta.dirname, '..', '..', '..', '.github', 'workflows', 'validate-appservice-latency-context.yml'),
+    'utf8',
+  );
+  for (const [source, schemaRequired] of [[workflow, true], [latency, false]]) {
+    const parsed = yaml.load(source);
+    for (const event of ['push', 'pull_request']) {
+      const paths = parsed.on[event].paths;
+      assert.ok(paths.includes('scripts/placement/**'), event);
+      assert.ok(paths.includes('scripts/build-artifacts/**'), event);
+      if (schemaRequired) assert.ok(paths.includes('schemas/placement.schema.json'), event);
+    }
+  }
 });

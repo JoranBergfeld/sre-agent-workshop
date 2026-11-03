@@ -22,6 +22,10 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 
 1. **Publish an immutable image first.** Run `Publish Workload Identity Break Image` from the **Actions** tab, or push an application change to `main`. It publishes `ghcr.io/<owner>/<repository>/workload-identity-break/app:<commit-sha>`. Copy the published commit SHA from that workflow run.
 2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a **classic PAT** with the **`read:packages`** scope and access to the package. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
+   Set repository variable `GHCR_READ_USERNAME` to the PAT owner's GitHub username
+   (not the organization name). It defaults to the repository owner, preserving
+   personal-repository behavior; organization repositories or tokens owned by
+   another user require the explicit variable. Authorize organization SSO if required.
 3. **Go to your generated repository** on GitHub → **Actions** tab and select `Deploy Workload Identity Break Application`.
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
    - **workloadName** (default: `srelabidentity`) — **must match what you used in Module 1**.
