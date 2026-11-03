@@ -38,8 +38,14 @@ command -v node >/dev/null 2>&1 || { echo "Preflight failed: Node.js 20+ is requ
 PREFLIGHT=$(node "$REPO_ROOT/scripts/placement/provision.mjs" check vm-size-retirement \
   --workload "$WORKLOAD" --resource-group "$RESOURCE_GROUP" --parts fleet,targets --require-group --json) \
   || { echo "Preflight failed: $RESOURCE_GROUP cannot host the retiring fleet and a remediation target in its region (see above). Nothing was created." >&2; exit 1; }
-LOCATION=$(printf '%s' "$PREFLIGHT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);if(!r.eligible||!r.pinnedLocation)process.exit(1);process.stdout.write(r.pinnedLocation)})') \
-  || { echo "Preflight failed: $RESOURCE_GROUP has no verified vm-size-retirement deployment. Run setup first. Nothing was created." >&2; exit 1; }
+PLACEMENT=$(printf '%s' "$PREFLIGHT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);if(!r.eligible||!r.pinnedLocation||!r.remediationTarget)process.exit(1);process.stdout.write([r.pinnedLocation,r.remediationTarget,r.remediationTargetRecorded?"recorded":"proposed"].join(" "))})') \
+  || { echo "Preflight failed: $RESOURCE_GROUP has no verified vm-size-retirement deployment with an eligible remediation target. Run setup first. Nothing was created." >&2; exit 1; }
+read -r LOCATION REMEDIATION_TARGET TARGET_STATE <<<"$PLACEMENT"
+if [ "$TARGET_STATE" = "recorded" ]; then
+  TARGET_GUIDANCE="resize them to $REMEDIATION_TARGET, the remediation target recorded for this deployment,"
+else
+  TARGET_GUIDANCE="resize them to a current series available in $LOCATION ($REMEDIATION_TARGET passed the preflight; approved remediation re-verifies and records its target before resizing)"
+fi
 echo "Preflight passed: planting the retiring fleet in $LOCATION."
 
 LEGACY_VMS="
@@ -104,9 +110,11 @@ Simulated Azure Service Health advisory — paste into the SRE Agent:
     "trackingId": "0BNF-9X8",
     "impactedService": "Virtual Machines",
     "impactedSizes": "Standard_DS1_v2 / Standard_DS2_v2 (DSv2-series)",
-    "retirementDate": "2027-05-31",
+    "retirementDate": "2028-05-01",
     "subscriptionId": "$SUBSCRIPTION_ID",
-    "communication": "The Dv2/DSv2-series VM sizes are being retired on 2027-05-31. Identify all virtual machines in your control on these sizes and resize them to a current series (for example Standard_D2s_v5) before the retirement date to avoid service disruption."
+    "remediationTarget": "$REMEDIATION_TARGET",
+    "remediationTargetState": "$TARGET_STATE",
+    "communication": "The Dv2/DSv2-series VM sizes are being retired on 2028-05-01. Identify all virtual machines in your control on these sizes and $TARGET_GUIDANCE before the retirement date to avoid service disruption."
   }
 }
 ================================================================

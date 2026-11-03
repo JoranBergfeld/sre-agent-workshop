@@ -22,7 +22,7 @@ The approval record should contain:
 
 - the Service Health tracking ID and retirement date;
 - the retiring SKUs and affected VM inventory;
-- the target `Standard_D2s_v5` size and expected disruption;
+- the remediation target named in the advisory (the recorded or preflight-verified size in that region) and expected disruption;
 - the validation command and completion criteria.
 
 ## Approval-gated migration

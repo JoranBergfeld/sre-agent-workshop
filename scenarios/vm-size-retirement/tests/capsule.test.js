@@ -589,6 +589,36 @@ for (const [label, command, arguments_] of [
     for (const line of creates) assert.match(line, /--location swedencentral/, line);
   });
 
+  test(`${label} injector advisory names the verified remediation target and the 2028-05-01 DSv2 retirement`, (t) => {
+    const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
+    const fixtureDirectory = capsulePath('tests/fixtures/az-inject');
+    t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+    const advisory = (extra) => {
+      const result = run(command, arguments_, {
+        env: { PATH: `${fixtureDirectory}:${process.env.PATH}`, AZ_INJECT_TRACE: resolve(temporaryRoot, 'trace.log'), ...extra },
+      });
+      assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+      const json = result.stdout.slice(result.stdout.indexOf('{'), result.stdout.lastIndexOf('}') + 1);
+      return JSON.parse(json).properties;
+    };
+
+    const recorded = advisory({ AZ_INJECT_RECORDED_TARGET: 'Standard_D2as_v5' });
+    assert.equal(recorded.retirementDate, '2028-05-01');
+    assert.equal(recorded.region, 'swedencentral');
+    assert.equal(recorded.remediationTarget, 'Standard_D2as_v5');
+    assert.equal(recorded.remediationTargetState, 'recorded');
+    assert.match(recorded.communication, /retired on 2028-05-01/);
+    assert.match(recorded.communication, /Standard_D2as_v5, the remediation target recorded/);
+    assert.doesNotMatch(recorded.communication, /Standard_D2s_v5|2027/);
+
+    const proposed = advisory({});
+    assert.equal(proposed.retirementDate, '2028-05-01');
+    assert.equal(proposed.remediationTarget, 'Standard_D2s_v5');
+    assert.equal(proposed.remediationTargetState, 'proposed');
+    assert.match(proposed.communication, /Standard_D2s_v5 passed the preflight; approved remediation re-verifies/);
+    assert.doesNotMatch(proposed.communication, /2027/);
+  });
+
   test(`${label} injector creates nothing when the fleet preflight finds no capacity`, (t) => {
     const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
     const fixtureDirectory = capsulePath('tests/fixtures/az-inject');

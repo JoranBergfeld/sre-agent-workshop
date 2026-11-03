@@ -30,8 +30,15 @@ $engine = Join-Path $PSScriptRoot '../../../scripts/placement/provision.mjs'
 $preflight = & node $engine check vm-size-retirement --workload $Workload --resource-group $ResourceGroup --parts fleet,targets --require-group --json
 if ($LASTEXITCODE -ne 0) { throw "Preflight failed: $ResourceGroup cannot host the retiring fleet and a remediation target in its region (see above). Nothing was created." }
 $report = ($preflight -join "`n") | ConvertFrom-Json
-if (-not $report.eligible -or -not $report.pinnedLocation) { throw "Preflight failed: $ResourceGroup has no verified vm-size-retirement deployment. Run setup first. Nothing was created." }
+if (-not $report.eligible -or -not $report.pinnedLocation -or -not $report.remediationTarget) { throw "Preflight failed: $ResourceGroup has no verified vm-size-retirement deployment with an eligible remediation target. Run setup first. Nothing was created." }
 $location = [string]$report.pinnedLocation
+$remediationTarget = [string]$report.remediationTarget
+$targetState = if ($report.remediationTargetRecorded) { "recorded" } else { "proposed" }
+$targetGuidance = if ($targetState -eq "recorded") {
+    "resize them to $remediationTarget, the remediation target recorded for this deployment,"
+} else {
+    "resize them to a current series available in $location ($remediationTarget passed the preflight; approved remediation re-verifies and records its target before resizing)"
+}
 Write-Host "Preflight passed: planting the retiring fleet in $location."
 
 $legacyVms = @(
@@ -92,9 +99,11 @@ $advisory = @"
     "trackingId": "0BNF-9X8",
     "impactedService": "Virtual Machines",
     "impactedSizes": "Standard_DS1_v2 / Standard_DS2_v2 (DSv2-series)",
-    "retirementDate": "2027-05-31",
+    "retirementDate": "2028-05-01",
     "subscriptionId": "$subscriptionId",
-    "communication": "The Dv2/DSv2-series VM sizes are being retired on 2027-05-31. Identify all virtual machines in your control on these sizes and resize them to a current series (for example Standard_D2s_v5) before the retirement date to avoid service disruption."
+    "remediationTarget": "$remediationTarget",
+    "remediationTargetState": "$targetState",
+    "communication": "The Dv2/DSv2-series VM sizes are being retired on 2028-05-01. Identify all virtual machines in your control on these sizes and $targetGuidance before the retirement date to avoid service disruption."
   }
 }
 "@

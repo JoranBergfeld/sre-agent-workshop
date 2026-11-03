@@ -18,7 +18,9 @@ if [[ " $* " == *" --output json "* ]]; then
     "group exists")
       if [ "${AZ_INJECT_NO_GROUP:-}" = "1" ]; then echo false; else echo true; fi ;;
     "group show")
-      echo '{"location":"westeurope","tags":{"sre-workshop-scenario":"vm-size-retirement","sre-workshop-location":"swedencentral","sre-workshop-sku":"Standard_B2s"}}' ;;
+      # AZ_INJECT_RECORDED_TARGET simulates a remediation target already recorded on the group.
+      recorded=""; [ -n "${AZ_INJECT_RECORDED_TARGET:-}" ] && recorded=",\"sre-workshop-remediation-target\":\"$AZ_INJECT_RECORDED_TARGET\""
+      echo "{\"location\":\"westeurope\",\"tags\":{\"sre-workshop-scenario\":\"vm-size-retirement\",\"sre-workshop-location\":\"swedencentral\",\"sre-workshop-sku\":\"Standard_B2s\"$recorded}}" ;;
     "resource list") echo '[]' ;;
     "vm list")
       echo '[{"name":"srelabretirement-vm01","size":"Standard_B2s","location":"swedencentral"},{"name":"srelabretirement-vm02","size":"Standard_B2s","location":"swedencentral"}]' ;;
