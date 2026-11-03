@@ -143,29 +143,33 @@ async function main() {
   let revision;
   let archive;
   let artifact;
+  let artifactVariant;
   if (['setup', 'inject', 'reset', 'deploy'].includes(operation)) {
     revision = operation === 'inject' ? 'faulty' : 'healthy';
     if (operation === 'deploy') {
-      if (options['source-dir'] || options.reviewed) {
-        if (options.reviewed !== 'yes' || !options['source-dir'] || options.variant) {
-          throw new Error('Reviewed deploy requires --reviewed yes --source-dir PATH without --variant');
-        }
+      if (options.reviewed !== undefined) {
+        if (options.reviewed !== 'yes') throw new Error('Reviewed deploy requires explicit --reviewed yes confirmation');
+        if (options.variant) throw new Error('Reviewed deploy cannot be combined with --variant');
         revision = 'reviewed';
+        if (!options['source-dir'] && !options['local-build']) artifactVariant = 'reviewed-source';
+      } else if (options['source-dir']) {
+        throw new Error('Reviewed source deployment requires explicit --reviewed yes confirmation');
       } else {
         revision = options.variant || 'healthy';
         if (!['healthy', 'faulty'].includes(revision)) throw new Error('Variant must be healthy or faulty');
       }
     }
     await placement('check', ['--require-group']);
-    if (revision === 'reviewed' || options['local-build']) {
+    if (options['source-dir'] || options['local-build']) {
       archive = path.join(directory, `deployment-${randomUUID()}.zip`);
       await writeFile(archive, await packageApp(capsule, revision, options['source-dir'] && path.resolve(options['source-dir'])));
     } else {
+      artifactVariant ||= revision;
       artifact = JSON.parse(await command('node', [
         path.join(repository, 'scripts/build-artifacts/resolve.mjs'),
-        '--scenario', scenario, '--variant', revision, '--output-dir', directory,
+        '--scenario', scenario, '--variant', artifactVariant, '--output-dir', directory,
       ]));
-      if (artifact.scenario !== scenario || artifact.variant !== revision
+      if (artifact.scenario !== scenario || artifact.variant !== artifactVariant
         || !/^[a-f0-9]{40}$/.test(artifact.sourceSha || '') || !path.isAbsolute(artifact.deploymentZip || '')) {
         throw new Error('Unexpected artifact resolver result');
       }

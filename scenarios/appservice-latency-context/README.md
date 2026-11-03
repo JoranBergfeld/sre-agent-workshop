@@ -55,7 +55,11 @@ SRE Agent placement remains separate. Setup, injection, reset and ordinary
 deploy use verified healthy/faulty artifacts for the exact checkout commit
 and origin repository. Missing builds fail closed, before provider registration
 or deployment. See the deployment module (step 3) for build
-dispatch, explicit `--local-build`, and the reviewed-source recovery path.
+dispatch, explicit `--local-build`, and reviewed-source recovery. After human
+review and merge, `--reviewed yes` resolves the exact-HEAD `reviewed-source`
+artifact from `main`; `--reviewed yes --source-dir PATH` preserves the explicit
+local reviewed-source packaging alternative. The artifact does not replace
+human review confirmation.
 
 ## Contributor checks
 

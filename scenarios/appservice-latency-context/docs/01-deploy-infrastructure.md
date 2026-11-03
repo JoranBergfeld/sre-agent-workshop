@@ -125,11 +125,25 @@ Deploy also reconciles infrastructure through shared placement, after its
 evidence export; inject/reset change only the application package.
 
 Optional post-PR deployment is **outside** measured comparison. Only after
-human review/merge, update your checkout and use `deploy.sh` / `deploy.ps1`
-with `--reviewed yes --source-dir scenarios/appservice-latency-context/src`.
-This exports evidence first and deploys reviewed tracked source, not a fixture.
-This explicit source path does not require `--local-build` or an artifact;
-it still passes the ownership/placement check before preparing its package.
-Independently validate runtime afterward; a tested PR alone is not recovery.
+human review/merge, update your checkout to the exact commit on `main` and
+explicitly confirm that review:
+
+```bash
+scenarios/appservice-latency-context/scripts/deploy.sh --reviewed yes
+```
+
+PowerShell uses the same `--reviewed yes` option. This resolves the
+`reviewed-source` artifact only when its successful build is bound to the exact
+current HEAD and the resolver verifies its build ref is `refs/heads/main`.
+The artifact's name or contents do **not** constitute human review; the
+operator's explicit confirmation is still required. If no trusted artifact
+exists for that exact main commit, deployment fails closed.
+
+To keep the explicit local packaging route, pass both `--reviewed yes` and
+`--source-dir scenarios/appservice-latency-context/src`. This packages the
+provided reviewed source locally instead of resolving the artifact; it still
+passes the ownership/placement check before preparing its package. A
+`--source-dir` without `--reviewed yes` is rejected. Independently validate
+runtime afterward; a tested PR alone is not recovery.
 
 Next: [Onboard SRE Agent](02-onboard-sre-agent.md).

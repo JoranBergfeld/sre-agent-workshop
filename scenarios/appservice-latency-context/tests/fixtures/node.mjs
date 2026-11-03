@@ -19,7 +19,8 @@ if (script.endsWith('/scripts/build-artifacts/resolve.mjs')) {
   const output = path.join(value('--output-dir'), `artifact-${variant}`);
   await mkdir(output, { recursive: true });
   const deploymentZip = path.join(output, 'deployment.zip');
-  await writeFile(deploymentZip, await packageApp(fileURLToPath(new URL('../../', import.meta.url)), variant));
+  const revision = variant === 'reviewed-source' ? 'reviewed' : variant;
+  await writeFile(deploymentZip, await packageApp(fileURLToPath(new URL('../../', import.meta.url)), revision));
   console.log(JSON.stringify({
     scenario: 'appservice-latency-context', variant, sourceSha: 'a'.repeat(40), deploymentZip,
   }));

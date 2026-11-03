@@ -4,6 +4,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
+import { readZip } from '../../../scripts/build-artifacts/resolve.mjs';
 
 const capsule = fileURLToPath(new URL('../', import.meta.url));
 const subscription = 'fa68ebb3-c4c4-4b3f-8c91-cbef4c119d77';
@@ -115,12 +116,49 @@ for (const shell of ['bash', 'pwsh']) {
       await cp(path.join(capsule, 'src'), source, { recursive: true });
       await writeFile(path.join(source, 'security-fixture.php'), '<?php // inert fixture must never ship');
       await writeFile(path.join(source, 'context.md'), 'not runtime');
+      const beforeUnconfirmedReview = (await remote()).deployments;
+      assert.notEqual(run('deploy', ['--source-dir', source]).status, 0,
+        'reviewed source must require explicit human confirmation');
+      assert.notEqual(run('deploy', ['--reviewed', 'no']).status, 0,
+        'a negative review confirmation must fail closed');
+      assert.notEqual(run('deploy', ['--reviewed', 'yes', '--variant', 'faulty']).status, 0,
+        'reviewed source must not be confused with an incident variant');
+      assert.equal((await remote()).deployments, beforeUnconfirmedReview);
       ok(run('deploy', ['--reviewed', 'yes', '--source-dir', source]));
       const archive = path.join(directory, 'uploaded.zip');
-      const zipCheck = spawnSync('unzip', ['-t', archive], { encoding: 'utf8' });
-      assert.equal(zipCheck.status, 0, zipCheck.stdout + zipCheck.stderr);
-      const names = spawnSync('unzip', ['-Z1', archive], { encoding: 'utf8' }).stdout.trim().split('\n');
-      assert.deepEqual(names.sort(), ['deployment.json', 'index.php', 'nginx.conf', 'telemetry.php', 'timing.php']);
+      const localEntries = readZip(await readFile(archive));
+      assert.deepEqual([...localEntries.keys()].sort(),
+        ['deployment.json', 'index.php', 'nginx.conf', 'telemetry.php', 'timing.php']);
+      assert.equal(JSON.parse(localEntries.get('deployment.json').toString('utf8')).revision,
+        'reviewed-source', 'explicit --source-dir remains a local reviewed-source package');
+      assert.equal(JSON.parse(await readFile(path.join(directory, 'state.json'), 'utf8')).artifact.source, 'local');
+      await writeFile(path.join(directory, 'calls.jsonl'), '');
+      const beforeMissingReviewedArtifact = (await remote()).deployments;
+      const missingReviewed = run('deploy', ['--reviewed', 'yes'], { FAIL_RESOLVE: '1' });
+      assert.notEqual(missingReviewed.status, 0);
+      assert.equal((await remote()).deployments, beforeMissingReviewedArtifact,
+        'missing reviewed artifact must prevent deployment');
+      const missingCalls = await calls(directory);
+      const missingCheckIndex = missingCalls.findIndex(call => call[0] === 'placement' && call[1] === 'check');
+      const missingResolveIndex = missingCalls.findIndex(call => call[0] === 'resolve');
+      assert.ok(missingCheckIndex >= 0 && missingCheckIndex < missingResolveIndex);
+      assert.ok(!missingCalls.some(call => call[0] === 'az' && call[1] === 'webapp' && call[2] === 'deploy'));
+      await writeFile(path.join(directory, 'calls.jsonl'), '');
+      ok(run('deploy', ['--reviewed', 'yes']));
+      assert.equal((await remote()).revision, 'reviewed');
+      const reviewedCalls = await calls(directory);
+      const reviewedCheckIndex = reviewedCalls.findIndex(call => call[0] === 'placement' && call[1] === 'check');
+      const reviewedResolveIndex = reviewedCalls.findIndex(call => call[0] === 'resolve');
+      assert.ok(reviewedCheckIndex >= 0 && reviewedCheckIndex < reviewedResolveIndex);
+      assert.deepEqual(reviewedCalls[reviewedResolveIndex].slice(1), [
+        '--scenario', 'appservice-latency-context', '--variant', 'reviewed-source',
+        '--output-dir', directory,
+      ]);
+      const reviewedState = JSON.parse(await readFile(path.join(directory, 'state.json'), 'utf8'));
+      assert.equal(reviewedState.revision, 'reviewed');
+      assert.deepEqual(reviewedState.artifact, { sourceSha: 'a'.repeat(40), variant: 'reviewed-source' });
+      const artifactEntries = readZip(await readFile(path.join(directory, 'uploaded.zip')));
+      assert.equal(JSON.parse(artifactEntries.get('deployment.json').toString('utf8')).revision, 'reviewed-source');
       const shared = await remote();
       shared.resources.push({ name: 'not-ours', tags: {} });
       await writeFile(path.join(directory, 'remote.json'), JSON.stringify(shared));

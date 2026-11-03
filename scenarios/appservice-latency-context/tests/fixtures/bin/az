@@ -60,7 +60,8 @@ else if (command.startsWith('deployment group create')) {
 } else if (command.startsWith('webapp deploy')) {
   copyFileSync(value('--src-path'), path.join(directory, 'uploaded.zip'));
   const zip = readFileSync(value('--src-path'));
-  remote.revision = zip.includes(Buffer.from('candidate-v2')) ? 'faulty' : 'healthy';
+  remote.revision = zip.includes(Buffer.from('candidate-v2')) ? 'faulty'
+    : zip.includes(Buffer.from('reviewed-source')) ? 'reviewed' : 'healthy';
   remote.deployments = (remote.deployments || 0) + 1;
   remote.appSettings = { ...(remote.appSettings || {}), WEBSITE_RUN_FROM_PACKAGE: 'https://private.invalid/package?sig=SECRET' };
   result = { status: 4, complete: true, url: 'https://private.invalid/package?sig=SECRET' };
