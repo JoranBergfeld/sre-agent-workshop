@@ -1,0 +1,21 @@
+---
+applyTo: "scenarios/appservice-latency-context/src/**/*.php,scenarios/appservice-latency-context/security/pr/**/*.php"
+excludeAgent: "cloud-agent"
+---
+
+# Learner-authored PHP review priorities — inactive starter
+
+After baseline review, adapt this file, remove this setup paragraph and save
+it as `.github/instructions/latency-php-review.instructions.md` on the fixture
+head branch. Complete the brackets; keep the scope bounded to this capsule.
+
+- Check PHP timing API units and boundary values: [what observable test
+  distinguishes a correct conversion from removal of intended behavior?].
+- Preserve exact order-status lookup semantics: [define ordinary, absent and
+  quote-bearing input behavior; identify what a regression test must catch].
+- Follow input into SQL or another sensitive sink: [what evidence shows that
+  untrusted values remain data?]. Explain the concrete consequence in the diff.
+- Review tests at the public behavior/database boundary: [name a useful edge
+  case and the limitation of a connection-free double].
+- Keep the fixture inert: no routes, connections, credentials or deployment
+  configuration. Report tests run and missing evidence separately.

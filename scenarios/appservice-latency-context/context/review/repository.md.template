@@ -1,0 +1,18 @@
+# Learner-authored review priorities — inactive starter
+
+After the fixture's baseline built-in review, adapt this section and append it
+to the existing `.github/copilot-instructions.md` on the fixture head branch.
+Preserve unrelated instructions. Replace the brackets with your own checks.
+
+When performing a code review:
+
+- Trace units and boundaries in changed code: [identify a conversion boundary
+  and the evidence needed to decide whether behavior is preserved].
+- Preserve intended behavior: [state the observable contract and unrelated
+  behavior a repair must retain, without prescribing the repair].
+- Evaluate regression tests: [describe a failing-before/passing-after case,
+  edge cases, and how to report validation not actually run].
+- Trace external input into sensitive operations: [describe the evidence
+  needed to distinguish code from data and identify unsafe handling].
+- Ground actionable comments in changed lines, consequence and evidence.
+  Separate uncertain hypotheses from demonstrated defects.
