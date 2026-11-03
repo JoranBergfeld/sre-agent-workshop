@@ -191,6 +191,8 @@ test('learner can configure the observed custom Log Analytics scope without assu
   }
   assert.ok(toolSteps.includes('https://api.loganalytics.io/.default'));
   assert.ok(toolSteps.includes('adjacent add button'));
+  assert.ok(toolSteps.includes('Select All'), 'pasting must replace injected editor content');
+  assert.ok(toolSteps.includes('default main'), 'learner must check for the duplicate entry point');
   assert.match(text, /verified control[\s\S]*unverified execution/i);
   assert.ok(!text.includes('ARM-only presets are a capability gap'));
 });
