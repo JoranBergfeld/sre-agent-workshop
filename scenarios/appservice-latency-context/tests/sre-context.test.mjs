@@ -180,3 +180,17 @@ test('learner can reach inactive starters, the guarded tool and operations facts
   assert.ok(instructions.includes('TODO'), 'instructions must require learner authorship');
   assert.ok(skill.includes('TODO'), 'skill must require learner authorship');
 });
+
+test('learner can configure the observed custom Log Analytics scope without assuming successful execution', async () => {
+  const text = await readFile(new URL('../docs/05-sre-context.md', import.meta.url), 'utf8');
+  const toolSteps = [...text.matchAll(/<details>([\s\S]*?)<\/details>/g)]
+    .map(match => match[1]).find(block => block.includes('Python tool'));
+  assert.ok(toolSteps, 'missing Python-tool exact steps');
+  for (const control of ['Enable Azure Identity', 'Token Scopes', 'Configured Scopes', 'Remove scope', 'Enter scope URL']) {
+    assert.ok(toolSteps.includes(control), `missing observed control: ${control}`);
+  }
+  assert.ok(toolSteps.includes('https://api.loganalytics.io/.default'));
+  assert.ok(toolSteps.includes('adjacent add button'));
+  assert.match(text, /verified control[\s\S]*unverified execution/i);
+  assert.ok(!text.includes('ARM-only presets are a capability gap'));
+});
