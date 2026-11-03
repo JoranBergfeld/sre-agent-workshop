@@ -117,3 +117,24 @@ public as a workaround.
 
 `CONTRIBUTING.md` defines the capsule contract. Follow its scaffold and
 validation flow instead of wiring derived artifacts manually.
+
+## Isolated fixture review priorities
+
+When performing a code review of
+`scenarios/appservice-latency-context/security/pr/order-status.php`:
+
+- Trace values across input, type and database-operation boundaries. Check
+  any changed unit conversion against its intended behavior; identify missing
+  evidence rather than inventing conversions or timing behavior.
+- Preserve exact order-status lookup semantics and unrelated behavior.
+  Evaluate ordinary, absent and quote-bearing IDs, including whether input
+  can change the operation rather than remain data.
+- Evaluate regression evidence at the public lookup/database boundary.
+  Distinguish a failing-before/passing-after candidate check from tests that
+  validate only a reference, and report checks not actually run.
+- Ground actionable comments in changed lines, concrete consequences and
+  supporting evidence. Separate demonstrated defects from uncertain
+  hypotheses; quiet review is not proof of safety.
+- Keep review comments distinct from AI Scan findings, suggested changesets
+  and applied repairs. Preserve the fixture's inert, unserved,
+  database-disconnected state; never merge or deploy this exercise.
