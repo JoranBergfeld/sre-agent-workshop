@@ -1,0 +1,22 @@
+// Manual fallback only. Replace the two scope literals with setup outputs.
+// Unedited scope matches no capsule; empty output is not health evidence.
+let app_name = 'REPLACE_WITH_SETUP_APP_NAME';
+let insights_resource_id = '/REPLACE_WITH_SETUP_INSIGHTS_RESOURCE_ID';
+let start_utc = ago(5m);
+let end_utc = now();
+let requests = materialize(
+    AppRequests
+    | where TimeGenerated >= start_utc and TimeGenerated < end_utc
+    | where _ResourceId =~ insights_resource_id and AppRoleName == app_name
+    | where Name in ('GET /api/orders/DEMO-1001', 'GET /health')
+    | project TimeGenerated, Route=Name, OperationId, DurationMs, ResultCode, Success
+);
+union
+    (requests
+     | summarize Requests=count(),
+                 Errors=countif(Success == false or toint(ResultCode) >= 400),
+                 AverageMs=round(avg(DurationMs), 2), P95Ms=round(percentile(DurationMs, 95), 2) by Route
+     | extend Kind='summary'),
+    (requests | order by TimeGenerated desc | take 3 | extend Kind='request' | project-away Success)
+| project Kind, Route, Requests, Errors, AverageMs, P95Ms, TimeGenerated, OperationId, DurationMs, ResultCode
+| take 5
