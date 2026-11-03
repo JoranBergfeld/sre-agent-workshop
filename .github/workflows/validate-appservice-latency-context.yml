@@ -1,0 +1,36 @@
+name: Validate App Service Latency Context Capsule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/appservice-latency-context/**'
+      - '.devcontainer/appservice-latency-context/**'
+      - '.github/workflows/validate-appservice-latency-context.yml'
+  pull_request:
+    paths:
+      - 'scenarios/appservice-latency-context/**'
+      - '.devcontainer/appservice-latency-context/**'
+      - '.github/workflows/validate-appservice-latency-context.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capsule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify PHP and PowerShell prerequisites
+        run: |
+          php --version
+          pwsh --version
+          unzip -v | head -2
+      - name: Exercise application and both lifecycle shells without Azure provisioning
+        run: node --test scenarios/appservice-latency-context/tests/*.test.mjs
+      - name: Compile scenario infrastructure
+        run: az bicep build --file scenarios/appservice-latency-context/infra/bicep/main.bicep --stdout >/dev/null
