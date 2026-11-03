@@ -117,3 +117,76 @@ public as a workaround.
 
 `CONTRIBUTING.md` defines the capsule contract. Follow its scaffold and
 validation flow instead of wiring derived artifacts manually.
+
+## App Service latency coding tasks
+
+For an assigned `appservice-latency-context` incident, read the approved issue's
+facts, hypotheses, allowed scope and verification contract first. Confirm the
+working repository, base branch and checkout SHA. The default branch or a
+deployed bad package does not establish that the faulty source is checked out.
+
+### Navigation
+
+Within `scenarios/appservice-latency-context`, use `knowledge/operations.md`
+for architecture/reference facts, `src/index.php` for public request routing,
+and `tests/http.test.mjs` for HTTP behavior and candidate verification. Follow
+only code relevant to the observed request path. Keep observed evidence
+separate from reference expectations; another incident task or fix PR is not
+evidence for the assigned task.
+
+### Change boundary
+
+Repair the assigned application defect within this capsule's `src/`; add or
+adjust focused HTTP regression tests only when justified by the behavior.
+Preserve unrelated learner changes, prepared fixtures and meaningful existing
+assertions. Ask before expanding into infrastructure, lifecycle, deployment,
+unrelated capsules or instruction changes.
+
+### Regression tests
+
+Use the tracked candidate source, not a prepared known-healthy package.
+With Node.js 22+ and PHP 8.3+ CLI on Linux/macOS/WSL, run the focused check
+before edits to retain the faulty starting failure, then after the repair.
+The faulty check may take roughly 20 seconds before failing.
+From repository root, Bash:
+
+```bash
+APP_DIR="$PWD/scenarios/appservice-latency-context/src" \
+  node --test --test-name-pattern '^repair preserves' \
+  scenarios/appservice-latency-context/tests/http.test.mjs
+```
+
+PowerShell:
+
+```powershell
+$previousAppDir = $env:APP_DIR
+try {
+  $env:APP_DIR = (Resolve-Path ./scenarios/appservice-latency-context/src).Path
+  node --test --test-name-pattern '^repair preserves' ./scenarios/appservice-latency-context/tests/http.test.mjs
+} finally {
+  $env:APP_DIR = $previousAppDir
+}
+```
+
+After the repair, run all four HTTP tests with the same candidate:
+Bash, set `APP_DIR` as above and omit `--test-name-pattern '^repair preserves'`;
+PowerShell, use the same `try`/`finally` block and omit that option.
+This covers valid content, a small nonzero pause, rejection of a removed pause,
+bounded workload and independently healthy requests. Keep traffic bounded;
+do not weaken assertions to fit a failing candidate.
+
+### Behavior preservation
+
+Preserve the assigned API's exact valid payload, HTTP behavior, independent
+health and unrelated routes/methods. Retain the intentional 20 ms pause in the
+order request path. A removed pause, disabled injection, reset or deployment
+revert is not the requested code repair.
+
+### Validation report
+
+Report the base and candidate SHAs, changed scope/reason, exact commands
+actually executed, outputs, failures/skips with reasons, and remaining gaps.
+Where session tooling exposes instruction references or read events, preserve
+them alongside relevant navigation/test actions; a claim of compliance alone
+does not establish uptake. Deliver an unmerged, undeployed PR for human review.
+Code test evidence does not establish deployed runtime recovery.
