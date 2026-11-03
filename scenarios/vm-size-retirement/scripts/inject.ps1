@@ -21,7 +21,18 @@ function Invoke-Az {
     return $output
 }
 
-$location = Invoke-Az group show --name $ResourceGroup --query location -o tsv
+# Preflight before creating anything: the group must hold a verified deployment,
+# and its actual workload region (which may differ from the group's metadata
+# region) must still offer the retiring DSv2 sizes and an eligible remediation
+# target, with quota for the complete planned fleet. Nothing is relocated.
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "Preflight failed: Node.js 20+ is required for the fleet preflight. Nothing was created." }
+$engine = Join-Path $PSScriptRoot '../../../scripts/placement/provision.mjs'
+$preflight = & node $engine check vm-size-retirement --workload $Workload --resource-group $ResourceGroup --parts fleet,targets --require-group --json
+if ($LASTEXITCODE -ne 0) { throw "Preflight failed: $ResourceGroup cannot host the retiring fleet and a remediation target in its region (see above). Nothing was created." }
+$report = ($preflight -join "`n") | ConvertFrom-Json
+if (-not $report.eligible -or -not $report.pinnedLocation) { throw "Preflight failed: $ResourceGroup has no verified vm-size-retirement deployment. Run setup first. Nothing was created." }
+$location = [string]$report.pinnedLocation
+Write-Host "Preflight passed: planting the retiring fleet in $location."
 
 $legacyVms = @(
     @{ Name = "$Workload-legacy-01"; Size = "Standard_DS1_v2"; Tags = @("env=prod", "app=billing-legacy", "owner=unknown") },
@@ -38,12 +49,13 @@ foreach ($vm in $legacyVms) {
         Write-Host "Creating legacy VM $($vm.Name) ($($vm.Size)) ..."
         az network nic show --resource-group $ResourceGroup --name "$($vm.Name)-nic" 2>$null | Out-Null
         if ($LASTEXITCODE -ne 0) {
-            Invoke-Az network nic create --resource-group $ResourceGroup --name "$($vm.Name)-nic" `
+            Invoke-Az network nic create --resource-group $ResourceGroup --name "$($vm.Name)-nic" --location $location `
                 --vnet-name $vnetName --subnet $subnetName --only-show-errors | Out-Null
         }
         Invoke-Az vm create `
             --resource-group $ResourceGroup `
             --name $vm.Name `
+            --location $location `
             --image Ubuntu2204 `
             --size $vm.Size `
             --nics "$($vm.Name)-nic" `

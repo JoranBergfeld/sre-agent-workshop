@@ -239,7 +239,9 @@ export async function runCheck({ policy, az, options, log = console.log, sleep =
   let remediationTargets;
   let skus = preferredSkus(policy, options.sku);
   let existingSku;
-  const state = exists ? await inspectExisting(policy, resourceGroup, az) : null;
+  // Read-only checks honour an explicit --workload; without one (remediation
+  // given only a group) the group's single template-managed workload is used.
+  const state = exists ? await inspectExisting(policy, resourceGroup, az, { workload: options.workload }) : null;
   if (state) assertOwnership(policy, resourceGroup, state.group);
   report.resourceGroupReady = Boolean(state && (state.location
     || (state.group?.tags?.[TAGS.scenario] === policy.scenario && !state.resourceCount)));
@@ -345,7 +347,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
     }
     const { workload, resourceGroup, deploymentName } = resolveNames(policy, options);
     const result = await provision({
-      policy, az, resourceGroup, location: options.location, sku: options.sku,
+      policy, az, resourceGroup, workload, location: options.location, sku: options.sku,
       noRegionFallback: options.noRegionFallback, deploymentName, log,
       deploy: async ({ location, sku, context, tags, deploymentName: attemptName }) => runDeployment({
         az, policy, resourceGroup, deploymentName: attemptName, env, secureParams: options.secureParams,

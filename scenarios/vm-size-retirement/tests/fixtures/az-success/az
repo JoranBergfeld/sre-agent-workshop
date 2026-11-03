@@ -38,11 +38,11 @@ if [[ " $* " == *" --output json "* ]]; then
     "vm list")
       if [ "${AZ_SUCCESS_PARTIAL:-}" = "1" ]; then
         # Interrupted migration: one legacy VM was already resized to D2as_v5.
-        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_D2as_v5","location":"eastus2"},{"size":"Standard_DS2_v2","location":"eastus2"}]'
+        echo '[{"name":"srelabretirement-vm01","size":"Standard_B2s","location":"eastus2"},{"name":"srelabretirement-vm02","size":"Standard_B2s","location":"eastus2"},{"name":"srelabretirement-legacy-01","size":"Standard_D2as_v5","location":"eastus2"},{"name":"srelabretirement-legacy-02","size":"Standard_DS2_v2","location":"eastus2"}]'
       elif [ "${AZ_SUCCESS_EMPTY:-}" = "1" ]; then
-        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"}]'
+        echo '[{"name":"srelabretirement-vm01","size":"Standard_B2s","location":"eastus2"},{"name":"srelabretirement-vm02","size":"Standard_B2s","location":"eastus2"}]'
       else
-        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_DS1_v2","location":"eastus2"},{"size":"Standard_DS2_v2","location":"eastus2"}]'
+        echo '[{"name":"srelabretirement-vm01","size":"Standard_B2s","location":"eastus2"},{"name":"srelabretirement-vm02","size":"Standard_B2s","location":"eastus2"},{"name":"srelabretirement-legacy-01","size":"Standard_DS1_v2","location":"eastus2"},{"name":"srelabretirement-legacy-02","size":"Standard_DS2_v2","location":"eastus2"}]'
       fi ;;
     "vm list-skus")
       cap() { printf '[{"name":"vCPUs","value":"%s"},{"name":"MemoryGB","value":"8"},{"name":"CpuArchitectureType","value":"x64"},{"name":"PremiumIO","value":"True"},{"name":"HyperVGenerations","value":"V1,V2"},{"name":"DiskControllerTypes","value":"SCSI"}]' "$1"; }

@@ -28,7 +28,7 @@
   ],
   "compute": {
     "kind": "vm",
-    "baselineNamePattern": "-0[0-9]$",
+    "baselineNames": ["{workloadCompact10}-01", "{workloadCompact10}-02"],
     "count": 2,
     "skus": [
       "Standard_B2s",

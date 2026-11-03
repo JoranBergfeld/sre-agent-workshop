@@ -40,6 +40,7 @@
   ],
   "compute": {
     "kind": "aks",
+    "clusterName": "{workload}-aks",
     "count": 2,
     "surge": 1,
     "skus": [

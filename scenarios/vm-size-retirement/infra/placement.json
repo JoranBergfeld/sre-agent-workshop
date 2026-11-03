@@ -28,7 +28,8 @@
   ],
   "compute": {
     "kind": "vm",
-    "baselineNamePattern": "-vm0[0-9]$",
+    "baselineNames": ["{workload}-vm01", "{workload}-vm02"],
+    "fleetVmNames": ["{workload}-legacy-01", "{workload}-legacy-02", "{workload}-legacy-03"],
     "count": 2,
     "skus": [
       "Standard_B2s",

@@ -28,7 +28,19 @@ VNET_NAME="${WORKLOAD}-vnet"
 SUBNET_NAME="${WORKLOAD}-subnet"
 ADMIN_USER="azureuser"
 ADMIN_PASSWORD="Sre$(openssl rand -hex 12)#Aa9"
-LOCATION=$(az group show --name "$RESOURCE_GROUP" --query location -o tsv)
+
+# Preflight before creating anything: the group must hold a verified deployment,
+# and its actual workload region (which may differ from the group's metadata
+# region) must still offer the retiring DSv2 sizes and an eligible remediation
+# target, with quota for the complete planned fleet. Nothing is relocated.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+command -v node >/dev/null 2>&1 || { echo "Preflight failed: Node.js 20+ is required for the fleet preflight. Nothing was created." >&2; exit 1; }
+PREFLIGHT=$(node "$REPO_ROOT/scripts/placement/provision.mjs" check vm-size-retirement \
+  --workload "$WORKLOAD" --resource-group "$RESOURCE_GROUP" --parts fleet,targets --require-group --json) \
+  || { echo "Preflight failed: $RESOURCE_GROUP cannot host the retiring fleet and a remediation target in its region (see above). Nothing was created." >&2; exit 1; }
+LOCATION=$(printf '%s' "$PREFLIGHT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);if(!r.eligible||!r.pinnedLocation)process.exit(1);process.stdout.write(r.pinnedLocation)})') \
+  || { echo "Preflight failed: $RESOURCE_GROUP has no verified vm-size-retirement deployment. Run setup first. Nothing was created." >&2; exit 1; }
+echo "Preflight passed: planting the retiring fleet in $LOCATION."
 
 LEGACY_VMS="
 ${WORKLOAD}-legacy-01|Standard_DS1_v2|env=prod app=billing-legacy owner=unknown
@@ -44,12 +56,13 @@ printf '%s\n' "$LEGACY_VMS" | while IFS='|' read -r vm size tags; do
   else
     echo "Creating legacy VM $vm ($size) ..."
     if ! az network nic show --resource-group "$RESOURCE_GROUP" --name "${vm}-nic" >/dev/null 2>&1; then
-      az network nic create --resource-group "$RESOURCE_GROUP" --name "${vm}-nic" \
+      az network nic create --resource-group "$RESOURCE_GROUP" --name "${vm}-nic" --location "$LOCATION" \
         --vnet-name "$VNET_NAME" --subnet "$SUBNET_NAME" --only-show-errors >/dev/null
     fi
     az vm create \
       --resource-group "$RESOURCE_GROUP" \
       --name "$vm" \
+      --location "$LOCATION" \
       --image Ubuntu2204 \
       --size "$size" \
       --nics "${vm}-nic" \

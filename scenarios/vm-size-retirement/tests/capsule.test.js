@@ -571,6 +571,43 @@ for (const [label, command, arguments_] of [
     assert.equal(deallocatedWaits.length, 3);
   });
 
+  test(`${label} injector creates the legacy fleet in the workload's actual region after an eligible preflight`, (t) => {
+    const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
+    const fixtureDirectory = capsulePath('tests/fixtures/az-inject');
+    const tracePath = resolve(temporaryRoot, 'az-inject.log');
+    t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+
+    const result = run(command, arguments_, {
+      env: { PATH: `${fixtureDirectory}:${process.env.PATH}`, AZ_INJECT_TRACE: tracePath, AZ_INJECT_CREATE: '1' },
+    });
+
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /swedencentral/);
+    const trace = readFileSync(tracePath, 'utf8').split('\n');
+    const creates = trace.filter((line) => /^(network nic|vm) create /.test(line) || / (nic|vm) create /.test(line));
+    assert.ok(creates.length >= 2, trace.join('\n'));
+    for (const line of creates) assert.match(line, /--location swedencentral/, line);
+  });
+
+  test(`${label} injector creates nothing when the fleet preflight finds no capacity`, (t) => {
+    const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
+    const fixtureDirectory = capsulePath('tests/fixtures/az-inject');
+    const tracePath = resolve(temporaryRoot, 'az-inject.log');
+    t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+
+    for (const extra of [{ AZ_INJECT_FLEET_SHORT: '1' }, { AZ_INJECT_NO_GROUP: '1' }]) {
+      const result = run(command, arguments_, {
+        env: { PATH: `${fixtureDirectory}:${process.env.PATH}`, AZ_INJECT_TRACE: tracePath, AZ_INJECT_CREATE: '1', ...extra },
+      });
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.notEqual(result.status, 0, JSON.stringify(extra));
+      assert.match(output, /Nothing was created/, JSON.stringify(extra));
+      assert.doesNotMatch(result.stdout, /Simulated Azure Service Health advisory/);
+      const trace = existsSync(tracePath) ? readFileSync(tracePath, 'utf8') : '';
+      assert.doesNotMatch(trace, / create |vm resize|vm deallocate/, JSON.stringify(extra));
+    }
+  });
+
   test(`${label} injector propagates a deallocated wait failure without reporting readiness`, (t) => {
     const temporaryRoot = mkdtempSync(capsulePath('tests', 'inject-'));
     const fixtureDirectory = capsulePath('tests/fixtures/az-inject');

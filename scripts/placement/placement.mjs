@@ -105,9 +105,14 @@ export function validatePolicy(policy, label = 'policy') {
     if (!Array.isArray(skus) || skus.length === 0 || skus.length > 6) fail('compute.skus must be a bounded, ordered list (1-6 entries)');
     if (!Number.isInteger(count) || count < 1) fail('compute.count must be a positive integer');
     if (kind === 'vm') {
-      const pattern = policy.compute.baselineNamePattern;
-      if (typeof pattern !== 'string' || !pattern) fail('VM policies need compute.baselineNamePattern to identify their baseline VMs');
-      try { new RegExp(pattern, 'i'); } catch { fail('compute.baselineNamePattern must be a valid regular expression'); }
+      const names = policy.compute.baselineNames;
+      if (!Array.isArray(names) || names.length !== count) fail('VM policies need compute.baselineNames: one template-managed name per baseline VM');
+      for (const template of [...names, ...(policy.compute.fleetVmNames ?? [])]) {
+        try { nameMatcher(template); } catch (error) { fail(`compute names: ${error.message}`); }
+      }
+    }
+    if (kind === 'aks') {
+      try { nameMatcher(policy.compute.clusterName); } catch (error) { fail(`compute.clusterName: ${error.message}`); }
     }
     if (!policy.deployment?.parameters || !Object.values(policy.deployment.parameters).includes('{sku}')) {
       fail('deployment.parameters must pass {sku} to the template');
@@ -564,7 +569,57 @@ async function listGroupResources(az, resourceGroup) {
  * resources (not resource-group metadata). location is null when the group has
  * no regional workload resources and no recorded placement.
  */
-export async function inspectExisting(policy, resourceGroup, az) {
+// Template-managed resource names. Each policy name template holds exactly one
+// workload token, matching how its Bicep derives the name.
+const NAME_TOKENS = {
+  workload: workload => workload,
+  // iis-app-pool: take(replace(workloadName, '-', ''), 10)
+  workloadCompact10: workload => workload.replace(/-/g, '').slice(0, 10),
+};
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export function nameMatcher(template) {
+  if (typeof template !== 'string') throw new Error('a name template must be a string');
+  const tokens = [...template.matchAll(/\{(\w+)\}/g)].map(match => match[1]);
+  if (tokens.length !== 1 || !NAME_TOKENS[tokens[0]]) {
+    throw new Error(`"${template}" must contain exactly one of ${Object.keys(NAME_TOKENS).map(token => `{${token}}`).join(', ')}`);
+  }
+  const [before, after] = template.split(`{${tokens[0]}}`);
+  return {
+    template,
+    token: tokens[0],
+    regex: new RegExp(`^${escapeRegExp(before)}(.+)${escapeRegExp(after)}$`, 'i'),
+    expected: workload => `${before}${NAME_TOKENS[tokens[0]](workload)}${after}`,
+  };
+}
+
+// Resolves which workload's template-managed names a group holds. With an
+// explicit workload every name must be that workload's; without one (read-only
+// remediation checks given only a group), all names must agree on one workload.
+function matchWorkloadNames(resourceGroup, items, matchers, workload, what) {
+  const keys = new Set();
+  const matched = [];
+  for (const item of items) {
+    const name = String(item?.name ?? '');
+    const hit = matchers.find(matcher => matcher.regex.test(name));
+    if (!hit) {
+      throw new PlacementError(`${resourceGroup} contains ${what} "${name}", which is not one the scenario template manages `
+        + `(${matchers.map(matcher => matcher.template).join(', ')}); refusing to guess its ownership.`);
+    }
+    if (workload !== undefined && lower(name) !== lower(hit.expected(workload))) {
+      throw new PlacementError(`${resourceGroup} contains ${what} "${name}", which belongs to a different workload than "${workload}" `
+        + `(expected ${hit.expected(workload)}). Rerun with that deployment's workload name, or use another group; nothing was changed.`);
+    }
+    keys.add(`${hit.token}:${lower(hit.regex.exec(name)[1])}`);
+    matched.push({ item, matcher: hit });
+  }
+  if (keys.size > 1) {
+    throw new PlacementError(`${resourceGroup} contains ${what}s from several workloads (${items.map(item => item?.name).join(', ')}); refusing to guess which deployment to keep.`);
+  }
+  return matched;
+}
+
+export async function inspectExisting(policy, resourceGroup, az, { workload } = {}) {
   const group = await discover(`reading resource group ${resourceGroup}`,
     () => az(['group', 'show', '--name', resourceGroup, '--output', 'json']));
   const resources = await discover(`listing resources in ${resourceGroup}`, () => listGroupResources(az, resourceGroup));
@@ -604,9 +659,11 @@ export async function inspectExisting(policy, resourceGroup, az) {
     // comes only from the scenario's own baseline VMs (never an injected,
     // legacy or migrated fleet VM), and must be unambiguous: redeploying one
     // size over mixed baseline sizes would resize a VM.
-    const baselinePattern = new RegExp(policy.compute.baselineNamePattern, 'i');
     if (vms.some(vm => !vm.name)) throw new PlacementError(`could not read the names of the VMs in ${resourceGroup}; refusing to guess the baseline size.`);
-    const baseline = vms.filter(vm => baselinePattern.test(vm.name));
+    const baselineMatchers = policy.compute.baselineNames.map(nameMatcher);
+    const matched = matchWorkloadNames(resourceGroup, vms,
+      [...baselineMatchers, ...(policy.compute.fleetVmNames ?? []).map(nameMatcher)], workload, 'VM');
+    const baseline = matched.filter(entry => baselineMatchers.includes(entry.matcher)).map(entry => entry.item);
     const sizes = [...new Set(baseline.map(vm => lower(vm.size)))];
     if (sizes.length > 1) {
       throw new PlacementError(`${resourceGroup} has baseline VMs on different sizes (${baseline.map(vm => `${vm.name}=${vm.size}`).join(', ')}); `
@@ -634,6 +691,7 @@ export async function inspectExisting(policy, resourceGroup, az) {
       throw new PlacementError(`${resourceGroup} contains ${clusters.length} AKS clusters (${clusters.map(item => item?.name).join(', ')}); `
         + 'the scenario deploys one, so refusing to guess which to keep unchanged.');
     }
+    matchWorkloadNames(resourceGroup, clusters, [nameMatcher(policy.compute.clusterName)], workload, 'AKS cluster');
     for (const cluster of clusters) {
       const pools = cluster?.agentPoolProfiles;
       const validCount = count => typeof count === 'number' && Number.isInteger(count) && count >= 0;
@@ -666,7 +724,8 @@ export async function inspectExisting(policy, resourceGroup, az) {
         throw new PlacementError(`could not establish the exact running Kubernetes version of ${name} in ${resourceGroup}; refusing to redeploy and risk an upgrade.`);
       }
       const requested = String(cluster.kubernetesVersion ?? current);
-      const poolVersions = pools.map(pool => String(pool.currentOrchestratorVersion ?? pool.orchestratorVersion ?? current));
+      // A pool whose version is unknown is never assumed to match the control plane.
+      const poolVersions = pools.map(pool => String(pool.currentOrchestratorVersion ?? pool.orchestratorVersion ?? 'unknown'));
       // AKS reports a cluster created with only major.minor as that value in
       // kubernetesVersion while currentKubernetesVersion carries the patch.
       const requestedMatches = requested === current
@@ -1052,7 +1111,7 @@ export function missingGroupMessage(policy, resourceGroup, location) {
  * (attempt-unique) deployment name and returns its outputs.
  */
 export async function provision({
-  policy, az, resourceGroup, location, sku, noRegionFallback = false, deploy,
+  policy, az, resourceGroup, workload, location, sku, noRegionFallback = false, deploy,
   deploymentName = policy.scenario, log = console.log, attemptId = randomUUID(),
 }) {
   const kind = policy.compute?.kind ?? 'none';
@@ -1067,7 +1126,7 @@ export async function provision({
   const exists = await discover(`checking resource group ${resourceGroup}`,
     () => az(['group', 'exists', '--name', resourceGroup, '--output', 'json']));
   if (!exists) throw new PlacementError(missingGroupMessage(policy, resourceGroup, location));
-  const state = await inspectExisting(policy, resourceGroup, az);
+  const state = await inspectExisting(policy, resourceGroup, az, { workload });
   assertOwnership(policy, resourceGroup, state.group);
   if (state.location) {
     const ownership = await verifyExistingOwnership(policy, resourceGroup, state, az);
