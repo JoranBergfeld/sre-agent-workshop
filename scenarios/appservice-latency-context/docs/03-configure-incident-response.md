@@ -14,6 +14,12 @@ faulty: prepare and publish a dedicated faulty coding-task base separately.
 Removing a pause, turning off injection or resetting does not demonstrate a
 behavior-preserving code repair.
 
+**Permissions here:** only the learner/operator deploys the prepared revision,
+using the owned environment from setup. SRE needs scoped reads/queries, not
+App Service writes. Preparing code needs repository branch/push rights and
+coding-agent access to the published branch. Retain connection/preparation
+activity outside the measured incident pass.
+
 <details>
 <summary>Show exact steps</summary>
 
@@ -41,7 +47,8 @@ equivalent later runs.
 commands in either shell):
 
 ```bash
-git switch -c incident-baseline
+git fetch origin
+git switch -c incident-baseline origin/WORKSHOP_BRANCH
 scenarios/appservice-latency-context/scripts/prepare-code.sh --confirm faulty
 # PowerShell alternative:
 # ./scenarios/appservice-latency-context/scripts/prepare-code.ps1 --confirm faulty
@@ -49,17 +56,28 @@ git diff --stat
 git add scenarios/appservice-latency-context/src/timing.php
 git commit -m "chore: prepare synthetic incident starting code"
 git push -u origin incident-baseline
+git rev-parse HEAD
 ```
 
-Use your own branch name. The helper protects main/master, checks tracked source
+Replace `WORKSHOP_BRANCH` with the published branch containing this capsule:
+`main` only after it contains the implementation; before integration merges,
+use the published integration branch (for example `implement/spec-83`). If it
+has not been published, ask the repository owner to publish the intended code
+and resume; default-main tasks cannot see local/unmerged integration by magic.
+Start from a clean checkout and choose your own unused incident branch name.
+Do not overwrite existing learner edits. The helper protects main/master, checks tracked source
 and refuses learner edits; it does not commit/push for you. Explicitly select
 this published faulty branch as the coding task's base in the supported task
-surface. Verify its tracked `src/` is faulty: a task based on healthy `main`
+surface (the [baseline](04-baseline.md) documents the issue assignment picker
+and `gh agent-task create --base` fallback). Preserve its commit SHA and verify
+its tracked `src/` is faulty: a task based on healthy `main`
 cannot repair a runtime-only injected package. Preserve the faulty base for
 the second task; do not merge the first fix into it.
 
 Start the SRE thread with symptoms, resource IDs, UTC window and the affected
-route, not a root-cause answer. Request evidence and a proposed handover before
+route plus the actual faulty branch/SHA and branch-specific source links, not
+a root-cause answer. Require the agent to disclose which revision it read.
+Request evidence and a proposed handover before
 authorizing issue creation. Detailed baseline guidance belongs to the next page.
 
 To reset operational state after preserving artifacts:

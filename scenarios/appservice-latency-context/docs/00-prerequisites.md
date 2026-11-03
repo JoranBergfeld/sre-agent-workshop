@@ -6,11 +6,22 @@ Establish a safe sandbox and identify unavailable capabilities before starting.
 You are the operator and reviewer; no separate approver or change-ticket
 ceremony is needed. Use synthetic data, not production resources.
 
+Starting assets: the [capsule guide](../README.md), paired lifecycle helpers,
+and an authorized sandbox/repository. Deployment and connection checks happen
+before the measured [baseline incident pass](04-baseline.md).
+
 ## Starting conditions
 
 - A writable repository where you may create issues/branches/PRs, run Actions
   and delegate coding tasks. Check your paid Copilot entitlement, organization
   policies, task environment access and per-session AI-credit visibility.
+  The current GitHub cloud experience requires a paid Copilot plan and is
+  subject to repository, organization and enterprise policy. Without write
+  access the session is read-only. Complete organization SSO where required.
+  Issue assignment to **Copilot** (`copilot-swe-agent`) and starting-branch
+  selection must be available before claiming a live coding handover.
+  Cloud sandboxes and Actions-based sessions have different tooling/setup
+  support; permitted compute allowance is separate from AI credits.
 - For later review/security practice, verify built-in Copilot review and AI Scan
   eligibility/settings for your repository and PR. Fork/Dependabot restrictions
   and private-repository security entitlements can differ. Do not silently
@@ -24,6 +35,10 @@ ceremony is needed. Use synthetic data, not production resources.
   Reader at the appropriate workspace/resource scope). Register `Microsoft.Web`,
   `Microsoft.OperationalInsights` and `Microsoft.Insights` if not already
   registered; provider registration can require subscription permissions.
+  Workspace/resource access mode and table restrictions can limit queries even
+  with resource reads. Also obtain query access to the **agent's own Application
+  Insights** for SRE input/output token audit events; the app workspace alone
+  cannot establish model consumption. These are separate resource scopes.
 - SRE Agent availability, model/provider access and Azure/GitHub connections.
   Provision/reuse the agent separately: setup deliberately does not create one,
   grant RBAC, enable paid features or alter shared connectors.
@@ -31,9 +46,22 @@ ceremony is needed. Use synthetic data, not production resources.
   Administrator, on its creation scope. Adding Azure scopes requires active
   Owner/User Access Administrator on each scope (activate PIM first).
   The browser must reach `*.azuresre.ai`.
-- Node.js 22+, Git, PHP 8.3+ CLI, Azure CLI + Bicep, curl, Bash, PowerShell 7+,
+- SRE user roles are separate from Azure control-plane roles. Chat/diagnostics
+  require **SRE Agent Standard User** or **SRE Agent Administrator**; Reader
+  cannot chat. Administrator manages general connectors and approves actions.
+  Later authoring needs Standard User + Author or Administrator; Author alone
+  cannot chat or add repositories through the portal. Owner/Contributor does
+  not replace these SRE data-action roles.
+- A GitHub connection authorized for code reads and, at the approved handover
+  checkpoint only, creation of one issue in the learner repository. Review
+  OAuth/app access and organization consent. Do not equate code access with
+  issue-write capability or grant merge/deployment credentials to agents.
+- Node.js 22+, Git, PHP 8.3+ CLI, Azure CLI + Bicep, GitHub CLI (`gh`), curl, Bash, PowerShell 7+,
   and `unzip` for tests. The `log-analytics` Azure CLI extension is required for
   bounded evidence export. The scenario Codespaces definition supplies tooling.
+  `gh agent-task create --help` must expose `--base` if using the CLI branch
+  fallback (verified with gh 2.97); no CLI task is needed when issue assignment
+  provides the starting-branch picker.
 
 **Costs remain visible:** an always-on B1 plan bills while idle; telemetry
 ingestion/retention, agent/model usage, GitHub AI credits and Codespaces can
@@ -49,6 +77,10 @@ From the repository root, open the dedicated Codespaces configuration or verify:
 ```bash
 node --version
 php --version
+git --version
+gh --version
+gh auth status
+gh agent-task create --help
 pwsh --version
 curl --version
 az version
@@ -62,6 +94,15 @@ The same native commands work in PowerShell (`curl.exe` on Windows). If the
 extension is missing, explicitly install it with
 `az extension add --name log-analytics`. Do not change tenant policies or
 subscriptions to work around an authorization error.
+
+Open the repository **Issues** and confirm you may review/assign issues. Inspect
+your Copilot plan/policies and the available coding environment without
+starting a task. On the SRE resource's Azure IAM page, check your SRE user role;
+review the agent UAMI's actual Azure grants with the authorized administrator.
+Reader scope setup can add monitoring/operator roles; it is not a universal
+read-only guarantee. Confirm scoped log reads in the app workspace and the
+agent's Application Insights. Do not request OBO elevation for investigation.
+Record access gaps and the consumption source you can actually see.
 
 For the authorized connected workshop test environment, the only permitted
 subscription is **Sandbox** `fa68ebb3-c4c4-4b3f-8c91-cbef4c119d77`.
@@ -81,6 +122,12 @@ live checkpoint later. References are examples, never observed live evidence.
 sandbox administrator or another permitted region, not broader agent rights.
 If you cannot query logs, fix resource/workspace scope before investigating.
 If credits/counters are hidden, record them as unmeasured rather than estimate.
+An allowance, quota, AAU allocation or "token usage" dialog showing a monthly
+limit is not direct per-session spend. Keep SRE input/output tokens and GitHub
+per-session AI credits separate, with delegated/retry coverage disclosed.
+Setup/customization and review/security usage stay separate from incident
+measurement. Do not enable paid features as an implicit continuation step:
+retain the gap, use labelled references/local work and resume live checks later.
 
 ## First-party references
 
@@ -89,7 +136,17 @@ Checked 2026-11-03; product surfaces and tenant availability can change:
 - [PHP on App Service Linux](https://learn.microsoft.com/en-us/azure/app-service/configure-language-php)
 - [SRE Agent creation and setup](https://learn.microsoft.com/azure/sre-agent/create-and-set-up)
 - [SRE Agent permissions](https://learn.microsoft.com/en-us/azure/sre-agent/permissions)
+- [SRE user roles](https://learn.microsoft.com/en-us/azure/sre-agent/user-roles)
+- [Workspace query access](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/manage-access)
 - [SRE connections](https://learn.microsoft.com/en-us/azure/sre-agent/connectors)
 - [Copilot on GitHub and cloud tasks](https://docs.github.com/en/copilot/concepts/copilot-surfaces/copilot-on-github)
+- [Issue assignment and branch selection](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/cloud-agent/use-cloud-agent-on-github#assigning-an-issue-to-copilot)
+- [SRE token audit fields](https://learn.microsoft.com/en-us/azure/sre-agent/audit-agent-actions)
+- [GitHub AI credits](https://docs.github.com/en/copilot/concepts/billing-and-usage/individuals/billing)
+
+The newer setup guide is the onboarding reference where older permission-page
+wording differs; inspect actual grants rather than resolving discrepancies by
+granting subscription-wide rights. Documentation establishes product support,
+not observed access or live results in your environment.
 
 Next: [Deploy](01-deploy-infrastructure.md).
