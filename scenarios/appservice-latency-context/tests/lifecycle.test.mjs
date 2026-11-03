@@ -8,6 +8,31 @@ import { test } from 'node:test';
 const capsule = fileURLToPath(new URL('../', import.meta.url));
 const subscription = 'fa68ebb3-c4c4-4b3f-8c91-cbef4c119d77';
 
+test('Windows Azure bridge requires explicit subscription and preserves native failures', async () => {
+  const directory = path.join(capsule, '.test-runs', `bridge-${process.pid}`);
+  await mkdir(directory, { recursive: true });
+  const run = (args, extra = {}) => spawnSync('pwsh', [
+    '-NoProfile', '-File', path.join(capsule, 'scripts/azure-command.ps1'),
+  ], {
+    encoding: 'utf8',
+    env: {
+      ...process.env, FIXTURE_DIR: directory, ALCTX_AZURE_ARGS: JSON.stringify(args),
+      PATH: `${path.join(capsule, 'tests/fixtures/bin')}${path.delimiter}${process.env.PATH}`,
+      ...extra,
+    },
+  });
+  try {
+    assert.notEqual(run(['group', 'exists', '--name', 'alctx-rg']).status, 0);
+    const args = ['group', 'exists', '--name', 'alctx-rg', '--subscription', subscription, '--output', 'json'];
+    const result = run(args);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'false');
+    assert.equal(run(args, { FAIL_AZ: 'group exists' }).status, 19);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 for (const shell of ['bash', 'pwsh']) {
   test(`${shell}: setup refuses implicit subscriptions before invoking Azure`, async () => {
     const extension = shell === 'bash' ? 'sh' : 'ps1';

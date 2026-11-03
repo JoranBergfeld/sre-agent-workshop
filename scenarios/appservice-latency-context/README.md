@@ -63,7 +63,7 @@ both lifecycle shells. PowerShell 7, Azure CLI, Node 22+, curl, OpenSSL, Git and
 
 ## Cost profile
 
-**Medium** is a qualitative cost estimate, not a quoted price. The dominant
-cost drivers are always-on App Service compute, telemetry ingestion/retention,
+**Medium** is a qualitative cost estimate, not a quoted price. The
+dominant cost drivers are always-on App Service compute, telemetry ingestion/retention,
 SRE/model usage, GitHub AI credits and Codespaces. Review your current pricing
 and usage surfaces, preserve evidence and delete unused owned resources.
