@@ -5,13 +5,17 @@ LOCATION="eastus2"
 WORKLOAD="srelabapp"
 PUBLISH_DIR=""
 UPSTREAM_REPOSITORY="JoranBergfeld/sre-agent-workshop"
+REGION_FALLBACK_ARGS=()
 
 usage() {
   cat <<'EOF'
-Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>]
+Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>] [--no-region-fallback]
 
 Options:
-  -l, --location  Azure region (default: eastus2)
+  -l, --location  Preferred Azure region (default: eastus2). A new deployment
+                  falls back through infra/placement.json when the region lacks
+                  App Service capacity or quota; an existing one stays pinned.
+      --no-region-fallback  Only try the preferred region
   -w, --workload  Workload name (default: srelabapp)
   -s, --subscription-id  Azure subscription ID (default: AZURE_SUBSCRIPTION_ID or active subscription)
   -h, --help      Show this help
@@ -52,6 +56,10 @@ while [ "$#" -gt 0 ]; do
       export AZURE_SUBSCRIPTION_ID="$2"
       shift 2
       ;;
+    --no-region-fallback)
+      REGION_FALLBACK_ARGS=(--no-region-fallback)
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -77,7 +85,7 @@ if [[ ! "$WORKLOAD" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || [ "${#WORKLOAD}" -gt 51 ];
   exit 1
 fi
 
-for required_command in az gh dotnet zip jq; do
+for required_command in az gh node dotnet zip jq; do
   if ! command -v "$required_command" >/dev/null 2>&1; then
     echo "Required command not found: $required_command" >&2
     exit 1
@@ -147,19 +155,14 @@ for provider in \
   az provider register --namespace "$provider" --wait --output none
 done
 
-az group create \
-  --name "$RESOURCE_GROUP" \
-  --location "$LOCATION" \
-  --tags workshop=sre-agent environment=demo \
-  --output none
-
 LEGACY_IDENTITY_NAME="$WORKLOAD-github-deploy"
 LEGACY_PRINCIPAL_ID=""
 MANAGED_IDENTITY_STATE=$(az provider show \
   --namespace Microsoft.ManagedIdentity \
   --query registrationState \
   --output tsv)
-if [ "$MANAGED_IDENTITY_STATE" = "Registered" ]; then
+RESOURCE_GROUP_EXISTS=$(az group exists --name "$RESOURCE_GROUP" --output tsv)
+if [ "$MANAGED_IDENTITY_STATE" = "Registered" ] && [ "$RESOURCE_GROUP_EXISTS" = "true" ]; then
   LEGACY_PRINCIPAL_ID=$(az identity list \
     --resource-group "$RESOURCE_GROUP" \
     --query "[?name=='$LEGACY_IDENTITY_NAME'].principalId | [0]" \
@@ -192,14 +195,20 @@ if [ -n "$LEGACY_PRINCIPAL_ID" ]; then
   echo "Removed legacy GitHub deployment identity: $LEGACY_IDENTITY_NAME"
 fi
 
-OUTPUTS=$(az deployment group create \
+# The shared placement engine creates the resource group and deploys
+# infra/bicep/main.bicep in the first eligible region (App Service Linux B1,
+# providers and quota), retrying only classified capacity/SKU/quota failures.
+# An existing resource group is never relocated.
+OUTPUTS_FILE=$(mktemp)
+node scripts/placement/provision.mjs deploy cloud-agent-handover \
+  --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
+  --workload "$WORKLOAD" \
   --resource-group "$RESOURCE_GROUP" \
-  --template-file scenarios/cloud-agent-handover/infra/bicep/main.bicep \
-  --parameters \
-    location="$LOCATION" \
-    workloadName="$WORKLOAD" \
-  --query properties.outputs \
-  --output json)
+  --outputs-file "$OUTPUTS_FILE"
+OUTPUTS=$(cat "$OUTPUTS_FILE")
+rm -f -- "$OUTPUTS_FILE"
+LOCATION=$(jq -er '.location' .sre-workshop/cloud-agent-handover-placement.json)
+echo "Azure region: $LOCATION"
 
 WEB_APP=$(jq -er '.webAppName.value' <<<"$OUTPUTS")
 WEB_HOST=$(jq -er '.webAppHostName.value' <<<"$OUTPUTS")

@@ -50,11 +50,15 @@ fi
 
 write_ok "Azure subscription verified"
 
-SIZE=$(az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name" -o tsv 2>/dev/null || true)
-if [ -n "$SIZE" ]; then
-  write_ok "Standard_B2s available in $LOCATION"
+# Region, VM family, SKU restriction and quota preflight from
+# infra/placement.json. Deployment falls back through the same ordered list.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+if ! command -v node >/dev/null 2>&1; then
+  write_fail "Node.js 20+ not found (it runs the shared placement engine)"
+elif node "$REPO_ROOT/scripts/placement/provision.mjs" check iis-app-pool --location "$LOCATION"; then
+  write_ok "Placement preflight found an eligible region, VM size and quota"
 else
-  write_fail "Standard_B2s unavailable in $LOCATION; update vmSize in scenarios/iis-app-pool/infra/bicep/modules/vm.bicep"
+  write_fail "Placement preflight found no eligible region, VM size or quota (reasons above)"
 fi
 
 echo "========================================"

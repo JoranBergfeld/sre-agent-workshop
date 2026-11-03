@@ -104,33 +104,20 @@ else
   warn "gh CLI not found (optional) — install: https://cli.github.com"
 fi
 
-# ── Region check ──────────────────────────
-header "Supported Regions"
-echo "  The workshop supports: eastus2, swedencentral, australiaeast"
-echo "  Set your preferred region when running the deploy-infra workflow."
-
-# ── VM Size availability ─────────────────
-header "VM Size Availability"
-VM_SIZE="Standard_D2ads_v6"
+# ── Placement preflight ───────────────
+header "Region, VM Size and Quota"
+echo "  Candidate regions, Kubernetes versions and node sizes: scenarios/workload-identity-break/infra/placement.json"
+echo "  Deployment falls back through them in order; existing deployments stay pinned."
 if az account show &>/dev/null; then
-  AVAILABLE=$(az vm list-sizes --location "$LOCATION" --query "[?name=='${VM_SIZE}'].name" -o tsv 2>/dev/null)
-  if [ -n "$AVAILABLE" ]; then
-    ok "${VM_SIZE} is available in ${LOCATION}"
+  # Region, VM family, SKU restriction and quota preflight from
+  # infra/placement.json. Deployment falls back through the same ordered list.
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+  if ! command -v node >/dev/null 2>&1; then
+    fail "Node.js 20+ not found (it runs the shared placement engine)"
+  elif node "$REPO_ROOT/scripts/placement/provision.mjs" check workload-identity-break --location "$LOCATION"; then
+    ok "Placement preflight found an eligible region, AKS version, node VM size and quota"
   else
-    fail "${VM_SIZE} is NOT available in ${LOCATION}"
-    echo ""
-    echo "  The default AKS node VM size (${VM_SIZE}) is not available in your"
-    echo "  subscription/region. You need to edit scenarios/workload-identity-break/infra/bicep/modules/aks.bicep"
-    echo "  and change the 'vmSize' property to an available 2-vCPU size."
-    echo ""
-    echo "  Suggested alternatives (any 2-vCPU general-purpose VM will work):"
-    echo "    - Standard_D2s_v3"
-    echo "    - Standard_D2as_v5"
-    echo "    - Standard_D2s_v5"
-    echo "    - Standard_B2s"
-    echo ""
-    echo "  To see all available sizes in your region:"
-    echo "    az vm list-sizes --location ${LOCATION} --query \"[?numberOfCores==\`2\`].name\" -o table"
+    fail "Placement preflight found no eligible region, AKS version, node VM size or quota (reasons above)"
   fi
 else
   warn "Skipped — not logged in to Azure"

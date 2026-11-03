@@ -1,0 +1,71 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "arc-disk-pressure",
+  "description": "One Windows Server 2022 Gen2 x64 evaluation host with a Premium SSD OS disk.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabarcdisk",
+  "resourceGroup": "rg-{workload}",
+  "regionChecks": [
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Compute",
+      "resourceType": "virtualMachines"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Network",
+      "resourceType": "bastionHosts"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.HybridCompute",
+      "resourceType": "machines"
+    }
+  ],
+  "compute": {
+    "kind": "vm",
+    "count": 1,
+    "skus": [
+      "Standard_D2s_v7",
+      "Standard_D2s_v6",
+      "Standard_D2as_v6",
+      "Standard_D2s_v5",
+      "Standard_D2as_v5"
+    ],
+    "requires": {
+      "vCPUs": 2,
+      "architecture": "x64",
+      "premiumIO": true,
+      "hyperVGeneration": "V2"
+    }
+  },
+  "groupTags": {
+    "workshop": "sre-agent",
+    "scenario": "arc-disk-pressure",
+    "environment": "demo"
+  },
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "arc-disk-pressure-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "vmSize": "{sku}",
+      "adminUsername": "azureuser",
+      "tags": {
+        "scenario": "arc-disk-pressure",
+        "environment": "demo"
+      }
+    }
+  }
+}

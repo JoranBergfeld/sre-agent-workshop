@@ -27,17 +27,18 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 
 Write-Ok "Azure subscription verified"
 
-$vmSize = if ($env:VM_SIZE) { $env:VM_SIZE } else { 'Standard_D2s_v7' }
-# az vm list-sizes ignores capacity restrictions and reports unavailable SKUs as
-# present, so query list-skus and inspect the restrictions collection instead.
-$restrictions = az vm list-skus --location $Location --resource-type virtualMachines `
-    --query "[?name=='$vmSize'] | [0].restrictions | length(@)" -o tsv 2>$null
-if (-not $restrictions) {
-    Write-Fail "$vmSize is not offered in $Location for this subscription; choose another region or pass vmSize"
-} elseif ($restrictions -ne '0') {
-    Write-Fail "$vmSize is restricted in $Location (capacity or quota); choose another region or pass vmSize"
+# Region, VM family, SKU restriction and quota preflight from
+# infra/placement.json. Deployment falls back through the same ordered list.
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Fail "Node.js 20+ not found (it runs the shared placement engine)"
 } else {
-    Write-Ok "$vmSize available and unrestricted in $Location"
+    & node (Join-Path $repoRoot 'scripts/placement/provision.mjs') check arc-disk-pressure --location $Location
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Placement preflight found an eligible region, VM size and quota"
+    } else {
+        Write-Fail "Placement preflight found no eligible region, VM size or quota (reasons above)"
+    }
 }
 
 Write-Host "========================================"

@@ -27,11 +27,18 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 
 Write-Ok "Azure subscription verified"
 
-$size = az vm list-sizes --location $Location --query "[?name=='Standard_B2s'].name" -o tsv 2>$null
-if ($size) {
-    Write-Ok "Standard_B2s available in $Location"
+# Region, VM family, SKU restriction and quota preflight from
+# infra/placement.json. Deployment falls back through the same ordered list.
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Fail "Node.js 20+ not found (it runs the shared placement engine)"
 } else {
-    Write-Fail "Standard_B2s unavailable in $Location; update vmSize in scenarios/iis-app-pool/infra/bicep/modules/vm.bicep"
+    & node (Join-Path $repoRoot 'scripts/placement/provision.mjs') check iis-app-pool --location $Location
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Placement preflight found an eligible region, VM size and quota"
+    } else {
+        Write-Fail "Placement preflight found no eligible region, VM size or quota (reasons above)"
+    }
 }
 
 Write-Host "========================================"

@@ -1,0 +1,80 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "workload-identity-break",
+  "description": "AKS system pool, regional Kubernetes version, Container Insights, workload identity and serverless Cosmos DB.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabidentity",
+  "resourceGroup": "rg-{workload}",
+  "regionChecks": [
+    {
+      "type": "provider",
+      "namespace": "Microsoft.ContainerService",
+      "resourceType": "managedClusters"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.DocumentDB",
+      "resourceType": "databaseAccounts"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Insights",
+      "resourceType": "dataCollectionRules"
+    },
+    {
+      "type": "aksVersion",
+      "versions": [
+        "1.34",
+        "1.33"
+      ]
+    },
+    {
+      "type": "cosmos"
+    }
+  ],
+  "compute": {
+    "kind": "aks",
+    "count": 2,
+    "surge": 1,
+    "skus": [
+      "Standard_D2ads_v6",
+      "Standard_D2ads_v5",
+      "Standard_D2s_v5",
+      "Standard_D2as_v5"
+    ],
+    "requires": {
+      "vCPUs": 2,
+      "minMemoryGB": 4,
+      "architecture": "x64"
+    }
+  },
+  "groupTags": {
+    "workshop": "sre-agent",
+    "scenario": "workload-identity-break",
+    "environment": "demo"
+  },
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "workload-identity-break-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "systemNodeVmSize": "{sku}",
+      "kubernetesVersion": "{kubernetesVersion}",
+      "tags": {
+        "workshop": "sre-agent",
+        "environment": "demo"
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "cloud-agent-handover",
+  "description": "Linux App Service B1 (.NET 10) with Application Insights and Log Analytics.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabapp",
+  "resourceGroup": "rg-{workload}",
+  "groupTags": {
+    "workshop": "sre-agent"
+  },
+  "regionChecks": [
+    {
+      "type": "appServiceLinux",
+      "sku": "B1"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Web",
+      "resourceType": "sites"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Insights",
+      "resourceType": "components"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    }
+  ],
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "cloud-agent-handover-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "tags": {
+        "workshop": "sre-agent",
+        "environment": "demo"
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "appservice-latency-context",
+  "description": "PHP 8.3 Linux App Service B1 workload. West Europe is preferred; the SRE Agent placement is chosen separately.",
+  "regions": [
+    "westeurope",
+    "swedencentral",
+    "eastus2",
+    "australiaeast"
+  ],
+  "defaultWorkload": "alctx",
+  "resourceGroup": "alctx-rg",
+  "regionChecks": [
+    {
+      "type": "appServiceLinux",
+      "sku": "B1"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Web",
+      "resourceType": "sites"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Insights",
+      "resourceType": "components"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    }
+  ],
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "alctx-infrastructure",
+    "parameters": {}
+  }
+}

@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       location:
-        description: 'Azure region'
+        description: 'Preferred Azure region (fallback order: infra/placement.json)'
         type: choice
         options:
           - eastus2
           - swedencentral
           - australiaeast
         default: eastus2
+      regionFallback:
+        description: 'Fall back to the next supported region when the preferred one lacks capacity, SKUs or quota (never for an existing deployment)'
+        type: boolean
+        default: true
       workloadName:
         description: 'Workload name used in resource naming'
         type: string
@@ -59,28 +63,28 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Create resource group
-        run: |
-          az group create \
-            --name "${RESOURCE_GROUP}" \
-            --location "${LOCATION}" \
-            --tags workshop=sre-agent environment=demo track=vm scenario=vm-size-retirement
+      - name: Set up Node.js for the placement engine
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Deploy VM infrastructure
+      - name: Deploy VM infrastructure (region and SKU fallback)
         id: deploy
+        env:
+          REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
-          az deployment group create \
-            --resource-group "${RESOURCE_GROUP}" \
-            --template-file scenarios/vm-size-retirement/infra/bicep/main.bicep \
-            --parameters scenarios/vm-size-retirement/infra/bicep/main.bicepparam \
-              location="${LOCATION}" \
-              workloadName="${WORKLOAD}" \
-              adminUsername="${ADMIN_USERNAME}" \
-              adminPassword="${ADMIN_PASSWORD}" \
-              sreAgentPrincipalId="${SRE_AGENT_PRINCIPAL_ID}" \
-              tags='{"workshop":"sre-agent","environment":"demo","track":"vm","scenario":"vm-size-retirement"}' \
-            --query 'properties.outputs' \
-            -o json > vm-size-retirement-deployment-outputs.json
+          # Placement policy: scenarios/vm-size-retirement/infra/placement.json. An existing
+          # resource group stays pinned to its recorded region; only verified
+          # attempt-owned resources are cleaned up after a failed attempt.
+          fallback=()
+          if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
+          node scripts/placement/provision.mjs deploy vm-size-retirement \
+            --location "${LOCATION}" "${fallback[@]}" \
+            --workload "${WORKLOAD}" \
+            --param adminUsername="${ADMIN_USERNAME}" \
+            --secure-param-env adminPassword=ADMIN_PASSWORD \
+            --param sreAgentPrincipalId="${SRE_AGENT_PRINCIPAL_ID}" \
+            --outputs-file vm-size-retirement-deployment-outputs.json
 
           echo "vm_names=$(jq -rc '.vmNames.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"

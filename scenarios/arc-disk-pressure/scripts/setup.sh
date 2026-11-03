@@ -50,17 +50,15 @@ fi
 
 write_ok "Azure subscription verified"
 
-VM_SIZE="${VM_SIZE:-Standard_D2s_v7}"
-# az vm list-sizes ignores capacity restrictions and reports unavailable SKUs as
-# present, so query list-skus and inspect the restrictions collection instead.
-RESTRICTIONS=$(az vm list-skus --location "$LOCATION" --resource-type virtualMachines \
-  --query "[?name=='$VM_SIZE'] | [0].restrictions | length(@)" -o tsv 2>/dev/null || true)
-if [ -z "$RESTRICTIONS" ]; then
-  write_fail "$VM_SIZE is not offered in $LOCATION for this subscription; choose another region or pass vmSize"
-elif [ "$RESTRICTIONS" != "0" ]; then
-  write_fail "$VM_SIZE is restricted in $LOCATION (capacity or quota); choose another region or pass vmSize"
+# Region, VM family, SKU restriction and quota preflight from
+# infra/placement.json. Deployment falls back through the same ordered list.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+if ! command -v node >/dev/null 2>&1; then
+  write_fail "Node.js 20+ not found (it runs the shared placement engine)"
+elif node "$REPO_ROOT/scripts/placement/provision.mjs" check arc-disk-pressure --location "$LOCATION"; then
+  write_ok "Placement preflight found an eligible region, VM size and quota"
 else
-  write_ok "$VM_SIZE available and unrestricted in $LOCATION"
+  write_fail "Placement preflight found no eligible region, VM size or quota (reasons above)"
 fi
 
 echo "========================================"

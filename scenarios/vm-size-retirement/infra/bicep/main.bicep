@@ -32,6 +32,9 @@ param adminUsername string = 'azureuser'
 @description('Admin password for Windows VMs')
 param adminPassword string
 
+@description('VM size for the baseline Windows VMs. Selected by scripts/placement from the scenario policy (infra/placement.json).')
+param vmSize string = 'Standard_B2s'
+
 @description('Object (principal) ID of the Azure SRE Agent managed identity. Leave blank only for the initial infrastructure deployment before the agent exists.')
 param sreAgentPrincipalId string = ''
 
@@ -64,6 +67,7 @@ module vm 'modules/vm.bicep' = {
     tags: tags
     adminUsername: adminUsername
     adminPassword: adminPassword
+    vmSize: vmSize
     subnetId: network.outputs.subnetId
   }
 }

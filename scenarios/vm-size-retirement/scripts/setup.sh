@@ -44,10 +44,15 @@ fi
 
 ok "Azure subscription verified"
 
-if az vm list-sizes --location "$LOCATION" --query "[?name=='Standard_B2s'].name" -o tsv 2>/dev/null | grep -qx 'Standard_B2s'; then
-  ok "Standard_B2s available in $LOCATION"
+# Region, VM family, SKU restriction and quota preflight from
+# infra/placement.json. Deployment falls back through the same ordered list.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+if ! command -v node >/dev/null 2>&1; then
+  fail "Node.js 20+ not found (it runs the shared placement engine)"
+elif node "$REPO_ROOT/scripts/placement/provision.mjs" check vm-size-retirement --location "$LOCATION"; then
+  ok "Placement preflight found an eligible region, baseline VM size, real DSv2 legacy fleet, remediation target and quota"
 else
-  fail "Standard_B2s unavailable in $LOCATION"
+  fail "Placement preflight found no eligible region, baseline VM size, real DSv2 legacy fleet, remediation target and quota (reasons above)"
 fi
 
 if [ -z "$SRE_AGENT_PRINCIPAL_ID" ]; then

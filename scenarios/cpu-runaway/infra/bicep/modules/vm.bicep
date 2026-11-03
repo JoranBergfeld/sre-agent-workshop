@@ -14,6 +14,9 @@ param adminUsername string
 @description('Admin password for Windows VMs')
 param adminPassword string
 
+@description('VM size for the baseline Windows VMs. Selected by scripts/placement from the scenario policy (infra/placement.json).')
+param vmSize string = 'Standard_B2s'
+
 @description('Subnet resource ID for VM NICs')
 param subnetId string
 
@@ -64,7 +67,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-09-01' = [for (vmName, i) in
   }
   properties: {
     hardwareProfile: {
-      vmSize: 'Standard_B2s'
+      vmSize: vmSize
     }
     osProfile: {
       computerName: vmComputerNames[i]

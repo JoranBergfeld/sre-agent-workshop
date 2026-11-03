@@ -4,10 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       location:
-        description: 'Azure region'
+        description: 'Preferred Azure region (fallback order: infra/placement.json)'
         type: choice
         options: [eastus2, swedencentral, australiaeast]
         default: eastus2
+      regionFallback:
+        description: 'Fall back to the next supported region when the preferred one lacks capacity, SKUs or quota (never for an existing deployment)'
+        type: boolean
+        default: true
       workloadName:
         description: 'Workload name (used in resource naming)'
         type: string
@@ -46,31 +50,34 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Create resource group
-        run: |
-          az group create \
-            --name "rg-$WORKLOAD" \
-            --location "$LOCATION" \
-            --tags scenario=arc-disk-pressure environment=demo
+      - name: Set up Node.js for the placement engine
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Deploy Arc disk-pressure infrastructure
+      - name: Deploy Arc disk-pressure infrastructure (region and SKU fallback)
+        id: deploy
+        env:
+          REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
-          az deployment group create \
-            --resource-group "rg-$WORKLOAD" \
-            --template-file "$SCENARIO_ROOT/infra/bicep/main.bicep" \
-            --parameters "$SCENARIO_ROOT/infra/bicep/main.bicepparam" \
-              location="$LOCATION" \
-              workloadName="$WORKLOAD" \
-              adminUsername="$ADMIN_USERNAME" \
-              adminPassword="$ADMIN_PASSWORD" \
-              tags='{"scenario":"arc-disk-pressure","environment":"demo"}' \
-            --query properties.outputs \
-            -o json > arc-disk-pressure-deployment-outputs.json
+          # Placement policy: scenarios/arc-disk-pressure/infra/placement.json. An existing
+          # resource group stays pinned to its recorded region; only verified
+          # attempt-owned resources are cleaned up after a failed attempt.
+          fallback=()
+          if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
+          node scripts/placement/provision.mjs deploy arc-disk-pressure \
+            --location "${LOCATION}" "${fallback[@]}" \
+            --workload "${WORKLOAD}" \
+            --param adminUsername="${ADMIN_USERNAME}" \
+            --secure-param-env adminPassword=ADMIN_PASSWORD \
+            --outputs-file arc-disk-pressure-deployment-outputs.json
 
           cat arc-disk-pressure-deployment-outputs.json
 
       - name: Print deployment summary
         run: |
           echo "Arc disk-pressure infrastructure deployed"
-          echo "Resource group: rg-$WORKLOAD"
+          echo "Resource group: ${{ steps.deploy.outputs.resource_group }}"
+          echo "Location: ${{ steps.deploy.outputs.location }}"
+          echo "VM size: ${{ steps.deploy.outputs.sku }}"
           echo "Scenario guide: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/scenarios/arc-disk-pressure/README.md"

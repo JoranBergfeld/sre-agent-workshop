@@ -29,6 +29,9 @@ param adminUsername string = 'azureuser'
 @description('Admin password for Windows VMs')
 param adminPassword string
 
+@description('VM size for the baseline Windows VMs. Selected by scripts/placement from the scenario policy (infra/placement.json).')
+param vmSize string = 'Standard_B2s'
+
 // ──────────────────────────────────────────────
 // 1. Monitoring (Log Analytics + App Insights)
 //    Deployed first — VM agents and alerts need the workspace
@@ -66,6 +69,7 @@ module vm 'modules/vm.bicep' = {
     tags: tags
     adminUsername: adminUsername
     adminPassword: adminPassword
+    vmSize: vmSize
     subnetId: network.outputs.subnetId
     dataCollectionRuleId: monitoring.outputs.cpuDataCollectionRuleId
   }

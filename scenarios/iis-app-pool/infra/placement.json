@@ -1,0 +1,67 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "iis-app-pool",
+  "description": "Two Windows Server 2022 Gen2 x64 IIS VMs with Premium SSD OS disks.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabiisapppool",
+  "resourceGroup": "rg-{workload}",
+  "regionChecks": [
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Compute",
+      "resourceType": "virtualMachines"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Network",
+      "resourceType": "bastionHosts"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    }
+  ],
+  "compute": {
+    "kind": "vm",
+    "count": 2,
+    "skus": [
+      "Standard_B2s",
+      "Standard_D2s_v5",
+      "Standard_D2as_v5",
+      "Standard_D2s_v6",
+      "Standard_D2s_v4"
+    ],
+    "requires": {
+      "vCPUs": 2,
+      "architecture": "x64",
+      "premiumIO": true,
+      "hyperVGeneration": "V2",
+      "diskController": "SCSI"
+    }
+  },
+  "groupTags": {
+    "workshop": "sre-agent",
+    "scenario": "iis-app-pool",
+    "environment": "demo"
+  },
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "iis-app-pool-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "vmSize": "{sku}",
+      "adminUsername": "azureuser",
+      "tags": {
+        "scenario": "iis-app-pool",
+        "environment": "demo"
+      }
+    }
+  }
+}

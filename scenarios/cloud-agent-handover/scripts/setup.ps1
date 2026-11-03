@@ -7,7 +7,11 @@ param(
     [ValidatePattern("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
     [string]$Workload = "srelabapp",
 
-    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID
+    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID,
+
+    # Only try the preferred region instead of falling back through
+    # infra/placement.json. Existing deployments always stay pinned.
+    [switch]$NoRegionFallback
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,7 +43,7 @@ function Invoke-NativeCommand {
     return $output
 }
 
-foreach ($requiredCommand in @("az", "gh", "dotnet")) {
+foreach ($requiredCommand in @("az", "gh", "node", "dotnet")) {
     if (-not (Get-Command $requiredCommand -ErrorAction SilentlyContinue)) {
         throw "Required command not found: $requiredCommand"
     }
@@ -120,14 +124,6 @@ query($owner:String!, $name:String!) {
         ) -DiscardOutput
     }
 
-    Invoke-NativeCommand -Command "az" -Arguments @(
-        "group", "create",
-        "--name", $resourceGroup,
-        "--location", $Location,
-        "--tags", "workshop=sre-agent", "environment=demo",
-        "--output", "none"
-    ) -DiscardOutput
-
     $legacyIdentityName = "$Workload-github-deploy"
     $managedIdentityState = [string](Invoke-NativeCommand -Command "az" -Arguments @(
         "provider", "show",
@@ -136,7 +132,10 @@ query($owner:String!, $name:String!) {
         "--output", "tsv"
     ))
     $legacyPrincipalId = ""
-    if ($managedIdentityState.Trim() -ceq "Registered") {
+    $resourceGroupExists = ([string](Invoke-NativeCommand -Command "az" -Arguments @(
+        "group", "exists", "--name", $resourceGroup, "--output", "tsv"
+    ))).Trim() -ceq "true"
+    if ($managedIdentityState.Trim() -ceq "Registered" -and $resourceGroupExists) {
         $legacyPrincipalIdRaw = Invoke-NativeCommand -Command "az" -Arguments @(
             "identity", "list",
             "--resource-group", $resourceGroup,
@@ -183,17 +182,29 @@ query($owner:String!, $name:String!) {
         Write-Host "Removed legacy GitHub deployment identity: $legacyIdentityName"
     }
 
-    $outputsJson = (Invoke-NativeCommand -Command "az" -Arguments @(
-        "deployment", "group", "create",
-        "--resource-group", $resourceGroup,
-        "--template-file", "scenarios/cloud-agent-handover/infra/bicep/main.bicep",
-        "--parameters",
-        "location=$Location",
-        "workloadName=$Workload",
-        "--query", "properties.outputs",
-        "--output", "json"
-    )) -join [Environment]::NewLine
-    $outputs = $outputsJson | ConvertFrom-Json
+    # The shared placement engine creates the resource group and deploys
+    # infra/bicep/main.bicep in the first eligible region (App Service Linux
+    # B1, providers and quota), retrying only classified capacity/SKU/quota
+    # failures. An existing resource group is never relocated.
+    $outputsFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $placementArguments = @(
+            "scripts/placement/provision.mjs", "deploy", "cloud-agent-handover",
+            "--location", $Location,
+            "--workload", $Workload,
+            "--resource-group", $resourceGroup,
+            "--outputs-file", $outputsFile
+        )
+        if ($NoRegionFallback) { $placementArguments += "--no-region-fallback" }
+        & node @placementArguments
+        if ($LASTEXITCODE -ne 0) { throw "Infrastructure provisioning failed (exit code $LASTEXITCODE)." }
+        $outputs = Get-Content -Raw $outputsFile | ConvertFrom-Json
+    }
+    finally {
+        Remove-Item -LiteralPath $outputsFile -Force -ErrorAction SilentlyContinue
+    }
+    $Location = [string](Get-Content -Raw ".sre-workshop/cloud-agent-handover-placement.json" | ConvertFrom-Json).location
+    Write-Host "Azure region: $Location"
 
     $webApp = [string]$outputs.webAppName.value
     $webHost = [string]$outputs.webAppHostName.value

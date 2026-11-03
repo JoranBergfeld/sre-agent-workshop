@@ -101,33 +101,23 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
     Write-Warn "gh CLI not found (optional) — install: https://cli.github.com"
 }
 
-# -- Region check ---
-Write-Header "Supported Regions"
-Write-Host "  The workshop supports: eastus2, swedencentral, australiaeast"
-Write-Host "  Set your preferred region when running the deploy-infra workflow."
-
-# -- VM Size availability ---
-Write-Header "VM Size Availability"
-$vmSize = "Standard_D2ads_v6"
+# -- Placement preflight ---
+Write-Header "Region, VM Size and Quota"
+Write-Host "  Candidate regions, Kubernetes versions and node sizes: scenarios/workload-identity-break/infra/placement.json"
+Write-Host "  Deployment falls back through them in order; existing deployments stay pinned."
 if ($acct) {
-    $available = az vm list-sizes --location $Location --query "[?name=='$vmSize'].name" -o tsv 2>$null
-    if ($available) {
-        Write-Ok "$vmSize is available in $Location"
+    # Region, VM family, SKU restriction and quota preflight from
+    # infra/placement.json. Deployment falls back through the same ordered list.
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Fail "Node.js 20+ not found (it runs the shared placement engine)"
     } else {
-        Write-Fail "$vmSize is NOT available in $Location"
-        Write-Host ""
-        Write-Host "  The default AKS node VM size ($vmSize) is not available in your"
-        Write-Host "  subscription/region. You need to edit scenarios/workload-identity-break/infra/bicep/modules/aks.bicep"
-        Write-Host "  and change the 'vmSize' property to an available 2-vCPU size."
-        Write-Host ""
-        Write-Host "  Suggested alternatives (any 2-vCPU general-purpose VM will work):"
-        Write-Host "    - Standard_D2s_v3"
-        Write-Host "    - Standard_D2as_v5"
-        Write-Host "    - Standard_D2s_v5"
-        Write-Host "    - Standard_B2s"
-        Write-Host ""
-        Write-Host "  To see all available sizes in your region:"
-        Write-Host "    az vm list-sizes --location $Location --query `"[?numberOfCores==``2``].name`" -o table"
+        & node (Join-Path $repoRoot 'scripts/placement/provision.mjs') check workload-identity-break --location $Location
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Placement preflight found an eligible region, AKS version, node VM size and quota"
+        } else {
+            Write-Fail "Placement preflight found no eligible region, AKS version, node VM size or quota (reasons above)"
+        }
     }
 } else {
     Write-Warn "Skipped — not logged in to Azure"

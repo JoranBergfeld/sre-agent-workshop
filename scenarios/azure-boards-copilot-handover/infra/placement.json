@@ -1,0 +1,57 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "azure-boards-copilot-handover",
+  "description": "Python 3.12 Linux Functions on Consumption (Y1), Service Bus, Storage and monitoring in a template-created resource group.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabboardshandover",
+  "resourceGroup": "{workload}-rg",
+  "groupTags": {
+    "workshop": "sre-agent",
+    "scenario": "azure-boards-copilot-handover",
+    "environment": "demo"
+  },
+  "regionChecks": [
+    {
+      "type": "functionsConsumption"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Web",
+      "resourceType": "serverFarms"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.ServiceBus",
+      "resourceType": "namespaces"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Storage",
+      "resourceType": "storageAccounts"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Insights",
+      "resourceType": "components"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    }
+  ],
+  "deployment": {
+    "scope": "subscription",
+    "template": "infra/bicep/main.bicep",
+    "name": "azure-boards-copilot-handover-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "tags": "{groupTags}"
+    }
+  }
+}

@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       location:
-        description: 'Azure region'
+        description: 'Preferred Azure region (fallback order: infra/placement.json)'
         type: choice
         options:
           - eastus2
           - swedencentral
           - australiaeast
         default: eastus2
+      regionFallback:
+        description: 'Fall back to the next supported region when the preferred one lacks capacity, SKUs or quota (never for an existing deployment)'
+        type: boolean
+        default: true
       workloadName:
         description: 'Workload name (used in resource naming)'
         type: string
@@ -49,27 +53,27 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Create resource group
-        run: |
-          az group create \
-            --name "rg-${{ env.WORKLOAD }}" \
-            --location "${{ env.LOCATION }}" \
-            --tags scenario=iis-app-pool environment=demo
+      - name: Set up Node.js for the placement engine
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Deploy IIS App Pool Bicep template
+      - name: Deploy IIS App Pool Bicep template (region and SKU fallback)
         id: deploy
+        env:
+          REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
-          az deployment group create \
-            --resource-group "rg-${{ env.WORKLOAD }}" \
-            --template-file "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicep" \
-            --parameters "${{ env.SCENARIO_ROOT }}/infra/bicep/main.bicepparam" \
-              location="${{ env.LOCATION }}" \
-              workloadName="${{ env.WORKLOAD }}" \
-              adminUsername="${{ env.ADMIN_USERNAME }}" \
-              adminPassword="${{ env.ADMIN_PASSWORD }}" \
-              tags='{"scenario":"iis-app-pool","environment":"demo"}' \
-            --query 'properties.outputs' \
-            -o json > deployment-outputs.json
+          # Placement policy: scenarios/iis-app-pool/infra/placement.json. An existing
+          # resource group stays pinned to its recorded region; only verified
+          # attempt-owned resources are cleaned up after a failed attempt.
+          fallback=()
+          if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
+          node scripts/placement/provision.mjs deploy iis-app-pool \
+            --location "${LOCATION}" "${fallback[@]}" \
+            --workload "${WORKLOAD}" \
+            --param adminUsername="${ADMIN_USERNAME}" \
+            --secure-param-env adminPassword=ADMIN_PASSWORD \
+            --outputs-file deployment-outputs.json
 
           cat deployment-outputs.json
           echo "vm_names=$(jq -rc '.vmNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
@@ -83,8 +87,9 @@ jobs:
           echo "=================================================="
           echo "  IIS App Pool Infrastructure Deployment Complete"
           echo "=================================================="
-          echo "Resource Group:                 rg-${{ env.WORKLOAD }}"
-          echo "Location:                       ${{ env.LOCATION }}"
+          echo "Resource Group:                 ${{ steps.deploy.outputs.resource_group }}"
+          echo "Location:                       ${{ steps.deploy.outputs.location }}"
+          echo "VM size:                        ${{ steps.deploy.outputs.sku }}"
           echo "VM Names:                       ${{ steps.deploy.outputs.vm_names }}"
           echo "VM Private IPs:                 ${{ steps.deploy.outputs.vm_private_ips }}"
           echo "Bastion Host:                   ${{ steps.deploy.outputs.bastion_name }}"

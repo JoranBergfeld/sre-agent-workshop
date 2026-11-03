@@ -1,0 +1,99 @@
+{
+  "$schema": "../../../schemas/placement.schema.json",
+  "scenario": "vm-size-retirement",
+  "description": "Two baseline Windows VMs, three real legacy DSv2 VMs created by inject, and one modern in-place resize target in the same region.",
+  "regions": [
+    "eastus2",
+    "swedencentral",
+    "australiaeast"
+  ],
+  "defaultWorkload": "srelabretirement",
+  "resourceGroup": "rg-{workload}",
+  "regionChecks": [
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Compute",
+      "resourceType": "virtualMachines"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.Network",
+      "resourceType": "bastionHosts"
+    },
+    {
+      "type": "provider",
+      "namespace": "Microsoft.OperationalInsights",
+      "resourceType": "workspaces"
+    }
+  ],
+  "compute": {
+    "kind": "vm",
+    "count": 2,
+    "skus": [
+      "Standard_B2s",
+      "Standard_D2s_v5",
+      "Standard_D2as_v5",
+      "Standard_D2s_v6",
+      "Standard_D2s_v4"
+    ],
+    "requires": {
+      "vCPUs": 2,
+      "architecture": "x64",
+      "premiumIO": true,
+      "hyperVGeneration": "V2",
+      "diskController": "SCSI"
+    }
+  },
+  "fixedFleetLabel": "legacy DSv2 fleet",
+  "fixedFleet": [
+    {
+      "sku": "Standard_DS1_v2",
+      "count": 2,
+      "requires": {
+        "architecture": "x64"
+      }
+    },
+    {
+      "sku": "Standard_DS2_v2",
+      "count": 1,
+      "requires": {
+        "architecture": "x64"
+      }
+    }
+  ],
+  "remediationTargets": [
+    "Standard_D2s_v5",
+    "Standard_D2as_v5",
+    "Standard_D2s_v4"
+  ],
+  "remediationRequires": {
+    "vCPUs": 2,
+    "architecture": "x64",
+    "hyperVGeneration": "V2",
+    "diskController": "SCSI"
+  },
+  "fleetUnavailableDiagnostic": "UNSUPPORTED SUBSCRIPTION: this exercise needs real, deployable Standard_DS1_v2 and Standard_DS2_v2 (DSv2, retiring May 1, 2028) capacity and approved standardDSv2Family quota. Under the Azure capacity-growth restrictions, new subscriptions cannot deploy DSv2 at all and existing subscriptions can deploy only within already-approved quota. Region fallback cannot fix this, and the workshop never substitutes non-retiring sizes. Use a subscription with existing DSv2 quota, or choose another scenario. See https://learn.microsoft.com/azure/virtual-machines/sizes/lifecycle/retirements-and-capacity-restrictions",
+  "groupTags": {
+    "workshop": "sre-agent",
+    "scenario": "vm-size-retirement",
+    "environment": "demo",
+    "track": "vm"
+  },
+  "deployment": {
+    "scope": "group",
+    "template": "infra/bicep/main.bicep",
+    "name": "vm-size-retirement-{workload}",
+    "parameters": {
+      "location": "{location}",
+      "workloadName": "{workload}",
+      "vmSize": "{sku}",
+      "adminUsername": "azureuser",
+      "tags": {
+        "workshop": "sre-agent",
+        "environment": "demo",
+        "track": "vm",
+        "scenario": "vm-size-retirement"
+      }
+    }
+  }
+}
