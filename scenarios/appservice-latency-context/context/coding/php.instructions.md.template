@@ -1,0 +1,43 @@
+---
+applyTo: "scenarios/appservice-latency-context/src/**/*.php"
+excludeAgent: "code-review"
+---
+
+# Learner-authored PHP coding context
+
+Inactive starter. Complete after the baseline, then manually add a uniquely
+named `.github/instructions/alctx-php.instructions.md` on the faulty coding
+base. Preserve any existing file at that destination; merge rather than replace.
+The scope deliberately excludes other capsules and prepared test fixtures.
+
+## Navigation
+
+[Fill: start at this capsule's PHP HTTP entry point, follow request-path
+behavior using correlated stage evidence, and consult public HTTP tests.
+Name only the files needed to navigate, not a preselected root cause.]
+
+## Change boundary
+
+[Fill: minimal PHP change scope and any justified HTTP regression-test change.
+Keep telemetry, independent health and unrelated routes/methods intact.
+Propose expansion before editing deployment or lifecycle assets.]
+
+## Regression tests
+
+[Fill: status/payload and elapsed-behavior checks that fail on faulty tracked
+source and reject a zero-pause candidate. Record the controlled environment,
+runtime versions and candidate-specific command; do not weaken assertions.]
+
+## Behavior preservation
+
+[Fill: preserve the valid order-status response and intentional 20 ms pause,
+including unit/boundary checks justified by evidence. Keep independent health
+and unrelated behavior unchanged. Selecting a prepared revision is a reset,
+not the requested code repair.]
+
+## Validation report
+
+[Fill: commands actually run, candidate SHA, test outcomes and missing checks.
+Support the explanation with the changed diff and observed behavior rather
+than a claim of instruction compliance. Leave the fix PR unmerged and
+undeployed for human review.]

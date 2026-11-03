@@ -1,0 +1,57 @@
+# [Fill: affected route and observed symptom, not an assumed cause]
+
+Author this draft after the baseline. Replace every `[Fill: ...]` with bounded
+evidence or explicitly state “unavailable”. This file is an inactive starter,
+not an automatically created GitHub issue. Keep facts separate from hypotheses.
+
+## Symptoms
+
+[Fill: user-visible latency, HTTP status and content, healthy-route comparison,
+UTC incident window, affected synthetic resource. Distinguish observed from expected.]
+
+## Established facts
+
+[Fill: observations with correlation IDs and evidence links. Include the
+deployment revision/time and what was checked; leave unsupported claims out.]
+
+## Hypotheses
+
+[Fill: plausible alternatives, supporting/contradicting evidence for each,
+remaining uncertainty and the next bounded check. Label inference as inference.]
+
+## Reproduction
+
+[Fill: repository URL, dedicated faulty coding base branch and immutable SHA,
+runtime deployment revision, shell/runtime versions and prerequisites. Record
+the exact bounded reproduction command, expected versus actual result and
+whether it was run. A runtime package is not necessarily the tracked code.]
+
+## Evidence
+
+[Fill: minimal request-duration and correlated stage evidence, independent
+health result, deployment timing and links accessible to the coding agent.
+Give resource/time scope and gaps. Use synthetic data; redact secrets.]
+
+## Constraints
+
+Repair only the scoped application defect. Preserve valid order-status content,
+the intentional 20 ms request-path pause, independent health and unrelated
+routes/method behavior. Removing the pause, disabling injection or reverting a
+deployment is not the code repair. Keep prepared fixtures intact.
+
+[Fill: allowed file/change boundary and any existing learner changes to preserve.
+Propose expansion before changing infrastructure, lifecycle or unrelated capsules.]
+
+The SRE Agent needs learner approval before creating one unassigned issue.
+The learner reviews it and assigns the coding agent. Neither agent merges or
+deploys; deliver an unmerged fix PR for human inspection.
+
+## Verification
+
+[Fill: HTTP regression expectations, candidate-specific test commands and
+evidence needed to reject a missing pause or changed payload. Require a failing
+faulty starting check and a passing repaired candidate, preserving assertions.
+Report actual commands, candidate SHA, results, skipped checks and reasons.]
+
+A tested PR is not deployed recovery. Keep runtime reset and any later
+human-controlled deployment outside code-repair evidence.
