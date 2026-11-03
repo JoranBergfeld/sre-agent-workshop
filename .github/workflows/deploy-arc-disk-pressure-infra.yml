@@ -61,8 +61,9 @@ jobs:
           REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
           # Placement policy: scenarios/arc-disk-pressure/infra/placement.json. An existing
-          # resource group stays pinned to its recorded region; only verified
-          # attempt-owned resources are cleaned up after a failed attempt.
+          # resource group stays pinned to its recorded region. A failed attempt is
+          # retried elsewhere only after it is verified to have changed nothing;
+          # nothing is ever deleted automatically.
           fallback=()
           if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
           node scripts/placement/provision.mjs deploy arc-disk-pressure \
@@ -72,7 +73,10 @@ jobs:
             --secure-param-env adminPassword=ADMIN_PASSWORD \
             --outputs-file arc-disk-pressure-deployment-outputs.json
 
-          cat arc-disk-pressure-deployment-outputs.json
+          # Print only nonsecret outputs; the App Insights connection string is omitted.
+          jq '{vmNames: .vmNames.value, vmComputerNames: .vmComputerNames.value, vmPrivateIps: .vmPrivateIps.value, logAnalyticsWorkspaceId: .logAnalyticsWorkspaceId.value, operationsIdentityClientId: .operationsIdentityClientId.value, bastionName: .bastionName.value}' \
+            arc-disk-pressure-deployment-outputs.json
+
 
       - name: Print deployment summary
         run: |

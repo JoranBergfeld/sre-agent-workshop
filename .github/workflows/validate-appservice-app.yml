@@ -8,12 +8,14 @@ on:
       - 'scenarios/cloud-agent-handover/**'
       - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-app.yml'
+      - 'scripts/placement/**'
   push:
     branches: [main]
     paths:
       - 'scenarios/cloud-agent-handover/**'
       - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-app.yml'
+      - 'scripts/placement/**'
 
 permissions:
   contents: read

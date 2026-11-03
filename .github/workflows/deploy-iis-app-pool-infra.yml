@@ -64,8 +64,9 @@ jobs:
           REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
           # Placement policy: scenarios/iis-app-pool/infra/placement.json. An existing
-          # resource group stays pinned to its recorded region; only verified
-          # attempt-owned resources are cleaned up after a failed attempt.
+          # resource group stays pinned to its recorded region. A failed attempt is
+          # retried elsewhere only after it is verified to have changed nothing;
+          # nothing is ever deleted automatically.
           fallback=()
           if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
           node scripts/placement/provision.mjs deploy iis-app-pool \
@@ -75,7 +76,6 @@ jobs:
             --secure-param-env adminPassword=ADMIN_PASSWORD \
             --outputs-file deployment-outputs.json
 
-          cat deployment-outputs.json
           echo "vm_names=$(jq -rc '.vmNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"

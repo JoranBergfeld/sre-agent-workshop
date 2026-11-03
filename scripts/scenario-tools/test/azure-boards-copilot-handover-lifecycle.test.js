@@ -499,6 +499,27 @@ test('Setup changes nothing when the ownership check or the default artifact is 
   }
 });
 
+test('Setup on a fresh subscription defers unregistered providers, then registers them after both preflights and before deploy', () => {
+  for (const ext of ['sh', 'ps1']) {
+    const log = resolve(scratchDir(), 'az.log');
+    const env = { LIFECYCLE_PROVIDERS_UNREGISTERED: '1', LIFECYCLE_AZ_LOG_PATH: log, LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(), RETRY_DELAY_SECONDS: '0' };
+    const result = ext === 'sh'
+      ? runBash('setup.sh', ['--workload', 'srelabboardshandover', '--build-mode', 'source'], env)
+      : runPowerShell('setup.ps1', ['-Workload', 'srelabboardshandover', '-BuildMode', 'source'], env);
+    assert.equal(result.status, 0, `${ext}: ${result.stderr}\n${result.stdout}`);
+    const lines = readFileSync(log, 'utf8').split('\n');
+    const check = lines.findIndex(line => /provision\.mjs check .*--require-group.*--defer-unregistered-providers/.test(line));
+    const register = lines.findIndex(line => /^provider register --namespace Microsoft\.Web\b/.test(line));
+    const deploy = lines.findIndex(line => /provision\.mjs deploy/.test(line));
+    assert.ok(check >= 0 && register > check && deploy > register, `${ext}: ${lines.join('\n')}`);
+    for (const namespace of ['Microsoft.Web', 'Microsoft.ServiceBus', 'Microsoft.Storage', 'Microsoft.Insights', 'Microsoft.OperationalInsights']) {
+      assert.ok(lines.some(line => line.startsWith(`provider register --namespace ${namespace} `)), `${ext}: ${namespace}`);
+    }
+    const firstMutation = lines.findIndex(line => /^(provider register|functionapp|deployment sub create)|provision\.mjs deploy/.test(line));
+    assert.equal(firstMutation, register, `${ext}: provider registration must be the first Azure change`);
+  }
+});
+
 test('Setup deploys the current checkout, seeds v1 controls exactly once, and prints keyed URLs without the seed URL', () => {
   for (const [shell, result] of bothShells(
     'setup.sh',

@@ -12,9 +12,11 @@ usage() {
   cat <<'EOF'
 Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>] [--no-region-fallback] [--local-build]
 
-The resource group rg-<workload> must already exist (create it with
-'az group create --name rg-<workload> --location <region>'); setup never
-creates, relocates, or deletes resource groups.
+The resource group rg-<workload> must already exist, empty and designated for
+this scenario. Create it once with:
+  az group create --name rg-<workload> --location <region> --tags sre-workshop-scenario=cloud-agent-handover
+Setup never creates, relocates, or deletes resource groups. The GitHub
+repository is always the one the 'origin' remote points to.
 
 Options:
   -l, --location  Preferred Azure region (default: eastus2). A new deployment
@@ -123,8 +125,22 @@ fi
 
 cd "$REPO_ROOT"
 
-if ! REPOSITORY=$(gh repo view --json nameWithOwner --jq .nameWithOwner); then
-  echo "Unable to resolve the current GitHub repository." >&2
+# The repository comes from the 'origin' remote, never from gh's configured
+# default/upstream, so variables and artifacts always belong to this clone.
+if ! ORIGIN_URL=$(git remote get-url origin 2>/dev/null); then
+  echo "Unable to read the 'origin' remote of this checkout." >&2
+  exit 1
+fi
+if ! ORIGIN_REPOSITORY=$(node -e 'const m=/^(?:https:\/\/|ssh:\/\/git@|git@)([A-Za-z0-9.-]+)[/:]([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/.exec(process.argv[1]);if(!m)process.exit(1);process.stdout.write(`${m[1]}/${m[2]}`)' "$ORIGIN_URL"); then
+  echo "The 'origin' remote is not a GitHub repository URL: $ORIGIN_URL" >&2
+  exit 1
+fi
+if ! REPOSITORY=$(gh repo view "$ORIGIN_REPOSITORY" --json nameWithOwner --jq .nameWithOwner); then
+  echo "Unable to resolve the GitHub repository for origin ($ORIGIN_REPOSITORY)." >&2
+  exit 1
+fi
+if [ "$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')" != "$(printf '%s' "${ORIGIN_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "GitHub reports $REPOSITORY for origin $ORIGIN_REPOSITORY; refusing to continue with a different repository." >&2
   exit 1
 fi
 
@@ -169,11 +185,14 @@ json_field() {
 # Read-only ownership/eligibility check before anything is changed: the
 # designated resource group must already exist and be empty or owned by this
 # scenario, and an existing deployment stays pinned to its region and SKU.
+# Unregistered providers (a fresh subscription) are reported as pending here;
+# setup registers them below and the deploy re-runs the complete preflight.
 if ! node scripts/placement/provision.mjs check cloud-agent-handover \
   --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
   --workload "$WORKLOAD" \
   --resource-group "$RESOURCE_GROUP" \
-  --require-group; then
+  --require-group \
+  --defer-unregistered-providers; then
   echo "Setup stopped before changing anything." >&2
   exit 1
 fi
@@ -195,8 +214,7 @@ else
   if ! ARTIFACT=$(node scripts/build-artifacts/resolve.mjs \
     --scenario cloud-agent-handover \
     --variant application \
-    --output-dir "$PUBLISH_DIR" \
-    --repo "$REPOSITORY"); then
+    --output-dir "$PUBLISH_DIR"); then
     echo "Setup stopped before changing anything. Dispatch the build shown above, wait for it to succeed, and rerun setup; or rerun with --local-build." >&2
     exit 1
   fi

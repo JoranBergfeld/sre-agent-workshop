@@ -9,6 +9,10 @@ on:
       - 'scenarios/cosmos-rbac-removal/src/**'
       - 'scripts/build-artifacts/**'
       - '.github/workflows/publish-cosmos-rbac-removal-image.yml'
+      # Build triggers follow the scenario's deploy contract so every commit
+      # that changes what setup consumes gets an exact-SHA artifact.
+      - 'scenarios/cosmos-rbac-removal/infra/placement.json'
+      - 'scripts/placement/**'
 
 permissions:
   packages: write
@@ -49,9 +53,40 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:latest
-            ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:${{ github.sha }}
+          # Only the immutable SHA tag is pushed here; `latest` moves after the smoke test.
+          tags: ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:${{ github.sha }}
+
+      # No Azure: run the exact pushed digest and require a healthy /health
+      # before the image is promoted or trusted metadata is recorded.
+      - name: Smoke test the pushed immutable image
+        env:
+          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::Build did not report an image digest."; exit 1; }
+          REF="${IMAGE}@${DIGEST}"
+          docker pull "$REF"
+          CID=$(docker run --detach --publish 127.0.0.1:3000:3000 "$REF")
+          trap 'docker logs "$CID" 2>&1 | tail -n 50 || true; docker rm --force "$CID" >/dev/null 2>&1 || true' EXIT
+          for _ in $(seq 1 30); do
+            if BODY=$(curl --fail --silent --show-error http://127.0.0.1:3000/health 2>/dev/null); then
+              STATUS=$(printf '%s' "$BODY" | python -c 'import json, sys; print(json.load(sys.stdin).get("status", ""))')
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Smoke test passed for $REF"
+                exit 0
+              fi
+            fi
+            sleep 2
+          done
+          echo "::error::$REF did not report a healthy /health within 60 seconds."
+          exit 1
+
+      - name: Promote latest tag to the smoke-tested digest
+        env:
+          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
 
       - name: Record immutable image reference
         env:

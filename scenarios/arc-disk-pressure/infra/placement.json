@@ -33,6 +33,7 @@
   ],
   "compute": {
     "kind": "vm",
+    "baselineNamePattern": "-vm0[0-9]$",
     "count": 1,
     "skus": [
       "Standard_D2s_v7",

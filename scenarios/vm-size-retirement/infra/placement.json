@@ -28,6 +28,7 @@
   ],
   "compute": {
     "kind": "vm",
+    "baselineNamePattern": "-vm0[0-9]$",
     "count": 2,
     "skus": [
       "Standard_B2s",

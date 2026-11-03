@@ -134,7 +134,9 @@ echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 # verified earlier deployment) and that a supported region passes, and the
 # artifact resolver proves a trusted exact-HEAD package exists. Failing either
 # leaves Azure untouched.
-CHECK_ARGS=(check azure-boards-copilot-handover --location "$LOCATION" --workload "$WORKLOAD" --require-group)
+# Unregistered providers (a fresh subscription) are reported as pending here;
+# they are registered after both preflights and deploy re-checks everything.
+CHECK_ARGS=(check azure-boards-copilot-handover --location "$LOCATION" --workload "$WORKLOAD" --require-group --defer-unregistered-providers)
 if [ "$RESOURCE_GROUP_SET" = true ]; then CHECK_ARGS+=(--resource-group "$RESOURCE_GROUP"); fi
 if ! (cd "$REPO_ROOT" && node scripts/placement/provision.mjs "${CHECK_ARGS[@]}"); then
   echo "Placement/ownership preflight failed; nothing was changed." >&2
@@ -152,6 +154,12 @@ if [ "$BUILD_MODE" = "artifact" ]; then
   fi
   rm -rf -- "$PREFLIGHT_DIR"
 fi
+
+# Register the resource providers the template needs (idempotent; this is the
+# first Azure change and only happens after both read-only preflights pass).
+for provider in Microsoft.Web Microsoft.ServiceBus Microsoft.Storage Microsoft.Insights Microsoft.OperationalInsights; do
+  az provider register --namespace "$provider" --wait --output none
+done
 
 # The shared placement engine deploys infra/bicep/main.bicep into the resource
 # group the operator pre-created and designated (it never creates or upserts a

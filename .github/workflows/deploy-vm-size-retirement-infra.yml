@@ -74,8 +74,9 @@ jobs:
           REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
           # Placement policy: scenarios/vm-size-retirement/infra/placement.json. An existing
-          # resource group stays pinned to its recorded region; only verified
-          # attempt-owned resources are cleaned up after a failed attempt.
+          # resource group stays pinned to its recorded region. A failed attempt is
+          # retried elsewhere only after it is verified to have changed nothing;
+          # nothing is ever deleted automatically.
           fallback=()
           if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
           node scripts/placement/provision.mjs deploy vm-size-retirement \

@@ -154,7 +154,7 @@ test('Cloud Agent Handover setup never deletes legacy deployment state automatic
   const scenarioRoot = resolve(repositoryRoot, 'scenarios/cloud-agent-handover');
   for (const name of ['setup.sh', 'setup.ps1']) {
     const setup = readFileSync(resolve(scenarioRoot, 'scripts', name), 'utf8');
-    const executable = setup.split('\n').filter(line => !/^\s*(?:#|"|'|LEGACY_GUIDANCE\+=|\$legacyGuidance \+=)/.test(line)).join('\n');
+    const executable = setup.replace(/cat <<'EOF'[\s\S]*?\nEOF\n/, '').split('\n').filter(line => !/^\s*(?:#|"|'|LEGACY_GUIDANCE\+=|\$legacyGuidance \+=)/.test(line)).join('\n');
     assert.doesNotMatch(executable, /role["',\s]+assignment["',\s]+delete/i, name);
     assert.doesNotMatch(executable, /identity["',\s]+delete/i, name);
     assert.doesNotMatch(executable, /variable["',\s]+delete/i, name);
@@ -177,7 +177,7 @@ exit 0
   gh: `#!/usr/bin/env bash
 printf 'gh %s\\n' "$*" >> "$FAKE_LOG"
 case "$1 $2" in
-  "repo view") echo attendee/workshop ;;
+  "repo view") echo "\${FAKE_GH_REPO:-attendee/workshop}" ;;
   "api repos/attendee/workshop") echo false ;;
   "api graphql") echo copilot-swe-agent ;;
   "variable list") printf '%s\\n' \${FAKE_VARIABLES:-} ;;
@@ -189,6 +189,14 @@ case "$1" in
   scripts/placement/provision.mjs)
     printf 'node provision %s\\n' "$2" >> "$FAKE_LOG"
     if [ "$2" = check ] && [ -n "\${FAKE_CHECK_FAIL:-}" ]; then echo "Resource group rg-srelabapp contains resources not owned by this scenario." >&2; exit 1; fi
+    # Fresh subscription: the strict preflight fails until the providers are
+    # registered; the ownership check passes only with deferral requested.
+    if [ -n "\${FAKE_PROVIDERS_UNREGISTERED:-}" ] && ! grep -q '^az provider register' "$FAKE_LOG"; then
+      if [ "$2" = deploy ] || [[ " $* " != *" --defer-unregistered-providers "* ]]; then
+        echo "eastus2: Microsoft.Web is NotRegistered; run: az provider register --namespace Microsoft.Web" >&2; exit 1
+      fi
+      printf 'node provision check deferred\\n' >> "$FAKE_LOG"
+    fi
     if [ "$2" = deploy ]; then
       while [ "$#" -gt 0 ]; do if [ "$1" = --outputs-file ]; then out="$2"; fi; shift; done
       printf '{"webAppName":{"value":"app-x"},"webAppHostName":{"value":"app-x.azurewebsites.net"}}' > "$out"
@@ -197,6 +205,7 @@ case "$1" in
     exit 0 ;;
   scripts/build-artifacts/resolve.mjs)
     printf 'node resolve %s\\n' "$*" >> "$FAKE_LOG"
+    if [[ " $* " == *" --repo "* ]]; then echo "setup must let the resolver derive the repository from origin" >&2; exit 1; fi
     if [ -n "\${FAKE_RESOLVE_FAIL:-}" ]; then echo "Artifact resolution failed: no successful build. Run: gh workflow run validate-appservice-app.yml --ref abc" >&2; exit 1; fi
     while [ "$#" -gt 0 ]; do if [ "$1" = --output-dir ]; then dir="$2"; fi; shift; done
     : > "$dir/deployment.zip"
@@ -204,6 +213,11 @@ case "$1" in
     exit 0 ;;
   *) exec "$REAL_NODE" "$@" ;;
 esac
+`,
+  git: `#!/usr/bin/env bash
+printf 'git %s\\n' "$*" >> "$FAKE_LOG"
+if [ "$1 $2 $3" = "remote get-url origin" ]; then echo "\${FAKE_ORIGIN:-https://github.com/attendee/workshop.git}"; exit 0; fi
+exit 1
 `,
 };
 
@@ -252,6 +266,28 @@ for (const [label, shell] of shells) {
     assert.ok(calls.some(call => /^az webapp deploy .*deployment\.zip/.test(call)), calls.join('\n'));
     assert.ok(calls.includes('gh variable set AZURE_LOCATION --repo attendee/workshop --body swedencentral'), calls.join('\n'));
     assert.match(output, /build artifact for commit abc123/);
+    assert.ok(calls.includes('gh repo view github.com/attendee/workshop --json nameWithOwner --jq .nameWithOwner'), calls.join('\n'));
+  });
+
+  test(`${label} Cloud setup verifies ownership, then registers providers on a fresh subscription`, (t) => {
+    const { result, output, calls } = runSetup(t, shell, { FAKE_PROVIDERS_UNREGISTERED: '1' });
+    assert.equal(result.status, 0, output);
+    const check = calls.indexOf('node provision check');
+    const register = calls.findIndex(call => call.startsWith('az provider register'));
+    const deploy = calls.indexOf('node provision deploy');
+    assert.ok(calls.includes('node provision check deferred'), calls.join('\n'));
+    assert.ok(check >= 0 && check < register && register < deploy, calls.join('\n'));
+    assert.equal(calls.findIndex(call => mutating.test(call)), register, calls.join('\n'));
+    for (const namespace of ['Microsoft.Web', 'Microsoft.Insights', 'Microsoft.OperationalInsights']) {
+      assert.ok(calls.some(call => call.startsWith(`az provider register --namespace ${namespace}`)), namespace);
+    }
+  });
+
+  test(`${label} Cloud setup uses the origin repository, never a different gh default`, (t) => {
+    const { result, output, calls } = runSetup(t, shell, { FAKE_GH_REPO: 'upstream/other' });
+    assert.notEqual(result.status, 0, output);
+    assert.match(output, /refusing to continue with a different repository/);
+    assert.ok(!calls.some(call => mutating.test(call) || /node (?:provision|resolve)/.test(call)), calls.join('\n'));
   });
 
   test(`${label} Cloud setup changes nothing when the ownership check fails`, (t) => {

@@ -23,6 +23,11 @@ for (const [scenario, filename] of Object.entries(workflows)) {
     assert.ok(workflow.on.push.paths.some(path => path.startsWith(`scenarios/${scenario}/`)));
     assert.ok(workflow.on.push.paths.includes('scripts/build-artifacts/**'));
     assert.ok(workflow.on.push.paths.includes(`.github/workflows/${filename}`));
+    // Build triggers cover the placement contract setup consumes (shared engine + scenario policy).
+    if (scenario !== 'appservice-latency-context') {
+      assert.ok(workflow.on.push.paths.includes('scripts/placement/**'), 'scripts/placement/**');
+      assert.ok(workflow.on.push.paths.some(path => path === `scenarios/${scenario}/infra/placement.json` || path === `scenarios/${scenario}/**`));
+    }
     assert.equal(workflow.permissions.contents, 'read');
     assert.equal(workflow.permissions['id-token'], undefined);
     assert.equal(workflow.on.pull_request_target, undefined);
@@ -105,5 +110,26 @@ for (const scenario of ['cosmos-rbac-removal', 'workload-identity-break']) {
     const metadata = steps.find(step => step.run?.includes('artifact.py metadata'));
     assert.equal(metadata.env.DIGEST, '${{ steps.image.outputs.digest }}');
     assert.match(metadata.run, /--image "\$IMAGE" --digest "\$DIGEST"/);
+    // The exact pushed digest is run (no Azure) and must be healthy before
+    // `latest` moves or trusted metadata/upload happens.
+    assert.doesNotMatch(build.with.tags, /:latest/);
+    const smoke = steps.findIndex(step => step.name === 'Smoke test the pushed immutable image');
+    assert.ok(smoke > steps.indexOf(build), 'smoke test follows the build');
+    const smokeStep = steps[smoke];
+    assert.equal(smokeStep.env.DIGEST, '${{ steps.image.outputs.digest }}');
+    assert.match(smokeStep.run, /REF="\$\{IMAGE\}@\$\{DIGEST\}"/);
+    assert.match(smokeStep.run, /docker run --detach .*"\$REF"/);
+    assert.match(smokeStep.run, /\/health/);
+    assert.match(smokeStep.run, /"healthy"/);
+    assert.match(smokeStep.run, /exit 1\s*$/);
+    assert.equal(smokeStep['continue-on-error'], undefined);
+    assert.doesNotMatch(smokeStep.run, /\baz\s|azure/i);
+    const promote = steps.findIndex(step => /imagetools create --tag "\$IMAGE:latest" "\$IMAGE@\$DIGEST"/.test(step.run ?? ''));
+    const upload = steps.findIndex(step => step.uses?.startsWith('actions/upload-artifact'));
+    assert.ok(smoke < promote && smoke < steps.indexOf(metadata) && smoke < upload, 'promotion, metadata and upload are gated on the smoke test');
+    assert.ok(!steps.some(step => step.uses === 'azure/login@v2'));
+    for (const path of [`scenarios/${scenario}/src/**`, `scenarios/${scenario}/infra/placement.json`, 'scripts/placement/**']) {
+      assert.ok(workflow.on.push.paths.includes(path), path);
+    }
   });
 }

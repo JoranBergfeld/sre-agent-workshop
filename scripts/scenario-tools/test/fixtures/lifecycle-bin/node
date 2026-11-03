@@ -7,7 +7,11 @@ case "${1:-}" in
     if [ -n "${LIFECYCLE_AZ_LOG_PATH:-}" ]; then printf 'placement %s\n' "$*" >> "$LIFECYCLE_AZ_LOG_PATH"; fi
     if [ "$2" = check ]; then
       if [ "${LIFECYCLE_PLACEMENT_CHECK_FAIL:-}" = "1" ]; then echo 'Resource group is not ready for this scenario.' >&2; exit 1; fi
+      if [ "${LIFECYCLE_PROVIDERS_UNREGISTERED:-}" = "1" ] && [[ " $* " != *" --defer-unregistered-providers "* ]]; then echo 'Microsoft.Web is NotRegistered.' >&2; exit 1; fi
       exit 0
+    fi
+    if [ "${LIFECYCLE_PROVIDERS_UNREGISTERED:-}" = "1" ] && ! grep -q '^provider register' "${LIFECYCLE_AZ_LOG_PATH:-/dev/null}" 2>/dev/null; then
+      echo 'Microsoft.Web is NotRegistered.' >&2; exit 1
     fi
     outputs_file=""
     while [ "$#" -gt 0 ]; do

@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 
 import {
-  AzError, DiscoveryError, PlacementError, TAGS, assessFailedAttempt, classifyFailure, createAzRunner, evaluateRegion,
+  AzError, DiscoveryError, PlacementError, TAGS, assessFailedAttempt, boundedDeploymentName, classifyFailure, createAzRunner, evaluateRegion,
   inspectExisting, loadPolicy, orderedRegions, persistPlacement, preferredSkus, provision, quotaShortfall,
-  reconcilePinnedRegion, skuIneligibility, validatePolicy, verifyRemediationTarget,
+  reconcilePinnedRegion, remediationDemands, resumableRemediationTarget, skuIneligibility, validatePolicy, verifyRemediationTarget,
 } from '../../placement/placement.mjs';
 import { buildParameters, main, resolveNames, runCheck } from '../../placement/provision.mjs';
 
@@ -159,8 +159,16 @@ function fakeAzure({
     }
     if (command.startsWith('vm list-skus')) return regions[value('--location')]?.skus ?? STANDARD_SKUS;
     if (command.startsWith('vm list-usage')) return regions[value('--location')]?.usage ?? PLENTY;
-    if (command.startsWith('vm list ')) return vms[value('--resource-group')] ?? [];
-    if (command.startsWith('aks list')) return clusters[value('--resource-group')] ?? [];
+    if (command.startsWith('vm list ')) {
+      if (vms[value('--resource-group')] === 'malformed') return null;
+      // Unnamed fixture VMs: the first two non-DSv2 VMs are the baseline; the rest are the (possibly migrated) legacy fleet.
+      let base = 0, legacy = 0;
+      // Without explicit VMs, list the VMs earlier fake deployments created.
+      const deployed = (state.resources[value('--resource-group')] ?? []).filter(item => item.fakeVm).map(item => item.fakeVm);
+      return (vms[value('--resource-group')] ?? deployed).map(vm => 'name' in vm ? vm : { ...vm,
+        name: !/^Standard_DS\d_v2$/i.test(vm.size) && base < 2 ? `test-vm0${++base}` : `test-legacy-0${++legacy}` });
+    }
+    if (command.startsWith('aks list')) return clusters[value('--resource-group')] === 'malformed' ? null : clusters[value('--resource-group')] ?? [];
     throw new Error(`Unexpected az call: ${command}`);
   };
   // One deployment attempt. A string failure fails during validation (only a
@@ -181,7 +189,8 @@ function fakeAzure({
     const id = rid(resourceGroup, 'Microsoft.Compute/virtualMachines', `vm-${deploymentName}`);
     if (!failure?.noResources) {
       state.resources[resourceGroup] = [...(state.resources[resourceGroup] ?? []),
-        { id, type: 'Microsoft.Compute/virtualMachines', location, systemData: { createdAt: now(), createdBy: identity } }];
+        { id, type: 'Microsoft.Compute/virtualMachines', location, systemData: { createdAt: now(), createdBy: identity },
+          fakeVm: { name: `test-vm0${(state.resources[resourceGroup] ?? []).filter(item => item.fakeVm).length + 1}`, size: size ?? 'Standard_B2s', location } }];
     }
     const operation = { properties: { provisioningOperation: 'Create', provisioningState: failure ? 'Failed' : 'Succeeded', timestamp: now(),
       targetResource: { id, resourceType: 'Microsoft.Compute/virtualMachines' } } };
@@ -240,8 +249,10 @@ test('policies preserve the approved region order and family-first SKU order', a
 test('validatePolicy rejects unbounded or incomplete policies', () => {
   assert.throws(() => validatePolicy({ scenario: 'x', regions: [], deployment: { template: 't' } }), /bounded/);
   assert.throws(() => validatePolicy({ scenario: 'x', regions: ['a', 'A'], deployment: { template: 't' } }), /unique/);
-  assert.throws(() => validatePolicy({ scenario: 'x', regions: ['a'], compute: { kind: 'vm', count: 1, skus: ['s'] },
+  assert.throws(() => validatePolicy({ scenario: 'x', regions: ['a'], compute: { kind: 'vm', count: 1, skus: ['s'], baselineNamePattern: '-vm0[0-9]$' },
     deployment: { template: 't', parameters: {} } }), /\{sku\}/);
+  assert.throws(() => validatePolicy({ scenario: 'x', regions: ['a'], compute: { kind: 'vm', count: 1, skus: ['s'] },
+    deployment: { template: 't', parameters: { vmSize: '{sku}' } } }), /baselineNamePattern/);
 });
 
 test('classifyFailure retries only availability failures', () => {
@@ -330,6 +341,34 @@ test('Functions Consumption placement requires Linux dynamic workers, not just W
   assert.ok(!linux.calls.some(args => args[0] === 'functionapp'), 'the Windows-inclusive CLI listing is not used');
   const denied = fakeAzure({ failOn: 'geoRegions' });
   await assert.rejects(evaluateRegion(policy, 'eastus2', denied.az), DiscoveryError);
+});
+
+test('setup can verify ownership before registering providers; unregistered providers still fail the full check', async () => {
+  const policy = await loadPolicy(policyFile('cloud-agent-handover'));
+  const fake = fakeAzure({ scenario: 'cloud-agent-handover' });
+  const az = async (args) => {
+    const command = args.join(' ');
+    if (command.startsWith('provider show') && /Microsoft\.(Web|Insights|OperationalInsights)\b/.test(command)) {
+      return { ...structuredClone(PROVIDER), registrationState: 'NotRegistered' };
+    }
+    if (/runtimeStacks|webapp list-runtimes|functionapp list-runtimes|list-skus --location .* --resource-type serverFarms/.test(command)) {
+      throw new Error(`service check must be deferred, but called: ${command}`);
+    }
+    return fake.az(args);
+  };
+  const options = { workload: 'test', resourceGroup: 'rg-test', location: 'eastus2', parts: {} };
+  const strict = await runCheck({ policy, az, options, log: silent });
+  assert.equal(strict.eligible, false);
+  assert.match(strict.regions[0].issues.join('\n'), /NotRegistered; run: az provider register/);
+  const lines = [];
+  const deferred = await runCheck({ policy, az, options: { ...options, deferUnregisteredProviders: true }, log: line => lines.push(line) });
+  assert.equal(deferred.eligible, true);
+  assert.equal(deferred.resourceGroupReady, true);
+  assert.deepEqual([...deferred.providersPending].sort(), ['Microsoft.Insights', 'Microsoft.OperationalInsights', 'Microsoft.Web']);
+  assert.match(lines.join('\n'), /deferred to the deploy preflight/);
+  // Ownership is still enforced: a foreign group fails even with deferral.
+  const foreign = fakeAzure({ scenario: 'cloud-agent-handover', groups: { 'rg-test': { location: 'eastus2', tags: { owner: 'someone-else' } } }, resources: { 'rg-test': [{ id: rid('rg-test', 'Microsoft.Storage/storageAccounts', 'x'), type: 'Microsoft.Storage/storageAccounts', location: 'eastus2', tags: {} }] } });
+  await assert.rejects(runCheck({ policy, az: foreign.az, options: { ...options, deferUnregisteredProviders: true }, log: silent }));
 });
 
 test('check reports whether the resource group is created and designated, and prints the create command otherwise', async () => {
@@ -587,6 +626,30 @@ test('existing App Service placement comes from workload resource locations, not
   assert.equal(unreadable.deployments.length, 0);
 });
 
+test('non-VM scenarios never call VM APIs during ownership inspection or pinned reruns', async () => {
+  for (const id of ['cloud-agent-handover', 'azure-boards-copilot-handover', 'appservice-latency-context']) {
+    const policy = await loadPolicy(policyFile(id));
+    const site = (name, type = 'Microsoft.Web/sites') => ({ id: rid('rg-app', type, name), type, location: 'eastus2' });
+    const groups = { 'rg-app': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario } } };
+    const fake = fakeAzure({ groups, resourceGroup: 'rg-app', scenario: id, failOn: 'vm list', resources: { 'rg-app': [site('plan', 'Microsoft.Web/serverFarms'), site('app')] } });
+    const state = await inspectExisting(policy, 'rg-app', fake.az);
+    assert.equal(state.location, 'eastus2', id);
+    assert.ok(!fake.calls.some(args => args[0] === 'vm'), `${id} called a VM API`);
+  }
+  const aks = await loadPolicy(policyFile('cosmos-rbac-removal'));
+  const cluster = fakeAzure({ scenario: aks.scenario, failOn: 'vm list', resources: { 'rg-test': [{ id: rid('rg-test', 'Microsoft.ContainerService/managedClusters', 'aks'), type: 'Microsoft.ContainerService/managedClusters', location: 'eastus2' }] },
+    clusters: { 'rg-test': [{ name: 'aks', location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5', agentPoolProfiles: [{ name: 'system', mode: 'System', vmSize: 'Standard_D4s_v5', count: 2 }] }] } });
+  await inspectExisting(aks, 'rg-test', cluster.az);
+  assert.ok(!cluster.calls.some(args => args[0] === 'vm' && args[1] === 'list'), 'AKS inspection listed VMs');
+  // VM and retirement policies still read the VMs they own.
+  for (const id of ['cpu-runaway', 'vm-size-retirement']) {
+    const policy = await loadPolicy(policyFile(id));
+    const fake = fakeAzure({ scenario: id });
+    await inspectExisting(policy, 'rg-test', fake.az);
+    assert.ok(fake.calls.some(args => args[0] === 'vm' && args[1] === 'list'), `${id} skipped VM discovery`);
+  }
+});
+
 test('Boards resource-group overrides must match the template-created group and are rejected before any Azure call', async () => {
   const policy = await loadPolicy(policyFile('azure-boards-copilot-handover'));
   assert.equal(resolveNames(policy, { workload: 'boardsx' }).resourceGroup, 'boardsx-rg');
@@ -778,16 +841,161 @@ test('AKS placement selects a standard-support regional version and reserves nod
 test('existing AKS clusters keep their running Kubernetes version and system node size', async () => {
   const policy = await loadPolicy(policyFile('workload-identity-break'));
   const groups = { 'rg-aks': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario } } };
-  const clusters = { 'rg-aks': [{ location: 'swedencentral', kubernetesVersion: '1.34.5',
-    agentPoolProfiles: [{ mode: 'System', vmSize: 'Standard_D4s_v5', count: 2 }] }] };
-  const fake = fakeAzure({ groups, clusters, resourceGroup: 'rg-aks' });
+  const cluster = (overrides = {}, pool = {}) => ({ name: 'aks', location: 'swedencentral', provisioningState: 'Succeeded',
+    kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5',
+    agentPoolProfiles: [{ name: 'system', mode: 'System', vmSize: 'Standard_D4s_v5', count: 2, provisioningState: 'Succeeded', orchestratorVersion: '1.34.5', currentOrchestratorVersion: '1.34.5', ...pool }], ...overrides });
+  const fake = fakeAzure({ groups, clusters: { 'rg-aks': [cluster()] }, resourceGroup: 'rg-aks' });
   const result = await provision({ policy, az: aksAz(fake), deploy: fake.deploy, resourceGroup: 'rg-aks', log: silent });
   assert.equal(result.mode, 'pinned');
   assert.equal(result.location, 'swedencentral');
   assert.equal(result.sku, 'Standard_D4s_v5');
-  assert.equal(result.context.kubernetesVersion, '1.34');
+  // The exact running patch, never just the minor (which AKS would resolve to its latest patch).
+  assert.equal(result.context.kubernetesVersion, '1.34.5');
+  assert.match(JSON.stringify(fake.deployments[0]), /"kubernetesVersion":"1\.34\.5"/);
   assert.ok(!fake.calls.some(args => args[0] === 'aks' && args[1] === 'get-versions'));
+
+  // Normal fresh-cluster response: created with the policy's major.minor, running a full patch.
+  const fresh = fakeAzure({ groups, clusters: { 'rg-aks': [cluster({ kubernetesVersion: '1.34' })] }, resourceGroup: 'rg-aks' });
+  const freshResult = await provision({ policy, az: aksAz(fresh), deploy: fresh.deploy, resourceGroup: 'rg-aks', log: silent });
+  assert.equal(freshResult.context.kubernetesVersion, '1.34.5');
+  assert.match(JSON.stringify(fresh.deployments[0]), /"kubernetesVersion":"1\.34\.5"/);
+
+  for (const [label, broken] of [
+    ['upgrading', cluster({ provisioningState: 'Upgrading' })],
+    ['pool upgrading', cluster({}, { provisioningState: 'Upgrading' })],
+    ['unknown version', cluster({ kubernetesVersion: undefined, currentKubernetesVersion: undefined })],
+    ['minor only', cluster({ currentKubernetesVersion: '1.34', kubernetesVersion: '1.34' })],
+    ['pending upgrade', cluster({ kubernetesVersion: '1.35.1' })],
+    ['pending minor upgrade', cluster({ kubernetesVersion: '1.35' })],
+    ['different patch', cluster({ kubernetesVersion: '1.34.6' })],
+    ['malformed requested', cluster({ kubernetesVersion: '1.34.x' })],
+    ['minor-only while upgrading', cluster({ kubernetesVersion: '1.34', provisioningState: 'Upgrading' })],
+    ['mixed pools', cluster({}, { currentOrchestratorVersion: '1.33.9' })],
+  ]) {
+    const stalled = fakeAzure({ groups, clusters: { 'rg-aks': [broken] }, resourceGroup: 'rg-aks' });
+    await assert.rejects(provision({ policy, az: aksAz(stalled), deploy: stalled.deploy, resourceGroup: 'rg-aks', log: silent }), PlacementError, label);
+    assert.equal(stalled.deployments.length, 0, label);
+  }
 });
+test('existing AKS pinning reads only the template cluster and its system pool, failing closed on ambiguity', async () => {
+  const policy = await loadPolicy(policyFile('workload-identity-break'));
+  const groups = { 'rg-aks': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario } } };
+  const pool = (name, vmSize, extra = {}) => ({ name, mode: 'System', vmSize, count: 2, provisioningState: 'Succeeded', currentOrchestratorVersion: '1.34.5', ...extra });
+  const cluster = (name, pools) => ({ name, location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5', agentPoolProfiles: pools });
+  // A user-added System-mode pool listed first with a different size must not be pinned.
+  const extra = fakeAzure({ groups, clusters: { 'rg-aks': [cluster('w-aks', [pool('extra', 'Standard_D8s_v5'), pool('system', 'Standard_D4s_v5')])] }, resourceGroup: 'rg-aks' });
+  const result = await provision({ policy, az: aksAz(extra), deploy: extra.deploy, resourceGroup: 'rg-aks', log: silent });
+  assert.equal(result.sku, 'Standard_D4s_v5');
+
+  for (const [label, clusters, kind] of [
+    ['two clusters of different sizes', [cluster('w-aks', [pool('system', 'Standard_D4s_v5')]), cluster('other-aks', [pool('system', 'Standard_D2s_v5')])], PlacementError],
+    ['no pool named system', [cluster('w-aks', [pool('nodepool1', 'Standard_D4s_v5')])], PlacementError],
+    ['two pools named system', [cluster('w-aks', [pool('system', 'Standard_D4s_v5'), pool('SYSTEM', 'Standard_D2s_v5')])], PlacementError],
+    ['null count', [cluster('w-aks', [pool('system', 'Standard_D4s_v5', { count: null })])], DiscoveryError],
+    ['missing count', [cluster('w-aks', [pool('system', 'Standard_D4s_v5', { count: undefined })])], DiscoveryError],
+    ['empty-string count', [cluster('w-aks', [pool('system', 'Standard_D4s_v5', { count: '' })])], DiscoveryError],
+    ['fractional count', [cluster('w-aks', [pool('system', 'Standard_D4s_v5', { count: 1.5 })])], DiscoveryError],
+  ]) {
+    const fake = fakeAzure({ groups, clusters: { 'rg-aks': clusters }, resourceGroup: 'rg-aks' });
+    await assert.rejects(provision({ policy, az: aksAz(fake), deploy: fake.deploy, resourceGroup: 'rg-aks', log: silent }), kind, label);
+    assert.equal(fake.deployments.length, 0, label);
+  }
+});
+
+test('partial reruns that recreate a missing baseline VM or template-pool node get the pinned-size quota preflight', async () => {
+  const cpu = await loadPolicy(policyFile('cpu-runaway'));
+  const groups = { 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: cpu.scenario, [TAGS.sku]: 'Standard_B2s' } } };
+  const oneVm = [{ name: 'test-vm01', size: 'Standard_B2s', location: 'eastus2' }];
+  const full = usage({ cores: [2, 100], standardBSFamily: [2, 2] });
+  const blocked = fakeAzure({ groups: structuredClone(groups), vms: { 'rg-test': oneVm }, regions: { eastus2: { usage: full } } });
+  await assert.rejects(provision({ policy: cpu, az: blocked.az, deploy: blocked.deploy, resourceGroup: 'rg-test', log: silent }), /quota|No eligible compute/i);
+  assert.equal(blocked.deployments.length, 0);
+  const ok = fakeAzure({ groups: structuredClone(groups), vms: { 'rg-test': oneVm } });
+  const result = await provision({ policy: cpu, az: ok.az, deploy: ok.deploy, resourceGroup: 'rg-test', log: silent });
+  assert.equal(result.sku, 'Standard_B2s');
+  assert.ok(ok.calls.some(args => args[0] === 'vm' && args[1] === 'list-usage'), 'the quota preflight ran');
+  // A complete baseline skips it (no capacity is created).
+  const complete = fakeAzure({ groups: structuredClone(groups), vms: { 'rg-test': [...oneVm, { name: 'test-vm02', size: 'Standard_B2s', location: 'eastus2' }] }, regions: { eastus2: { usage: full } } });
+  await provision({ policy: cpu, az: complete.az, deploy: complete.deploy, resourceGroup: 'rg-test', log: silent });
+  assert.ok(!complete.calls.some(args => args[0] === 'vm' && args[1] === 'list-usage'));
+
+  const aks = await loadPolicy(policyFile('workload-identity-break'));
+  const aksGroups = { 'rg-aks': { location: 'eastus2', tags: { [TAGS.scenario]: aks.scenario } } };
+  const shrunk = [{ name: 'w-aks', location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5',
+    agentPoolProfiles: [{ name: 'system', mode: 'System', vmSize: 'Standard_D4s_v5', count: 1, provisioningState: 'Succeeded', currentOrchestratorVersion: '1.34.5' }] }];
+  const noRoom = fakeAzure({ groups: aksGroups, clusters: { 'rg-aks': shrunk }, resourceGroup: 'rg-aks', regions: { eastus2: { usage: usage({ cores: [4, 100], standardDSv5Family: [4, 4] }) } } });
+  await assert.rejects(provision({ policy: aks, az: aksAz(noRoom), deploy: noRoom.deploy, resourceGroup: 'rg-aks', log: silent }), PlacementError);
+  assert.equal(noRoom.deployments.length, 0);
+});
+
+test('reruns never resize baseline VMs: mixed or ambiguous baseline sizes fail closed with zero deployments', async () => {
+  const cpu = await loadPolicy(policyFile('cpu-runaway'));
+  const groups = () => ({ 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: cpu.scenario } } });
+  const named = (name, size) => ({ name, size, location: 'eastus2' });
+  for (const [label, list] of [
+    ['mixed', [named('w-vm01', 'Standard_B2s'), named('w-vm02', 'Standard_D2s_v5')]],
+    ['too many baseline-named', [named('w-vm01', 'Standard_B2s'), named('w-vm02', 'Standard_B2s'), named('w-vm03', 'Standard_B2s')]],
+    ['unnamed', [{ size: 'Standard_B2s', location: 'eastus2', name: '' }]],
+  ]) {
+    const fake = fakeAzure({ groups: groups(), vms: { 'rg-test': list } });
+    await assert.rejects(provision({ policy: cpu, az: fake.az, deploy: fake.deploy, resourceGroup: 'rg-test', log: silent }), PlacementError, label);
+    assert.equal(fake.deployments.length, 0, label);
+  }
+  // Retirement: only the scenario's -vmNN baseline pins the size; legacy or migrated fleet VMs never do.
+  const retirement = await loadPolicy(policyFile('vm-size-retirement'));
+  const fleet = [named('w-legacy-01', 'Standard_D2as_v5'), named('w-vm01', 'Standard_D2s_v5'), named('w-legacy-02', 'Standard_DS2_v2'), named('w-vm02', 'Standard_D2s_v5')];
+  const ok = fakeAzure({ groups: { 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: retirement.scenario } } }, vms: { 'rg-test': fleet }, scenario: retirement.scenario });
+  const state = await inspectExisting(retirement, 'rg-test', ok.az);
+  assert.equal(state.sku, 'Standard_D2s_v5');
+});
+
+test('malformed or incomplete VM/AKS discovery fails closed instead of re-selecting a size', async () => {
+  const cpu = await loadPolicy(policyFile('cpu-runaway'));
+  const vmGroups = () => ({ 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: cpu.scenario } } });
+  const vmResource = name => ({ id: vmId(name), type: 'Microsoft.Compute/virtualMachines', location: 'eastus2', tags: {} });
+  for (const [label, vms, resources] of [
+    ['null list', 'malformed', []],
+    ['missing size', [{ name: 'w-vm01', location: 'eastus2' }], []],
+    ['VMs listed but none discovered', [], [vmResource('w-vm01'), vmResource('w-vm02')]],
+  ]) {
+    const fake = fakeAzure({ groups: vmGroups(), vms: { 'rg-test': vms }, resources: { 'rg-test': resources } });
+    await assert.rejects(provision({ policy: cpu, az: fake.az, deploy: fake.deploy, resourceGroup: 'rg-test', log: silent }), DiscoveryError, label);
+    assert.equal(fake.deployments.length, 0, label);
+  }
+  const aks = await loadPolicy(policyFile('workload-identity-break'));
+  const aksGroups = () => ({ 'rg-aks': { location: 'eastus2', tags: { [TAGS.scenario]: aks.scenario } } });
+  const clusterResource = { id: rid('rg-aks', 'Microsoft.ContainerService/managedClusters', 'aks'), type: 'Microsoft.ContainerService/managedClusters', location: 'eastus2', tags: {} };
+  const healthy = { name: 'aks', location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5' };
+  for (const [label, clusters, resources] of [
+    ['null list', 'malformed', []],
+    ['cluster listed but none discovered', [], [clusterResource]],
+    ['no node pools', [{ ...healthy, agentPoolProfiles: [] }], []],
+    ['pool without size', [{ ...healthy, agentPoolProfiles: [{ mode: 'System', count: 2 }] }], []],
+  ]) {
+    const fake = fakeAzure({ groups: aksGroups(), clusters: { 'rg-aks': clusters }, resources: { 'rg-aks': resources }, resourceGroup: 'rg-aks' });
+    await assert.rejects(provision({ policy: aks, az: aksAz(fake), deploy: fake.deploy, resourceGroup: 'rg-aks', log: silent }), DiscoveryError, label);
+    assert.equal(fake.deployments.length, 0, label);
+  }
+});
+
+test('pinned reruns use a bounded, deterministic deployment name for long workloads', async () => {
+  const name = `cloud-agent-handover-${'w'.repeat(51)}`;
+  assert.ok(name.length > 64);
+  const bounded = boundedDeploymentName(name);
+  assert.ok(bounded.length <= 64, bounded);
+  assert.equal(boundedDeploymentName(name), bounded, 'deterministic across reruns');
+  assert.notEqual(boundedDeploymentName(`${name}x`), bounded, 'collision-resistant suffix');
+  assert.equal(boundedDeploymentName('cpu-runaway-short'), 'cpu-runaway-short', 'short names are unchanged');
+  assert.match(bounded, /^[\w.-]+$/);
+
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const groups = { 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario } } };
+  const fake = fakeAzure({ groups, vms: { 'rg-test': [{ size: 'Standard_B2s', location: 'eastus2' }, { size: 'Standard_B2s', location: 'eastus2' }] } });
+  const result = await provision({ policy, az: fake.az, deploy: fake.deploy, resourceGroup: 'rg-test', deploymentName: name, log: silent });
+  assert.equal(result.mode, 'pinned');
+  assert.equal(fake.deployments[0].deploymentName, bounded);
+});
+
 test('policy-managed parameters cannot be overridden from the command line', async () => {
   const policy = await loadPolicy(policyFile('cpu-runaway'));
   const input = { location: 'eastus2', sku: 'Standard_B2s', workload: 'w' };
@@ -951,7 +1159,7 @@ test('legacy AKS deployments from the pre-change workflows (scenario + environme
       { id: rid('rg-aks', 'Microsoft.ContainerService/managedClusters', 'aks'), type: 'Microsoft.ContainerService/managedClusters', location: 'eastus2', tags },
       { id: rid('rg-aks', 'Microsoft.OperationalInsights/workspaces', 'law'), type: 'Microsoft.OperationalInsights/workspaces', location: 'eastus2', tags },
     ] };
-    const clusters = { 'rg-aks': [{ location: 'eastus2', kubernetesVersion: '1.34.5', agentPoolProfiles: [{ mode: 'System', vmSize: 'Standard_D4s_v5', count: 2 }] }] };
+    const clusters = { 'rg-aks': [{ location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5', agentPoolProfiles: [{ name: 'system', mode: 'System', vmSize: 'Standard_D4s_v5', count: 2 }] }] };
     const fake = fakeAzure({ groups, resources, clusters, resourceGroup: 'rg-aks', scenario: id });
     const result = await provision({ policy, az: aksAz(fake), deploy: fake.deploy, resourceGroup: 'rg-aks', log: silent });
     assert.equal(result.mode, 'pinned', id);
@@ -965,7 +1173,7 @@ test('legacy AKS deployments from the pre-change workflows (scenario + environme
   }
 });
 
-test('legacy retirement groups accept untagged NICs/disks only when Azure reports them attached to accepted VMs', async () => {
+test('legacy retirement groups accept untagged NICs/disks/auto-shutdown schedules only when Azure reports them attached to accepted VMs', async () => {
   const policy = await loadPolicy(policyFile('vm-size-retirement'));
   const tags = { workshop: 'sre-agent', environment: 'demo', track: 'vm', scenario: 'vm-size-retirement' };
   const groups = () => ({ 'rg-test': { location: 'eastus2', tags: { ...tags } } });
@@ -980,7 +1188,17 @@ test('legacy retirement groups accept untagged NICs/disks only when Azure report
   const report = await runCheck({ policy, az: ok.az, options: { workload: 'test', resourceGroup: 'rg-test', parts: {} }, log: silent });
   assert.equal(report.ownership, 'legacy');
 
-  for (const extra of [nic('stray-nic'), disk('stray-disk'), nic('foreign-nic', 'not-in-group')]) {
+  // Earlier templates created untagged auto-shutdown schedules per VM.
+  const schedule = (name, target) => ({ id: rid('rg-test', 'Microsoft.DevTestLab/schedules', name), name, type: 'Microsoft.DevTestLab/schedules',
+    location: 'eastus2', tags: {}, properties: target ? { targetResourceId: target } : {} });
+  const withSchedules = [...attached, schedule('shutdown-computevm-base-1', vmId('base-1')), schedule('shutdown-computevm-legacy-01', vmId('legacy-01'))];
+  const scheduled = fakeAzure({ groups: groups(), vms, resources: { 'rg-test': withSchedules }, scenario: policy.scenario });
+  assert.equal((await runCheck({ policy, az: scheduled.az, options: { workload: 'test', resourceGroup: 'rg-test', parts: {} }, log: silent })).ownership, 'legacy');
+  const foreignVm = '/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-other/providers/Microsoft.Compute/virtualMachines/base-1';
+
+  for (const extra of [nic('stray-nic'), disk('stray-disk'), nic('foreign-nic', 'not-in-group'),
+    schedule('shutdown-computevm-base-1', foreignVm), schedule('shutdown-computevm-legacy-01', vmId('base-1')),
+    schedule('shutdown-computevm-ghost', vmId('ghost')), schedule('nightly-stop', vmId('base-2')), schedule('shutdown-computevm-base-2')]) {
     const fake = fakeAzure({ groups: groups(), vms, resources: { 'rg-test': [...attached, extra] }, scenario: policy.scenario });
     await assert.rejects(runCheck({ policy, az: fake.az, options: { workload: 'test', resourceGroup: 'rg-test', parts: {} }, log: silent }),
       error => /refusing to adopt/.test(error.message), extra.id);
@@ -991,7 +1209,7 @@ test('existing deployments on SKUs the current policy no longer selects stay usa
   const aks = await loadPolicy(policyFile('workload-identity-break'));
   const groups = { 'rg-aks': { location: 'eastus2', tags: { [TAGS.scenario]: aks.scenario } } };
   // Earlier workshop versions used 2-vCPU D2ads_v6 system nodes; the current policy requires >= 4 vCPUs.
-  const clusters = { 'rg-aks': [{ location: 'eastus2', kubernetesVersion: '1.34.5', agentPoolProfiles: [{ mode: 'System', vmSize: 'Standard_D2ads_v6', count: 2 }] }] };
+  const clusters = { 'rg-aks': [{ location: 'eastus2', provisioningState: 'Succeeded', kubernetesVersion: '1.34.5', currentKubernetesVersion: '1.34.5', agentPoolProfiles: [{ name: 'system', mode: 'System', vmSize: 'Standard_D2ads_v6', count: 2 }] }] };
   const check = fakeAzure({ groups, clusters, resourceGroup: 'rg-aks', scenario: aks.scenario });
   const notes = [];
   const report = await runCheck({ policy: aks, az: aksAz(check), options: { workload: 'test', resourceGroup: 'rg-aks', parts: {} }, log: line => notes.push(line) });
@@ -1068,6 +1286,46 @@ test('a retirement target is proposed read-only by check and persisted (and veri
   const originalAz = lost.az;
   const dropUpdates = async args => (args[0] === 'group' && args[1] === 'update' ? {} : originalAz(args));
   await assert.rejects(runCheck({ policy, az: dropUpdates, options: options({ recordTarget: true }), log: silent }), /could not be confirmed/);
+});
+
+test('a missing baseline VM is never confused with a fleet VM already migrated to the baseline size', async () => {
+  const policy = await loadPolicy(policyFile('vm-size-retirement'));
+  const at = (name, size) => ({ name, size, location: 'eastus2' });
+  // Modern baseline on D2s_v5 with test-vm02 missing; one legacy VM was already migrated to D2s_v5.
+  const vms = [at('test-vm01', 'Standard_D2s_v5'), at('test-legacy-01', 'Standard_D2s_v5'),
+    at('test-legacy-02', 'Standard_DS2_v2'), at('test-legacy-03', 'Standard_DS1_v2')];
+  const groups = tags => ({ 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario, [TAGS.sku]: 'Standard_D2s_v5', ...tags } } });
+
+  const state = await inspectExisting(policy, 'rg-test', fakeAzure({ groups: groups(), vms: { 'rg-test': vms }, scenario: policy.scenario }).az);
+  assert.deepEqual(state.baselineExisting, { standard_d2s_v5: 1 });
+  assert.equal(state.existing.standard_d2s_v5, 2);
+  // Detection uses the discovered baseline (1), not the configured count (2).
+  assert.equal(resumableRemediationTarget(policy, state, 'rg-test'), 'Standard_D2s_v5');
+
+  // A different recorded target is refused: the migrated VM proves D2s_v5 is in use.
+  const other = fakeAzure({ groups: groups({ [TAGS.remediationTarget]: 'Standard_D2as_v5' }), vms: { 'rg-test': vms }, scenario: policy.scenario });
+  await assert.rejects(verifyRemediationTarget({ policy, az: other.az, resourceGroup: 'rg-test', target: 'Standard_D2as_v5' }),
+    /already resized to Standard_D2s_v5; refusing to mix/);
+  const same = fakeAzure({ groups: groups({ [TAGS.remediationTarget]: 'Standard_D2s_v5' }), vms: { 'rg-test': vms }, scenario: policy.scenario });
+  await verifyRemediationTarget({ policy, az: same.az, resourceGroup: 'rg-test', target: 'Standard_D2s_v5' });
+
+  // check resumes the applied target instead of selecting another.
+  const check = await runCheck({ policy, az: fakeAzure({ groups: groups(), vms: { 'rg-test': vms }, scenario: policy.scenario }).az,
+    options: { workload: 'test', resourceGroup: 'rg-test', parts: { services: false, compute: false, fleet: false, targets: true }, noRegionFallback: true }, log: silent });
+  assert.equal(check.remediationTarget, 'Standard_D2s_v5');
+
+  // Quota: the migrated VM is attributed as migrated (less remaining demand) only with actual baseline counts.
+  const catalog = STANDARD_SKUS;
+  const target = catalog.find(item => item.name === 'Standard_D2s_v5');
+  const already = name => Number(state.existing[name.toLowerCase()] ?? 0);
+  const configured = remediationDemands(policy, catalog, target, 'Standard_D2s_v5', already);
+  const actual = remediationDemands(policy, catalog, target, 'Standard_D2s_v5', already, { baselineAlready: name => Number(state.baselineExisting[name.toLowerCase()] ?? 0) });
+  const total = demands => demands.reduce((sum, item) => sum + item.vcpus, 0);
+  assert.ok(total(actual) < total(configured), `${JSON.stringify(actual)} vs ${JSON.stringify(configured)}`);
+  // ...and the missing baseline VM's recreation is still counted on rerun (existing-SKU path).
+  const evaluation = await evaluateRegion(policy, 'eastus2', fakeAzure({ groups: groups(), vms: { 'rg-test': vms }, scenario: policy.scenario }).az,
+    { existingSku: 'Standard_D2s_v5', existing: state.existing, baselineExisting: state.baselineExisting, parts: { services: false, fleet: false, targets: false } });
+  assert.equal(evaluation.candidates[0]?.sku, 'Standard_D2s_v5', JSON.stringify(evaluation));
 });
 
 test('concurrent first target claims never both resize with different families', async () => {

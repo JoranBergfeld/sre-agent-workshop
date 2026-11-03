@@ -43,6 +43,12 @@ Options:
                              ready for deploy (verified existing deployment, or
                              an empty group designated for the scenario). Lets
                              setup verify ownership before mutating anything.
+  --defer-unregistered-providers
+                             check only: report unregistered policy providers as
+                             pending (and defer the service checks that need
+                             them) instead of failing, so setup can verify
+                             ownership before registering providers. deploy
+                             always runs the complete preflight.
   --claim-settle-seconds <n> check --record-target only: wait this long after
                              recording a new target before re-verifying it
                              (default 30), so a concurrent claim is detected
@@ -73,6 +79,7 @@ export function parseArgs(argv) {
       case '--json': options.json = true; break;
       case '--record-target': options.recordTarget = true; break;
       case '--require-group': options.requireGroup = true; break;
+      case '--defer-unregistered-providers': options.deferUnregisteredProviders = true; break;
       case '--target': options.target = value(flag, ++index); break;
       case '--claim-settle-seconds': {
         const seconds = Number(value(flag, ++index));
@@ -265,10 +272,11 @@ export async function runCheck({ policy, az, options, log = console.log, sleep =
   const cache = new Map();
   for (const region of regions) {
     const evaluation = await evaluateRegion(policy, region, az, {
-      cache, skus, existingSku, parts: options.parts ?? {}, existing, remediationTargets,
+      cache, skus, existingSku, parts: options.parts ?? {}, existing, baselineExisting: state?.location ? state.baselineExisting : undefined, remediationTargets,
       // `--parts targets` without fleet is the remediation preflight: only
       // retiring VMs that exist now are resized.
       remediationScope: options.parts && !options.parts.fleet ? 'present' : 'exercise',
+      deferUnregisteredProviders: Boolean(options.deferUnregisteredProviders),
     });
     report.regions.push(evaluation);
     const usable = !evaluation.issues.length && evaluation.candidates.length > 0;
@@ -279,6 +287,7 @@ export async function runCheck({ policy, az, options, log = console.log, sleep =
   }
   const usable = report.regions.find(item => !item.issues.length && item.candidates.length > 0);
   report.eligible = Boolean(usable);
+  report.providersPending = [...new Set(report.regions.flatMap(item => item.providersPending ?? []))];
   if (usable?.candidates[0].remediationTarget) report.remediationTarget = usable.candidates[0].remediationTarget;
   report.remediationTargetRecorded = Boolean(state?.remediationTarget);
   if (report.remediationTarget && !report.remediationTargetRecorded) {

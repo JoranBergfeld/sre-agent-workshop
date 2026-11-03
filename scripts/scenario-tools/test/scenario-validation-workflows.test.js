@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 
@@ -113,3 +113,15 @@ for (const [scenarioId, workflow] of Object.entries(bicepWorkflows)) {
     }
   });
 }
+
+test('infrastructure deploy workflows never print outputs files or connection strings', () => {
+  const files = readdirSync(workflowsRoot).filter(name => /^deploy-.*-infra\.yml$/.test(name));
+  assert.ok(files.length >= 6);
+  for (const file of files) {
+    const content = readFileSync(resolve(workflowsRoot, file), 'utf8');
+    assert.doesNotMatch(content, /cat [\w-]*deployment-outputs\.json/, file);
+    assert.doesNotMatch(content, /appinsights_cs|App Insights CS|ConnectionString\.value/i, file);
+    assert.doesNotMatch(content, /attempt-owned resources are cleaned up/, file);
+    assert.match(content, /nothing is ever deleted automatically/, file);
+  }
+});

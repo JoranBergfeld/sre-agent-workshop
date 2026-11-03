@@ -10,12 +10,16 @@ on:
       - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
       - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
+      - 'scenarios/azure-boards-copilot-handover/infra/placement.json'
+      - 'scripts/placement/**'
   pull_request:
     paths:
       - 'scenarios/azure-boards-copilot-handover/app/**'
       - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
       - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
+      - 'scenarios/azure-boards-copilot-handover/infra/placement.json'
+      - 'scripts/placement/**'
 
 permissions:
   contents: read

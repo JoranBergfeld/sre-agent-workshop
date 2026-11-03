@@ -18,8 +18,11 @@ param(
     [switch]$LocalBuild
 )
 
-# The resource group rg-<workload> must already exist; setup never creates,
-# relocates, or deletes resource groups, identities, or repository variables.
+# The resource group rg-<workload> must already exist, empty and designated for
+# this scenario. Create it once with:
+#   az group create --name rg-<workload> --location <region> --tags sre-workshop-scenario=cloud-agent-handover
+# Setup never creates, relocates, or deletes resource groups, identities, or
+# repository variables. The GitHub repository is always the 'origin' remote.
 
 $ErrorActionPreference = "Stop"
 $UpstreamRepository = "JoranBergfeld/sre-agent-workshop"
@@ -77,10 +80,23 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 Push-Location $repoRoot
 
 try {
-    $repository = [string](Invoke-NativeCommand -Command "gh" -Arguments @(
-        "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"
-    ))
-    $repository = $repository.Trim()
+    # The repository comes from the 'origin' remote, never from gh's
+    # configured default/upstream, so variables and artifacts always belong
+    # to this clone.
+    $originUrl = [string](git remote get-url origin 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($originUrl)) { throw "Unable to read the 'origin' remote of this checkout." }
+    $originMatch = [regex]::Match($originUrl.Trim(), '^(?:https://|ssh://git@|git@)([A-Za-z0-9.-]+)[/:]([\w.-]+/[\w.-]+?)(?:\.git)?/?$')
+    if (-not $originMatch.Success) { throw "The 'origin' remote is not a GitHub repository URL: $originUrl" }
+    $originRepository = "$($originMatch.Groups[1].Value)/$($originMatch.Groups[2].Value)"
+    try {
+        $repository = ([string](Invoke-NativeCommand -Command "gh" -Arguments @(
+            "repo", "view", $originRepository, "--json", "nameWithOwner", "--jq", ".nameWithOwner"
+        ))).Trim()
+    }
+    catch { throw "Unable to resolve the GitHub repository for origin ($originRepository)." }
+    if ($repository -ine $originMatch.Groups[2].Value) {
+        throw "GitHub reports $repository for origin $originRepository; refusing to continue with a different repository."
+    }
 
     $repositoryParts = $repository -split "/", 2
     if ($repositoryParts.Count -ne 2 -or
@@ -128,7 +144,11 @@ query($owner:String!, $name:String!) {
         "--location", $Location,
         "--workload", $Workload,
         "--resource-group", $resourceGroup,
-        "--require-group"
+        "--require-group",
+        # Unregistered providers (a fresh subscription) are reported as
+        # pending; setup registers them below and the deploy re-runs the
+        # complete preflight.
+        "--defer-unregistered-providers"
     )
     if ($NoRegionFallback) { $checkArguments += "--no-region-fallback" }
     & node @checkArguments
@@ -157,8 +177,7 @@ query($owner:String!, $name:String!) {
             $artifactJson = & node scripts/build-artifacts/resolve.mjs `
                 --scenario cloud-agent-handover `
                 --variant application `
-                --output-dir $publishRoot `
-                --repo $repository
+                --output-dir $publishRoot
             if ($LASTEXITCODE -ne 0) {
                 throw "Setup stopped before changing anything. Dispatch the build shown above, wait for it to succeed, and rerun setup; or rerun with -LocalBuild."
             }

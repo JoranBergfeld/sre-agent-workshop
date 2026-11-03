@@ -53,4 +53,24 @@ for (const [workflow, identity] of Object.entries(workflows)) {
     );
     assert.doesNotMatch(content, /--docker-password|docker-registry ghcr-pull/);
   });
+
+  test(`${workflow} deploys only the resolver-verified digest of the exact commit`, () => {
+    const content = readFileSync(resolve(repositoryRoot, '.github', 'workflows', workflow), 'utf8');
+
+    assert.match(content, /^permissions:\n(?:  .*\n|\s*#.*\n)*?  actions: read$/m);
+    assert.match(content, /ref: \$\{\{ inputs\.imageTag \}\}/);
+    assert.match(content, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+    assert.match(
+      content,
+      new RegExp(`node scripts/build-artifacts/resolve\\.mjs --scenario ${identity.namespace} --variant application`),
+    );
+    assert.match(content, /--repo "\$GITHUB_REPOSITORY"/);
+    assert.match(content, /\[ "\$SOURCE_SHA" != "\$IMAGE_TAG" \]/);
+    assert.match(content, /app@sha256:\[0-9a-f\]\{64\}\$/);
+    assert.match(content, /IMAGE: \$\{\{ steps\.artifact\.outputs\.image \}\}/);
+    assert.doesNotMatch(content, /IMAGE="ghcr\.io|app:\$\{IMAGE_TAG\}|s\|IMAGE_TAG\|/);
+    assert.match(content, /grep -qF "image: \$\{IMAGE\}"/);
+    assert.ok(content.indexOf('Resolve verified immutable image digest') < content.indexOf('Preflight authenticated image'));
+    assert.ok(content.indexOf('Preflight authenticated image') < content.indexOf('Azure Login'));
+  });
 }

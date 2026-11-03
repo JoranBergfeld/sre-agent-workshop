@@ -106,7 +106,9 @@ Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 # verified earlier deployment) and that a supported region passes, and the
 # artifact resolver proves a trusted exact-HEAD package exists. Failing either
 # leaves Azure untouched.
-$checkArguments = @('scripts/placement/provision.mjs', 'check', 'azure-boards-copilot-handover', '--location', $Location, '--workload', $Workload, '--require-group')
+# Unregistered providers (a fresh subscription) are reported as pending here;
+# they are registered after both preflights and deploy re-checks everything.
+$checkArguments = @('scripts/placement/provision.mjs', 'check', 'azure-boards-copilot-handover', '--location', $Location, '--workload', $Workload, '--require-group', '--defer-unregistered-providers')
 if ($ResourceGroupSet) { $checkArguments += @('--resource-group', $ResourceGroup) }
 Push-Location $RepoRoot
 try { & node @checkArguments } finally { Pop-Location }
@@ -120,6 +122,13 @@ if ($BuildMode -eq 'artifact') {
     try { & node @resolverArguments | Out-Null; $resolverExitCode = $LASTEXITCODE }
     finally { Pop-Location; Remove-Item -LiteralPath $preflightDirectory -Recurse -Force -ErrorAction SilentlyContinue }
     if ($resolverExitCode -ne 0) { throw 'No trusted exact-HEAD application package is available; nothing was changed. Dispatch the build shown above, or rerun with --build-mode source.' }
+}
+
+# Register the resource providers the template needs (idempotent; this is the
+# first Azure change and only happens after both read-only preflights pass).
+foreach ($provider in @('Microsoft.Web', 'Microsoft.ServiceBus', 'Microsoft.Storage', 'Microsoft.Insights', 'Microsoft.OperationalInsights')) {
+    az provider register --namespace $provider --wait --output none
+    if ($LASTEXITCODE -ne 0) { throw "Registering $provider failed; nothing else was changed." }
 }
 
 # The shared placement engine deploys infra/bicep/main.bicep into the resource

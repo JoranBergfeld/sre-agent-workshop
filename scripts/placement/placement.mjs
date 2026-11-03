@@ -4,7 +4,7 @@
 // and orchestrates them. Every Azure call goes through an injected `az`
 // function so selection, retry and cleanup logic can be tested with fixtures.
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -104,6 +104,11 @@ export function validatePolicy(policy, label = 'policy') {
     const { skus, count } = policy.compute;
     if (!Array.isArray(skus) || skus.length === 0 || skus.length > 6) fail('compute.skus must be a bounded, ordered list (1-6 entries)');
     if (!Number.isInteger(count) || count < 1) fail('compute.count must be a positive integer');
+    if (kind === 'vm') {
+      const pattern = policy.compute.baselineNamePattern;
+      if (typeof pattern !== 'string' || !pattern) fail('VM policies need compute.baselineNamePattern to identify their baseline VMs');
+      try { new RegExp(pattern, 'i'); } catch { fail('compute.baselineNamePattern must be a valid regular expression'); }
+    }
     if (!policy.deployment?.parameters || !Object.values(policy.deployment.parameters).includes('{sku}')) {
       fail('deployment.parameters must pass {sku} to the template');
     }
@@ -365,10 +370,15 @@ function findSku(skus, name) {
  * to be injected, less VMs already migrated to the target. scope 'present'
  * (remediation): only retiring VMs that actually exist now.
  */
-export function remediationDemands(policy, catalog, targetSku, baselineSku, already = () => 0, { scope = 'exercise' } = {}) {
+export function remediationDemands(policy, catalog, targetSku, baselineSku, already = () => 0, { scope = 'exercise', baselineAlready } = {}) {
   const fleet = policy.fixedFleet ?? [];
   const target = skuVcpus(targetSku);
-  const baselineOnTarget = baselineSku && lower(baselineSku) === lower(targetSku.name) ? policy.compute?.count ?? 0 : 0;
+  // Without discovered baseline counts (fresh deployment), assume the full
+  // baseline sits on the target size: fewer VMs counted as migrated keeps the
+  // remaining demand conservative.
+  const baselineOnTarget = baselineAlready
+    ? baselineAlready(targetSku.name)
+    : baselineSku && lower(baselineSku) === lower(targetSku.name) ? policy.compute?.count ?? 0 : 0;
   const migrated = Math.max(0, already(targetSku.name) - baselineOnTarget);
   const entries = fleet.map(entry => {
     const sku = findSku(catalog, entry.sku);
@@ -406,12 +416,30 @@ export function remediationDemands(policy, catalog, targetSku, baselineSku, alre
  * Evaluate one region against the policy. Discovery failures throw.
  * parts selects demand groups: services, compute, fleet, targets.
  */
-export async function evaluateRegion(policy, region, az, { cache = new Map(), skus: skuOverride, existingSku, parts = {}, existing = {}, remediationTargets, remediationScope = 'exercise' } = {}) {
+export async function evaluateRegion(policy, region, az, { cache = new Map(), skus: skuOverride, existingSku, parts = {}, existing = {}, baselineExisting, remediationTargets, remediationScope = 'exercise', deferUnregisteredProviders = false } = {}) {
   const already = name => Number(existing[String(name).toLowerCase()] ?? 0);
+  const baselineAlready = baselineExisting ? name => Number(baselineExisting[String(name).toLowerCase()] ?? 0) : undefined;
   const include = { services: true, compute: true, fleet: true, targets: true, ...parts };
   const result = { region, issues: [], candidates: [], rejected: [], notes: [], context: {} };
   if (include.services) {
-    for (const check of policy.regionChecks ?? []) {
+    const checks = policy.regionChecks ?? [];
+    // Pre-registration ownership gate (setup on a fresh subscription): an
+    // unregistered provider is reported as pending instead of failing, and the
+    // service checks that depend on registered providers are deferred. The
+    // later deploy always re-runs the complete preflight.
+    if (deferUnregisteredProviders) {
+      const pending = [];
+      for (const check of checks.filter(item => item.type === 'provider')) {
+        const provider = await cached(cache, `provider:${check.namespace}`, `reading provider ${check.namespace}`,
+          () => az(['provider', 'show', '--namespace', check.namespace, '--output', 'json']));
+        if (provider?.registrationState && provider.registrationState !== 'Registered') pending.push(check.namespace);
+      }
+      if (pending.length) {
+        result.providersPending = [...new Set(pending)];
+        result.notes.push(`Providers not yet registered: ${result.providersPending.join(', ')}; service checks are deferred to the deploy preflight after registration.`);
+      }
+    }
+    for (const check of result.providersPending ? [] : checks) {
       const handler = regionChecks[check.type];
       if (!handler) throw new Error(`Unknown region check type ${check.type}`);
       const outcome = await handler(check, region, az, cache);
@@ -460,7 +488,7 @@ export async function evaluateRegion(policy, region, az, { cache = new Map(), sk
         result.notes.push(`existing ${name} ${reason} under the current policy; it is kept unchanged (no resize). `
           + 'Clean up and redeploy the scenario to adopt the current policy.');
       }
-      const missing = Math.max(0, policy.compute.count - already(name));
+      const missing = Math.max(0, policy.compute.count - (baselineAlready ?? already)(name));
       if (missing) {
         const vcpus = skuVcpus(sku);
         if (!(Number.isFinite(vcpus) && vcpus > 0)) {
@@ -486,7 +514,7 @@ export async function evaluateRegion(policy, region, az, { cache = new Map(), sk
       for (const targetName of remediationTargets ?? policy.remediationTargets) {
         const targetSku = findSku(catalog, targetName);
         const reason = skuIneligibility(targetSku, region, policy.remediationRequires ?? {})
-          ?? quotaShortfall(usage, [...demands, ...remediationDemands(policy, catalog, targetSku, name ?? skuOverride?.[0], already, { scope: remediationScope })]);
+          ?? quotaShortfall(usage, [...demands, ...remediationDemands(policy, catalog, targetSku, name ?? skuOverride?.[0], already, { scope: remediationScope, baselineAlready })]);
         if (!reason) { remediationTarget = targetName; break; }
         reasons.push(`${targetName}: ${reason}`);
       }
@@ -543,6 +571,7 @@ export async function inspectExisting(policy, resourceGroup, az) {
   const kind = policy.compute?.kind ?? 'none';
   const ignored = new Set((policy.placementIgnoreTypes ?? []).map(lower));
   const existing = {};
+  const baselineExisting = {};
   const workloadLocations = new Set();
   let sku = null;
   const context = {};
@@ -551,32 +580,104 @@ export async function inspectExisting(policy, resourceGroup, az) {
     if (!region || region === 'global' || ignored.has(lower(resource.type))) continue;
     workloadLocations.add(region);
   }
-  const vms = await discover(`listing VMs in ${resourceGroup}`, () => az(['vm', 'list', '--resource-group', resourceGroup,
-    '--query', '[].{size:hardwareProfile.vmSize, location:location}', '--output', 'json'])) ?? [];
+  // Only VM policies (including the retirement fleet and its targets) read VM
+  // APIs: App Service/Functions scenarios need neither Microsoft.Compute nor
+  // VM-read permission, and AKS node pools come from `az aks list`.
+  const readsVms = kind === 'vm' || (policy.fixedFleet?.length ?? 0) > 0 || (policy.remediationTargets?.length ?? 0) > 0;
+  const vms = readsVms ? await discover(`listing VMs in ${resourceGroup}`, () => az(['vm', 'list', '--resource-group', resourceGroup,
+    '--query', '[].{name:name, size:hardwareProfile.vmSize, location:location}', '--output', 'json'])) : [];
+  // A successful but malformed/empty discovery response must never be read
+  // as "no existing VMs": that would re-select (and resize to) a new size.
+  if (!Array.isArray(vms)) throw new DiscoveryError(`listing VMs in ${resourceGroup}`, 'the response was not a VM list');
+  if (vms.some(vm => !vm || typeof vm.size !== 'string' || !vm.size)) throw new DiscoveryError(`listing VMs in ${resourceGroup}`, 'a VM was returned without its size');
+  const listedVms = resources.filter(item => lower(item.type) === 'microsoft.compute/virtualmachines').length;
+  if (readsVms && listedVms > vms.length) {
+    throw new DiscoveryError(`listing VMs in ${resourceGroup}`, `the group lists ${listedVms} VM resource(s) but VM discovery returned ${vms.length}`);
+  }
   for (const vm of vms) {
     const size = lower(vm.size);
     existing[size] = (existing[size] ?? 0) + 1;
     workloadLocations.add(normalizeRegion(vm.location));
   }
   if (kind === 'vm') {
-    const fixed = new Set((policy.fixedFleet ?? []).map(entry => lower(entry.sku)));
-    sku = vms.map(vm => vm.size).find(size => policy.compute.skus.some(item => lower(item) === lower(size)))
-      ?? vms.map(vm => vm.size).find(size => !fixed.has(lower(size))) ?? null;
+    // The template applies one size to every baseline VM, so the pinned size
+    // comes only from the scenario's own baseline VMs (never an injected,
+    // legacy or migrated fleet VM), and must be unambiguous: redeploying one
+    // size over mixed baseline sizes would resize a VM.
+    const baselinePattern = new RegExp(policy.compute.baselineNamePattern, 'i');
+    if (vms.some(vm => !vm.name)) throw new PlacementError(`could not read the names of the VMs in ${resourceGroup}; refusing to guess the baseline size.`);
+    const baseline = vms.filter(vm => baselinePattern.test(vm.name));
+    const sizes = [...new Set(baseline.map(vm => lower(vm.size)))];
+    if (sizes.length > 1) {
+      throw new PlacementError(`${resourceGroup} has baseline VMs on different sizes (${baseline.map(vm => `${vm.name}=${vm.size}`).join(', ')}); `
+        + 'a rerun would resize some of them. Make the baseline VM sizes match (or remove the deployment) before rerunning.');
+    }
+    if (baseline.length > policy.compute.count) {
+      throw new PlacementError(`${resourceGroup} has ${baseline.length} VMs matching the baseline naming but the scenario deploys ${policy.compute.count}; refusing to guess which are the baseline.`);
+    }
+    sku = baseline[0]?.size ?? null;
+    // Actual baseline VMs per size: a missing baseline VM must never let a
+    // migrated fleet VM of the same size be mistaken for it.
+    for (const vm of baseline) baselineExisting[lower(vm.size)] = (baselineExisting[lower(vm.size)] ?? 0) + 1;
   }
   if (kind === 'aks') {
     const clusters = await discover(`listing AKS clusters in ${resourceGroup}`,
-      () => az(['aks', 'list', '--resource-group', resourceGroup, '--output', 'json'])) ?? [];
+      () => az(['aks', 'list', '--resource-group', resourceGroup, '--output', 'json']));
+    if (!Array.isArray(clusters)) throw new DiscoveryError(`listing AKS clusters in ${resourceGroup}`, 'the response was not a cluster list');
+    const listedClusters = resources.filter(item => lower(item.type) === 'microsoft.containerservice/managedclusters').length;
+    if (listedClusters > clusters.length) {
+      throw new DiscoveryError(`listing AKS clusters in ${resourceGroup}`, `the group lists ${listedClusters} cluster(s) but AKS discovery returned ${clusters.length}`);
+    }
+    // The templates deploy exactly one cluster with one node pool named
+    // `system`; pin only that pool's size, never another cluster's or pool's.
+    if (clusters.length > 1) {
+      throw new PlacementError(`${resourceGroup} contains ${clusters.length} AKS clusters (${clusters.map(item => item?.name).join(', ')}); `
+        + 'the scenario deploys one, so refusing to guess which to keep unchanged.');
+    }
     for (const cluster of clusters) {
-      workloadLocations.add(normalizeRegion(cluster.location));
-      for (const pool of cluster.agentPoolProfiles ?? []) {
-        const size = lower(pool.vmSize);
-        existing[size] = (existing[size] ?? 0) + Number(pool.count ?? 0);
+      const pools = cluster?.agentPoolProfiles;
+      const validCount = count => typeof count === 'number' && Number.isInteger(count) && count >= 0;
+      if (!Array.isArray(pools) || !pools.length || pools.some(pool => typeof pool?.vmSize !== 'string' || !pool.vmSize || !validCount(pool.count))) {
+        throw new DiscoveryError(`listing AKS clusters in ${resourceGroup}`, `${cluster?.name ?? 'a cluster'} was returned without complete node-pool size/count data`);
       }
-      const system = (cluster.agentPoolProfiles ?? []).find(pool => pool.mode === 'System') ?? cluster.agentPoolProfiles?.[0];
-      sku = sku ?? system?.vmSize ?? null;
-      // Keep the cluster on the version it already runs; never re-select.
-      const version = majorMinor(cluster.kubernetesVersion || cluster.currentKubernetesVersion || '');
-      if (/^\d+\.\d+$/.test(version) && !context.kubernetesVersion) context.kubernetesVersion = version;
+      workloadLocations.add(normalizeRegion(cluster.location));
+      for (const pool of pools) {
+        const size = lower(pool.vmSize);
+        existing[size] = (existing[size] ?? 0) + pool.count;
+      }
+      const systemPools = pools.filter(pool => lower(pool.name) === 'system');
+      if (systemPools.length !== 1) {
+        throw new PlacementError(`${cluster.name ?? 'The AKS cluster'} in ${resourceGroup} has ${systemPools.length} node pools named "system" `
+          + `(pools: ${pools.map(pool => `${pool.name ?? '?'}=${pool.vmSize}`).join(', ')}); refusing to guess which size the template manages.`);
+      }
+      sku = systemPools[0].vmSize;
+      // Only the template pool's nodes count toward its own (re)creation.
+      baselineExisting[lower(sku)] = systemPools[0].count;
+      // Keep the cluster on the exact patch it already runs: redeploying only a
+      // minor lets AKS move to that minor's latest patch (an unintended upgrade).
+      // Fail closed when the running version is unknown or an upgrade is underway.
+      const name = cluster.name ?? 'AKS cluster';
+      const state = lower(cluster.provisioningState);
+      if (state !== 'succeeded' || pools.some(pool => pool.provisioningState && lower(pool.provisioningState) !== 'succeeded')) {
+        throw new PlacementError(`${name} in ${resourceGroup} is ${cluster.provisioningState ?? 'in an unknown state'} (an upgrade or other operation may be in progress); wait for it to finish before rerunning.`);
+      }
+      const current = String(cluster.currentKubernetesVersion ?? '');
+      if (!/^\d+\.\d+\.\d+$/.test(current)) {
+        throw new PlacementError(`could not establish the exact running Kubernetes version of ${name} in ${resourceGroup}; refusing to redeploy and risk an upgrade.`);
+      }
+      const requested = String(cluster.kubernetesVersion ?? current);
+      const poolVersions = pools.map(pool => String(pool.currentOrchestratorVersion ?? pool.orchestratorVersion ?? current));
+      // AKS reports a cluster created with only major.minor as that value in
+      // kubernetesVersion while currentKubernetesVersion carries the patch.
+      const requestedMatches = requested === current
+        || (/^\d+\.\d+$/.test(requested) && majorMinor(current) === requested);
+      if (!requestedMatches || poolVersions.some(version => version !== current)) {
+        throw new PlacementError(`${name} in ${resourceGroup} has mixed Kubernetes versions (control plane ${current}, requested ${requested}, node pools ${[...new Set(poolVersions)].join(', ')}); finish or resolve the upgrade before rerunning.`);
+      }
+      if (context.kubernetesVersion && context.kubernetesVersion !== current) {
+        throw new PlacementError(`${resourceGroup} contains AKS clusters on different Kubernetes versions; refusing to guess which to keep.`);
+      }
+      context.kubernetesVersion = current;
     }
   }
   workloadLocations.delete('');
@@ -589,7 +690,7 @@ export async function inspectExisting(policy, resourceGroup, az) {
     throw new PlacementError(`${resourceGroup} records placement ${recorded} but its workload runs in ${actual}; resolve this before rerunning.`);
   }
   return {
-    group, existing, context, resources, resourceCount: resources.length,
+    group, existing, baselineExisting: kind === 'none' ? undefined : baselineExisting, context, resources, resourceCount: resources.length,
     sku: sku ?? group?.tags?.[TAGS.sku] ?? null,
     location: actual ?? recorded ?? null,
     remediationTarget: group?.tags?.[TAGS.remediationTarget],
@@ -717,6 +818,14 @@ const ATTACHMENTS = {
   'microsoft.network/networkinterfaces': detail => [detail?.properties?.virtualMachine?.id],
   'microsoft.network/publicipaddresses': detail => [parentNic(detail?.properties?.ipConfiguration?.id)],
   'microsoft.network/networksecuritygroups': detail => (detail?.properties?.networkInterfaces ?? []).map(item => item?.id),
+  // Earlier VM templates created untagged auto-shutdown schedules named
+  // shutdown-computevm-<vm>; one is accepted only when its name matches the
+  // VM it targets and that VM is itself an accepted workshop resource.
+  'microsoft.devtestlab/schedules': (detail, item) => {
+    const target = detail?.properties?.targetResourceId;
+    const vmName = /\/providers\/Microsoft\.Compute\/virtualMachines\/([^/]+)$/i.exec(target ?? '')?.[1];
+    return vmName && lower(item?.name ?? detail?.name) === lower(`shutdown-computevm-${vmName}`) ? [target] : [];
+  },
 };
 
 /**
@@ -743,7 +852,7 @@ export async function verifyExistingOwnership(policy, resourceGroup, state, az) 
     const tagged = item => required.every(([key, value]) => item?.tags?.[key] === value);
     const accepted = new Set((state.resources ?? []).filter(tagged).map(item => lower(item.id)));
     let pending = (state.resources ?? []).filter(item => !tagged(item));
-    // Untagged dependents (a NIC or OS disk created outside the template) are
+    // Untagged dependents (a NIC, OS disk, or auto-shutdown schedule) are
     // accepted only when Azure itself reports them attached exclusively to
     // already-accepted resources; anything else stays unknown and is refused.
     const attachments = new Map();
@@ -751,7 +860,7 @@ export async function verifyExistingOwnership(policy, resourceGroup, state, az) 
       const extract = ATTACHMENTS[lower(item.type)];
       if (!extract) continue;
       const detail = await discover(`reading ${item.id}`, () => az(['resource', 'show', '--ids', item.id, '--output', 'json']));
-      attachments.set(lower(item.id), extract(detail).filter(Boolean).map(lower));
+      attachments.set(lower(item.id), extract(detail, item).filter(Boolean).map(lower));
     }
     for (let changed = true; changed;) {
       changed = false;
@@ -799,6 +908,14 @@ export function reconcilePinnedRegion({ resourceGroup, pinned, location, strict,
 
 const subscriptionScope = policy => (policy.deployment?.scope ?? 'group') === 'subscription';
 
+// Azure deployment names are limited to 64 characters. Names that fit are
+// kept unchanged; longer ones are shortened deterministically with a hash of
+// the full name so reruns reuse the same bounded name without collisions.
+export function boundedDeploymentName(name) {
+  if (name.length <= 64) return name;
+  return `${name.slice(0, 55).replace(/[-.]+$/, '')}-${createHash('sha256').update(name).digest('hex').slice(0, 8)}`;
+}
+
 async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, location, sku, noRegionFallback, deploymentName, deploy, log }) {
   const { group } = state;
   const region = reconcilePinnedRegion({ resourceGroup, pinned: state.location, location, strict: noRegionFallback, log });
@@ -814,18 +931,23 @@ async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, lo
   const needsSku = kind !== 'none' && !pinnedSku;
   const needsVersion = (policy.regionChecks ?? []).some(check => check.type === 'aksVersion') && !context.kubernetesVersion;
   const needsTarget = (policy.remediationTargets?.length ?? 0) > 0 && !remediationTarget;
-  if (needsSku || needsVersion || needsTarget) {
+  // A partial deployment (missing baseline VM or template-pool node) recreates
+  // capacity, so it gets the pinned-size quota preflight too.
+  const present = Object.values(state.baselineExisting ?? {}).reduce((sum, count) => sum + count, 0);
+  const needsCapacity = kind !== 'none' && Boolean(pinnedSku) && present < Number(policy.compute?.count ?? 0);
+  if (needsSku || needsVersion || needsTarget || needsCapacity) {
     const evaluation = await evaluateRegion(policy, region, az, {
       skus: pinnedSku ? undefined : preferredSkus(policy, sku),
       existingSku: pinnedSku || undefined,
       parts: { fleet: false },
       existing: state.existing,
+      baselineExisting: state.baselineExisting,
       remediationTargets: remediationTarget ? [remediationTarget] : undefined,
     });
     if (evaluation.issues.length) throw new PlacementError(`Pinned region ${region} is not eligible: ${evaluation.issues.join('; ')}`);
     for (const note of evaluation.notes) log(`NOTE ${note}`);
     const candidate = evaluation.candidates[0];
-    if (!candidate && (needsSku || needsTarget)) {
+    if (!candidate && (needsSku || needsTarget || needsCapacity)) {
       throw new PlacementError(`No eligible compute in pinned region ${region}:\n${formatAttempts(evaluation.rejected.map(item => ({ region, ...item })))}`);
     }
     pinnedSku = pinnedSku || candidate?.sku || null;
@@ -839,7 +961,7 @@ async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, lo
     log(`${resourceGroup} is a verified earlier ${policy.scenario} workshop deployment; it will be designated after this rerun.`);
     ownershipTags[TAGS.scenario] = policy.scenario;
   }
-  const outputs = await deploy({ location: region, sku: pinnedSku, context, tags: ownershipTags, deploymentName });
+  const outputs = await deploy({ location: region, sku: pinnedSku, context, tags: ownershipTags, deploymentName: boundedDeploymentName(deploymentName) });
   const result = { mode: 'pinned', resourceGroup, location: region, sku: pinnedSku, context, outputs };
   // Persist what this rerun established: designation for a verified legacy
   // group, and a newly selected remediation target so it is never re-selected.
@@ -870,15 +992,18 @@ async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, lo
   return result;
 }
 
+// VMs of `size` that are not actually-present baseline VMs (i.e. migrated
+// fleet VMs). Uses the discovered baseline, never the configured count.
+function migratedTo(state, size) {
+  const key = lower(size);
+  return (state.existing?.[key] ?? 0) - (state.baselineExisting?.[key] ?? 0);
+}
+
 // With no recorded target, an interrupted migration is resumed with the size
 // already applied to retiring VMs, never re-selected; ambiguity fails closed.
 export function resumableRemediationTarget(policy, state, resourceGroup) {
   if (!(policy.remediationTargets?.length) || state.remediationTarget) return state.remediationTarget || null;
-  const baseline = Number(policy.compute?.count ?? 0);
-  const resized = policy.remediationTargets.filter(target => {
-    const count = state.existing?.[lower(target)] ?? 0;
-    return count - (state.sku && lower(state.sku) === lower(target) ? baseline : 0) > 0;
-  });
+  const resized = policy.remediationTargets.filter(target => migratedTo(state, target) > 0);
   if (resized.length > 1) {
     throw new PlacementError(`${resourceGroup} has no recorded remediation target but VMs were already resized to ${resized.join(' and ')}; `
       + `record the intended one with: az group update --name ${resourceGroup} --set tags.${TAGS.remediationTarget}=<size>. Nothing was resized.`);
@@ -898,11 +1023,8 @@ export async function verifyRemediationTarget({ policy, az, resourceGroup, targe
     throw new PlacementError(`${resourceGroup} now records remediation target ${recorded ?? 'none'}, not ${target}; another run may be `
       + 'migrating concurrently. Stopped before resizing; rerun once only one migration is active.');
   }
-  const baseline = Number(policy.compute?.count ?? 0);
-  const foreign = (policy.remediationTargets ?? []).filter(other => lower(other) !== lower(target)).filter(other => {
-    const count = state.existing?.[lower(other)] ?? 0;
-    return count - (state.sku && lower(state.sku) === lower(other) ? baseline : 0) > 0;
-  });
+  const foreign = (policy.remediationTargets ?? []).filter(other => lower(other) !== lower(target))
+    .filter(other => migratedTo(state, other) > 0);
   if (foreign.length) {
     throw new PlacementError(`${resourceGroup} records ${target} but VMs were already resized to ${foreign.join(', ')}; refusing to mix target `
       + `families. Resolve manually (choose one size, then: az group update --name ${resourceGroup} --set tags.${TAGS.remediationTarget}=<size>).`);

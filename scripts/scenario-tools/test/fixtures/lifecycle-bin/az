@@ -126,6 +126,8 @@ JSON
     fi
     printf 'true\n'
     ;;
+  *" provider register "*)
+    ;;
   *" group delete "*)
     ;;
   *)

@@ -51,8 +51,9 @@ jobs:
           REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
           # Placement policy: scenarios/cosmos-rbac-removal/infra/placement.json. An existing
-          # resource group stays pinned to its recorded region; only verified
-          # attempt-owned resources are cleaned up after a failed attempt.
+          # resource group stays pinned to its recorded region. A failed attempt is
+          # retried elsewhere only after it is verified to have changed nothing;
+          # nothing is ever deleted automatically.
           fallback=()
           if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
           node scripts/placement/provision.mjs deploy cosmos-rbac-removal \
@@ -60,13 +61,10 @@ jobs:
             --workload "${WORKLOAD}" \
             --outputs-file deployment-outputs.json
 
-          cat deployment-outputs.json
-
           echo "aks_name=$(jq -r '.aksClusterName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "cosmos_endpoint=$(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "uami_client_id=$(jq -r '.uamiClientId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "appinsights_cs=$(jq -r '.appInsightsConnectionString.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
 
       - name: Print deployment summary
         run: |
@@ -80,7 +78,6 @@ jobs:
           echo "CosmosDB Endpoint:   ${{ steps.deploy.outputs.cosmos_endpoint }}"
           echo "UAMI Client ID:      ${{ steps.deploy.outputs.uami_client_id }}"
           echo "Log Analytics ID:    ${{ steps.deploy.outputs.law_id }}"
-          echo "App Insights CS:     ${{ steps.deploy.outputs.appinsights_cs }}"
           echo "Scenario guide:      ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/scenarios/cosmos-rbac-removal/README.md"
           echo "Next: Run 'Deploy Cosmos RBAC Removal Application' and follow scenarios/cosmos-rbac-removal/README.md."
           echo "============================================"

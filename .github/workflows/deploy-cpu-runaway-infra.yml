@@ -64,8 +64,9 @@ jobs:
           REGION_FALLBACK: ${{ inputs.regionFallback && 'true' || 'false' }}
         run: |
           # Placement policy: scenarios/cpu-runaway/infra/placement.json. An existing
-          # resource group stays pinned to its recorded region; only verified
-          # attempt-owned resources are cleaned up after a failed attempt.
+          # resource group stays pinned to its recorded region. A failed attempt is
+          # retried elsewhere only after it is verified to have changed nothing;
+          # nothing is ever deleted automatically.
           fallback=()
           if [ "${REGION_FALLBACK}" != "true" ]; then fallback=(--no-region-fallback); fi
           node scripts/placement/provision.mjs deploy cpu-runaway \
@@ -75,12 +76,10 @@ jobs:
             --secure-param-env adminPassword=ADMIN_PASSWORD \
             --outputs-file deployment-outputs.json
 
-          cat deployment-outputs.json
           echo "vm_names=$(jq -rc '.vmNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "vm_computer_names=$(jq -rc '.vmComputerNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "appinsights_cs=$(jq -r '.appInsightsConnectionString.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "operations_identity_client_id=$(jq -r '.operationsIdentityClientId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
           echo "bastion_name=$(jq -r '.bastionName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
 
@@ -97,7 +96,6 @@ jobs:
           echo "VM Private IPs:          ${{ steps.deploy.outputs.vm_private_ips }}"
           echo "Bastion Host:            ${{ steps.deploy.outputs.bastion_name }}"
           echo "Log Analytics ID:        ${{ steps.deploy.outputs.law_id }}"
-          echo "App Insights CS:         ${{ steps.deploy.outputs.appinsights_cs }}"
           echo "Operations Identity ID:  ${{ steps.deploy.outputs.operations_identity_client_id }}"
           echo "============================================"
           echo ""
