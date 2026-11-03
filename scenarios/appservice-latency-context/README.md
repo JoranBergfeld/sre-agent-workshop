@@ -48,6 +48,15 @@ See the non-spoiling [operations reference](knowledge/operations.md). All lifecy
 from the repository root; state/evidence stay in this capsule's ignored
 `.azure/` directory. Do not lose or share the ownership state.
 
+Setup uses an **operator-created, designated resource group**; tooling never
+creates one. The workload prefers West Europe, then eligible PHP 8.3/Linux
+App Service B1 alternatives in Sweden Central, East US 2 and Australia East.
+SRE Agent placement remains separate. Setup, injection, reset and ordinary
+deploy use verified healthy/faulty artifacts for the exact checkout commit
+and origin repository. Missing builds fail closed, before provider registration
+or deployment. See [deployment](docs/01-deploy-infrastructure.md) for build
+dispatch, explicit `--local-build`, and the reviewed-source recovery path.
+
 ## Contributor checks
 
 ```bash

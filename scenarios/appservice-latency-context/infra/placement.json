@@ -10,6 +10,10 @@
   ],
   "defaultWorkload": "alctx",
   "resourceGroup": "alctx-rg",
+  "legacyOwnership": {
+    "groupTags": { "scenario": "appservice-latency-context" },
+    "resourceTags": { "scenario": "appservice-latency-context" }
+  },
   "regionChecks": [
     {
       "type": "appServiceLinux",
@@ -41,6 +45,6 @@
     "scope": "group",
     "template": "infra/bicep/main.bicep",
     "name": "alctx-infrastructure",
-    "parameters": {}
+    "parameters": { "location": "{location}", "groupTags": "{groupTags}" }
   }
 }

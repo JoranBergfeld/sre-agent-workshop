@@ -27,7 +27,8 @@ before the measured [baseline incident pass](04-baseline.md).
   and private-repository security entitlements can differ. Do not silently
   enable repository-wide paid products. PHP is not validated by CodeQL.
 - An explicitly selected Azure subscription. Deployment requires permission to
-  create a **dedicated** `alctx-*` resource group, App Service Linux Basic B1
+  pre-create and designate a **dedicated** `alctx-*` resource group (tooling
+  never creates groups), App Service Linux Basic B1
   plan/site, Log Analytics workspace and Application Insights component.
   Contributor over the sandbox is sufficient for these resources, but **not**
   for assigning roles. An authorized role administrator handles SRE access.
@@ -62,6 +63,14 @@ before the measured [baseline incident pass](04-baseline.md).
   `gh agent-task create --help` must expose `--base` if using the CLI branch
   fallback (verified with gh 2.97); no CLI task is needed when issue assignment
   provides the starting-branch picker.
+- A successful, unexpired **Validate App Service Latency Context Application**
+  build for the exact checkout commit in the origin repository. Default
+  deployment verifies provenance and checksums for the healthy/faulty package.
+  The checkout's deployable source must be clean. The resolver prints the
+  exact workflow dispatch command when no matching artifact exists; publish
+  the commit, dispatch that build on its branch/tag, wait for success and retry.
+  `--local-build` is an explicit offline/source alternative, not an automatic
+  fallback after verification fails.
 
 **Costs remain visible:** an always-on B1 plan bills while idle; telemetry
 ingestion/retention, agent/model usage, GitHub AI credits and Codespaces can

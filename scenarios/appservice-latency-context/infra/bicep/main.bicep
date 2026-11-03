@@ -3,15 +3,16 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 @description('Run ownership token persisted by setup; never share a resource group between workshop runs.')
 param owner string
+param groupTags object = {}
 @allowed(['PHP|8.3'])
 param runtime string = 'PHP|8.3'
 
 var suffix = uniqueString(resourceGroup().id)
 var prefix = 'alctx-${suffix}'
-var tags = {
+var tags = union(groupTags, {
   scenario: 'appservice-latency-context'
   owner: owner
-}
+})
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${prefix}-logs'
@@ -60,12 +61,17 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appCommandLine: 'cp /home/site/wwwroot/nginx.conf /etc/nginx/sites-available/default && service nginx reload'
-      appSettings: [
-        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
-        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
-      ]
     }
   }
+}
+
+resource appSettings 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: app
+  name: 'appsettings'
+  properties: union(list('${app.id}/config/appsettings', '2023-12-01').properties, {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: insights.properties.ConnectionString
+    SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+  })
 }
 
 resource diagnostic 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, copyFileSync, appendFileSync } from 'node:fs';
 import path from 'node:path';
 const directory = process.env.FIXTURE_DIR;
 if (!directory) throw new Error('Controlled fixture requires FIXTURE_DIR');
 const args = process.argv.slice(2);
+appendFileSync(path.join(directory, 'calls.jsonl'), `${JSON.stringify(['az', ...args])}\n`);
 const command = args.filter(value => !value.startsWith('--')).join(' ');
 const value = key => args[args.indexOf(key) + 1];
 const file = path.join(directory, 'remote.json');
@@ -13,23 +14,56 @@ if (process.env.FAIL_AZ && command.startsWith(process.env.FAIL_AZ)) process.exit
 let result;
 if (command.startsWith('group exists')) result = Boolean(remote.group);
 else if (command.startsWith('group show')) result = remote.group;
-else if (command.startsWith('group create')) {
-  const tags = Object.fromEntries(args.slice(args.indexOf('--tags') + 1, args.indexOf('--subscription'))
-    .map(tag => tag.split('=')));
-  remote.group = { name: value('--name'), tags };
+else if (command.startsWith('group create')) throw new Error('Tooling must never create resource groups');
+else if (command.startsWith('group update')) {
+  for (const pair of args.slice(args.indexOf('--set') + 1)) {
+    if (pair.startsWith('--')) break;
+    const [key, val] = pair.split('=');
+    remote.group.tags[key.replace(/^tags\./, '')] = val;
+  }
   result = remote.group;
-} else if (command.startsWith('deployment group create')) {
-  remote.resources = [{ name: 'alctx-app', tags: remote.group.tags }];
+} else if (command.startsWith('provider show')) {
+  result = { registrationState: 'Registered', resourceTypes: ['sites', 'components', 'workspaces'].map(resourceType => ({
+    resourceType, locations: ['West Europe', 'Sweden Central', 'East US 2', 'Australia East'],
+  })) };
+} else if (command.startsWith('provider register')) result = null;
+else if (command.startsWith('vm list')) result = [];
+else if (command.startsWith('webapp list')) result = remote.resources || [];
+else if (command.startsWith('appservice list-locations')) {
+  result = (process.env.NO_WEST_EUROPE ? ['Sweden Central', 'East US 2', 'Australia East']
+    : ['West Europe', 'Sweden Central', 'East US 2', 'Australia East']).map(name => ({ name }));
+} else if (command.startsWith('rest')) {
+  result = { value: [{ name: 'php', properties: { majorVersions: [{ minorVersions: [{
+    stackSettings: { linuxRuntimeSettings: { runtimeVersion: 'PHP|8.3' } },
+  }] }] } }] };
+} else if (command.startsWith('deployment group validate')) result = {};
+else if (command.startsWith('deployment group create')) {
+  const parameters = JSON.parse(readFileSync(value('--parameters').slice(1), 'utf8')).parameters;
+  remote.appSettings = { ...(remote.appSettings || {}), SCM_DO_BUILD_DURING_DEPLOYMENT: 'false' };
+  remote.resources = [{
+    id: '/subscriptions/test/resourceGroups/alctx-rg/providers/Microsoft.Web/sites/alctx-app',
+    name: 'alctx-app', type: 'Microsoft.Web/sites', location: parameters.location.value,
+    tags: { ...parameters.groupTags.value, scenario: 'appservice-latency-context', owner: parameters.owner.value },
+  }];
+  remote.parameters = parameters;
+  if (args.includes('--query')) {
+    result = Object.fromEntries(Object.entries({
+      appName: 'alctx-app', url: 'https://alctx-app.azurewebsites.net',
+      workspaceId: '00000000-1111-2222-3333-444444444444',
+    }).map(([key, entry]) => [key, { value: entry }]));
+  } else {
   result = { properties: { outputs: Object.fromEntries(Object.entries({
     appName: 'alctx-app', url: 'https://alctx-app.azurewebsites.net',
     workspaceId: '00000000-1111-2222-3333-444444444444',
   }).map(([key, entry]) => [key, { value: entry }])) } };
+  }
 } else if (command.startsWith('webapp deploy')) {
   copyFileSync(value('--src-path'), path.join(directory, 'uploaded.zip'));
   const zip = readFileSync(value('--src-path'));
   remote.revision = zip.includes(Buffer.from('candidate-v2')) ? 'faulty' : 'healthy';
   remote.deployments = (remote.deployments || 0) + 1;
-  result = { status: 4, complete: true };
+  remote.appSettings = { ...(remote.appSettings || {}), WEBSITE_RUN_FROM_PACKAGE: 'https://private.invalid/package?sig=SECRET' };
+  result = { status: 4, complete: true, url: 'https://private.invalid/package?sig=SECRET' };
 } else if (command.startsWith('resource list')) result = remote.resources || [];
 else if (command.startsWith('monitor activity-log list')) result = [{ operationName: { value: 'Deploy' } }];
 else if (command.startsWith('monitor log-analytics query')) result = [{ evidence: 'preserved' }];

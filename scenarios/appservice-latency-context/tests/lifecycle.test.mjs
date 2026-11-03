@@ -7,6 +7,10 @@ import { test } from 'node:test';
 
 const capsule = fileURLToPath(new URL('../', import.meta.url));
 const subscription = 'fa68ebb3-c4c4-4b3f-8c91-cbef4c119d77';
+const designatedGroup = () => ({
+  group: { name: 'alctx-rg', location: 'westeurope', tags: { 'sre-workshop-scenario': 'appservice-latency-context' } },
+});
+const calls = async directory => (await readFile(path.join(directory, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
 
 test('Windows Azure bridge requires explicit subscription and preserves native failures', async () => {
   const directory = path.join(capsule, '.test-runs', `bridge-${process.pid}`);
@@ -14,9 +18,9 @@ test('Windows Azure bridge requires explicit subscription and preserves native f
   const run = (args, extra = {}) => spawnSync('pwsh', [
     '-NoProfile', '-File', path.join(capsule, 'scripts/azure-command.ps1'),
   ], {
-    encoding: 'utf8',
+    encoding: 'utf8', timeout: 30_000,
     env: {
-      ...process.env, FIXTURE_DIR: directory, ALCTX_AZURE_ARGS: JSON.stringify(args),
+      ...process.env, REAL_NODE: process.execPath, FIXTURE_DIR: directory, ALCTX_AZURE_ARGS: JSON.stringify(args),
       PATH: `${path.join(capsule, 'tests/fixtures/bin')}${path.delimiter}${process.env.PATH}`,
       ...extra,
     },
@@ -38,7 +42,7 @@ for (const shell of ['bash', 'pwsh']) {
     const extension = shell === 'bash' ? 'sh' : 'ps1';
     const args = shell === 'bash' ? [] : ['-NoProfile', '-File'];
     const result = spawnSync(shell, [...args, path.join(capsule, `scripts/setup.${extension}`)], {
-      encoding: 'utf8',
+      encoding: 'utf8', timeout: 30_000,
     });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr + result.stdout, /explicit --subscription/);
@@ -48,7 +52,7 @@ for (const shell of ['bash', 'pwsh']) {
     const directory = path.join(capsule, '.test-runs', `${shell}-${process.pid}`);
     await mkdir(directory, { recursive: true });
     const env = {
-      ...process.env, FIXTURE_DIR: directory,
+      ...process.env, REAL_NODE: process.execPath, FIXTURE_DIR: directory,
       PATH: `${path.join(capsule, 'tests/fixtures/bin')}${path.delimiter}${process.env.PATH}`,
     };
     const run = (operation, options = [], extra = {}) => {
@@ -57,13 +61,24 @@ for (const shell of ['bash', 'pwsh']) {
         ...(shell === 'bash' ? [] : ['-NoProfile', '-File']),
         path.join(capsule, `scripts/${operation}.${extension}`),
         '--state-dir', directory, ...options,
-      ], { env: { ...env, ...extra }, encoding: 'utf8' });
+      ], { env: { ...env, ...extra }, encoding: 'utf8', timeout: 60_000 });
     };
     const ok = result => assert.equal(result.status, 0, result.stderr + result.stdout);
     const remote = async () => JSON.parse(await readFile(path.join(directory, 'remote.json'), 'utf8'));
     try {
+      await writeFile(path.join(directory, 'remote.json'), JSON.stringify(designatedGroup()));
       ok(run('setup', ['--subscription', subscription]));
       assert.equal((await remote()).revision, 'healthy');
+      const setupCalls = await calls(directory);
+      const checkIndex = setupCalls.findIndex(call => call[0] === 'placement' && call[1] === 'check');
+      const resolveIndex = setupCalls.findIndex(call => call[0] === 'resolve');
+      const registerIndex = setupCalls.findIndex(call => call[0] === 'az' && call[1] === 'provider' && call[2] === 'register');
+      const provisionIndex = setupCalls.findIndex(call => call[0] === 'placement' && call[1] === 'deploy');
+      assert.ok(checkIndex >= 0 && checkIndex < resolveIndex && resolveIndex < registerIndex && registerIndex < provisionIndex);
+      assert.ok(setupCalls[checkIndex].includes('--require-group'));
+      assert.ok(setupCalls[provisionIndex].includes('--outputs-file'));
+      assert.ok(!setupCalls[resolveIndex].includes('--repo'));
+      assert.ok(!setupCalls.some(call => call[0] === 'az' && call[1] === 'group' && call[2] === 'create'));
       await mkdir(path.join(directory, '.operation-lock'));
       assert.notEqual(run('inject').status, 0, 'concurrent operations must fail closed');
       await rm(path.join(directory, '.operation-lock'), { recursive: true });
@@ -73,6 +88,8 @@ for (const shell of ['bash', 'pwsh']) {
       assert.equal((await remote()).revision, 'faulty');
       ok(run('setup', ['--subscription', subscription]));
       assert.equal((await remote()).revision, 'faulty', 'repeated setup must not reset an incident');
+      assert.match((await remote()).appSettings.WEBSITE_RUN_FROM_PACKAGE, /sig=SECRET/);
+      assert.doesNotMatch(await readFile(path.join(directory, 'state.json'), 'utf8'), /SECRET/);
       ok(run('evidence'));
       ok(run('validate', ['--expect', 'faulty']));
       assert.notEqual(run('validate', ['--expect', 'healthy']).status, 0);
@@ -88,7 +105,12 @@ for (const shell of ['bash', 'pwsh']) {
       const contents = await Promise.all(evidence.map(file => readFile(path.join(directory, 'evidence', file), 'utf8')));
       assert.ok(contents.some(text => text.includes('preserved')));
       assert.notEqual(run('inject', [], { FAIL_AZ: 'webapp deploy' }).status, 0);
-      assert.notEqual(run('deploy').status, 0);
+      ok(run('deploy'));
+      assert.equal((await remote()).revision, 'healthy');
+      ok(run('deploy', ['--variant', 'faulty']));
+      assert.equal((await remote()).revision, 'faulty');
+      ok(run('reset', ['--local-build'], { FAIL_RESOLVE: '1' }));
+      ok(run('deploy', ['--local-build', '--variant', 'faulty'], { FAIL_RESOLVE: '1' }));
       const source = path.join(directory, 'candidate-source');
       await cp(path.join(capsule, 'src'), source, { recursive: true });
       await writeFile(path.join(source, 'security-fixture.php'), '<?php // inert fixture must never ship');
@@ -117,6 +139,8 @@ for (const shell of ['bash', 'pwsh']) {
       ok(run('cleanup'));
       assert.equal((await remote()).group, undefined);
       assert.deepEqual(await readdir(path.join(directory, 'evidence')).then(files => files.filter(file => evidence.includes(file))), evidence);
+      assert.notEqual(run('setup', ['--subscription', subscription]).status, 0, 'setup never recreates missing groups');
+      await writeFile(path.join(directory, 'remote.json'), JSON.stringify(designatedGroup()));
       ok(run('setup', ['--subscription', subscription]));
       assert.equal((await remote()).revision, 'healthy', 'recreated infrastructure must receive a package');
       ok(run('cleanup'));
@@ -133,9 +157,9 @@ for (const shell of ['bash', 'pwsh']) {
       path.join(capsule, `scripts/${operation}.${shell === 'bash' ? 'sh' : 'ps1'}`),
       '--state-dir', directory, '--subscription', subscription,
     ], {
-      encoding: 'utf8',
+      encoding: 'utf8', timeout: 60_000,
       env: {
-        ...process.env, FIXTURE_DIR: directory,
+        ...process.env, REAL_NODE: process.execPath, FIXTURE_DIR: directory,
         PATH: `${path.join(capsule, 'tests/fixtures/bin')}${path.delimiter}${process.env.PATH}`,
         ...extra,
       },
@@ -145,7 +169,7 @@ for (const shell of ['bash', 'pwsh']) {
       await writeFile(file, JSON.stringify({ group: { name: 'alctx-rg', tags: {} } }));
       assert.notEqual(run('setup').status, 0);
       assert.deepEqual(JSON.parse(await readFile(file, 'utf8')).group.tags, {});
-      await writeFile(file, '{}');
+      await writeFile(file, JSON.stringify(designatedGroup()));
       assert.notEqual(run('setup', { FAIL_AZ: 'deployment group create' }).status, 0);
       assert.ok(JSON.parse(await readFile(file, 'utf8')).group);
       const result = run('cleanup');
@@ -155,4 +179,49 @@ for (const shell of ['bash', 'pwsh']) {
       await rm(directory, { recursive: true, force: true });
     }
   });
+
+  test(`${shell}: ownership and exact-commit artifact failures precede every mutation; local build is explicit`, async () => {
+    const directory = path.join(capsule, '.test-runs', `gates-${shell}-${process.pid}`);
+    await mkdir(directory, { recursive: true });
+    const file = path.join(directory, 'remote.json');
+    const run = (options = [], extra = {}) => spawnSync(shell, [
+      ...(shell === 'bash' ? [] : ['-NoProfile', '-File']),
+      path.join(capsule, `scripts/setup.${shell === 'bash' ? 'sh' : 'ps1'}`),
+      '--state-dir', directory, '--subscription', subscription, ...options,
+    ], {
+      encoding: 'utf8', timeout: 60_000,
+      env: {
+        ...process.env, REAL_NODE: process.execPath, FIXTURE_DIR: directory,
+        PATH: `${path.join(capsule, 'tests/fixtures/bin')}${path.delimiter}${process.env.PATH}`, ...extra,
+      },
+    });
+    try {
+      assert.notEqual(run().status, 0, 'missing group must not be created');
+      assert.ok(!(await calls(directory)).some(call => call[0] === 'resolve'));
+      await writeFile(file, JSON.stringify(designatedGroup()));
+      await writeFile(path.join(directory, 'calls.jsonl'), '');
+      const failed = run([], { FAIL_RESOLVE: '1' });
+      assert.notEqual(failed.status, 0);
+      assert.match(failed.stderr, /exact-commit build|exact-source build/);
+      const failedCalls = await calls(directory);
+      assert.ok(failedCalls.some(call => call[0] === 'resolve'));
+      assert.ok(failedCalls.filter(call => call[0] === 'az')
+        .every(call => !['register', 'update', 'create', 'deploy', 'delete'].includes(call[2])));
+      assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), designatedGroup());
+      const local = run(['--local-build'], { FAIL_RESOLVE: '1', NO_WEST_EUROPE: '1' });
+      assert.equal(local.status, 0, local.stderr);
+      const remote = JSON.parse(await readFile(file, 'utf8'));
+      assert.equal(remote.resources[0].location, 'swedencentral');
+      assert.equal(remote.revision, 'healthy');
+      assert.doesNotMatch(local.stdout + local.stderr, /SECRET/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 }
+
+test('latency Bicep merges existing dynamic app settings outside the site configuration', async () => {
+  const bicep = await readFile(path.join(capsule, 'infra/bicep/main.bicep'), 'utf8');
+  assert.doesNotMatch(bicep, /appSettings:\s*\[/);
+  assert.match(bicep, /properties: union\(list\('\$\{app.id\}\/config\/appsettings'/);
+});

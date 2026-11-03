@@ -8,6 +8,7 @@ import { packageApp } from './package.mjs';
 
 const capsule = fileURLToPath(new URL('../', import.meta.url));
 const scenario = 'appservice-latency-context';
+const repository = path.resolve(capsule, '../..');
 let lock;
 
 async function command(executable, args) {
@@ -15,7 +16,7 @@ async function command(executable, args) {
   const child = spawn(windowsAzure ? 'pwsh.exe' : executable,
     windowsAzure ? ['-NoProfile', '-NonInteractive', '-File', path.join(capsule, 'scripts/azure-command.ps1')] : args,
     {
-      stdio: ['ignore', 'pipe', 'pipe'], shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'], shell: false, cwd: repository,
       env: windowsAzure ? { ...process.env, ALCTX_AZURE_ARGS: JSON.stringify(args) } : process.env,
     });
   let stdout = '';
@@ -26,7 +27,7 @@ async function command(executable, args) {
     child.on('error', reject);
     child.on('close', resolve);
   });
-  if (code !== 0) throw new Error(`${executable} ${args.slice(0, 3).join(' ')} failed (${code}): ${stderr}`);
+  if (code !== 0) throw new Error(`${executable} ${args.slice(0, 3).join(' ')} failed (${code})${executable === 'az' ? '' : `: ${stderr}`}`);
   return stdout;
 }
 
@@ -51,6 +52,11 @@ async function main() {
   const [operation, ...args] = process.argv.slice(2);
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
+    if (args[i] === '--local-build' && !options['local-build']) {
+      options['local-build'] = true;
+      i--;
+      continue;
+    }
     if (!args[i].startsWith('--') || !args[i + 1] || args[i + 1].startsWith('--')) {
       throw new Error('Options require --name value pairs');
     }
@@ -64,7 +70,8 @@ async function main() {
     throw new Error(`Unsupported operation: ${operation}`);
   }
   const allowed = ['subscription', 'resource-group', 'state-dir',
-    ...({ setup: ['location'], validate: ['expect'], deploy: ['source-dir', 'reviewed'] }[operation] || [])];
+    ...(['setup', 'inject', 'reset', 'deploy'].includes(operation) ? ['local-build', 'location', 'workload'] : []),
+    ...({ validate: ['expect'], deploy: ['source-dir', 'reviewed', 'variant'] }[operation] || [])];
   for (const key of Object.keys(options)) if (!allowed.includes(key)) throw new Error(`Unknown option --${key} for ${operation}`);
   const directory = path.resolve(options['state-dir'] || path.join(capsule, '.azure'));
   await mkdir(directory, { recursive: true });
@@ -81,11 +88,14 @@ async function main() {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const subscription = options.subscription || state?.subscription;
   const group = options['resource-group'] || state?.group || 'alctx-rg';
+  const workload = options.workload || state?.workload || 'alctx';
+  const location = options.location || state?.preferredLocation || 'westeurope';
+  if (!/^[a-z][a-z0-9-]{0,59}$/.test(workload)) throw new Error('Invalid workload name');
   if (!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(subscription || '')) {
     throw new Error('A subscription UUID is required');
   }
   if (!/^alctx-[a-z0-9-]{1,60}$/.test(group)) throw new Error('Resource group must use the dedicated alctx- prefix');
-  if (state && (state.subscription !== subscription || state.group !== group)) throw new Error('State scope mismatch');
+  if (state && (state.subscription !== subscription || state.group !== group || (state.workload && state.workload !== workload))) throw new Error('State scope mismatch');
   const az = async (...args) => {
     const output = await command('az', [
       ...args, '--subscription', subscription, '--output', 'json', '--only-show-errors',
@@ -98,9 +108,16 @@ async function main() {
   };
   const exists = await az('group', 'exists', '--name', group);
   const owned = tags => tags?.scenario === scenario && tags?.owner === state?.owner;
+  let resourceGroup;
   if (exists) {
-    const resourceGroup = await az('group', 'show', '--name', group);
-    if (!state?.owner || !owned(resourceGroup.tags)) throw new Error('Refusing resource group: scenario ownership mismatch');
+    resourceGroup = await az('group', 'show', '--name', group);
+    if (!state?.owner || !owned(resourceGroup.tags)) {
+      const resources = await az('resource', 'list', '--resource-group', group);
+      if (operation !== 'setup' || resources.length || resourceGroup.tags?.owner
+        || resourceGroup.tags?.['sre-workshop-scenario'] !== scenario) {
+        throw new Error('Refusing resource group: scenario ownership mismatch');
+      }
+    }
   }
   if (operation === 'cleanup' && !exists) {
     console.log('Resource group already absent; local state and evidence retained.');
@@ -118,35 +135,73 @@ async function main() {
     await writeFile(file, JSON.stringify({ state, activity, telemetry, capturedAt: new Date().toISOString() }, null, 2));
     console.log(`Bounded evidence exported: ${file}`);
   };
-  const deploy = async revision => {
-    const archive = path.join(directory, `deployment-${randomUUID()}.zip`);
-    await writeFile(archive, await packageApp(capsule, revision, options['source-dir'] && path.resolve(options['source-dir'])));
-    const result = await az('webapp', 'deploy', '--resource-group', group, '--name', state.appName,
+  const placement = (mode, extra = []) => command('node', [
+    path.join(repository, 'scripts/placement/provision.mjs'), mode, scenario,
+    '--location', location, '--workload', workload, '--resource-group', group,
+    '--subscription', subscription, ...extra,
+  ]);
+  let revision;
+  let archive;
+  let artifact;
+  if (['setup', 'inject', 'reset', 'deploy'].includes(operation)) {
+    revision = operation === 'inject' ? 'faulty' : 'healthy';
+    if (operation === 'deploy') {
+      if (options['source-dir'] || options.reviewed) {
+        if (options.reviewed !== 'yes' || !options['source-dir'] || options.variant) {
+          throw new Error('Reviewed deploy requires --reviewed yes --source-dir PATH without --variant');
+        }
+        revision = 'reviewed';
+      } else {
+        revision = options.variant || 'healthy';
+        if (!['healthy', 'faulty'].includes(revision)) throw new Error('Variant must be healthy or faulty');
+      }
+    }
+    await placement('check', ['--require-group']);
+    if (revision === 'reviewed' || options['local-build']) {
+      archive = path.join(directory, `deployment-${randomUUID()}.zip`);
+      await writeFile(archive, await packageApp(capsule, revision, options['source-dir'] && path.resolve(options['source-dir'])));
+    } else {
+      artifact = JSON.parse(await command('node', [
+        path.join(repository, 'scripts/build-artifacts/resolve.mjs'),
+        '--scenario', scenario, '--variant', revision, '--output-dir', directory,
+      ]));
+      if (artifact.scenario !== scenario || artifact.variant !== revision
+        || !/^[a-f0-9]{40}$/.test(artifact.sourceSha || '') || !path.isAbsolute(artifact.deploymentZip || '')) {
+        throw new Error('Unexpected artifact resolver result');
+      }
+      archive = artifact.deploymentZip;
+    }
+  }
+  const deploy = async () => {
+    await az('webapp', 'deploy', '--resource-group', group, '--name', state.appName,
       '--src-path', archive, '--type', 'zip', '--clean', 'true', '--restart', 'true', '--track-status', 'true');
     state.revision = revision;
     state.deployedAt = new Date().toISOString();
-    state.deployment = result;
+    // Azure deployment responses can contain credential-bearing URLs; retain only provenance.
+    state.artifact = artifact ? { sourceSha: artifact.sourceSha, variant: artifact.variant } : { source: 'local', revision };
     await save();
     console.log(`Deployed ${revision}: ${state.url}. This is a deployment state, not evidence of code repair.`);
   };
-  if (operation === 'setup') {
+  if (['setup', 'deploy'].includes(operation)) {
     if (!state) {
-      state = { subscription, group, owner: randomUUID(), scenario };
+      state = { subscription, group, workload, preferredLocation: location, owner: randomUUID(), scenario };
       await save();
     }
     if (!exists) {
-      delete state.revision;
-      delete state.deployment;
-      delete state.workspaceId;
-      delete state.appName;
-      await save();
-      await az('group', 'create', '--name', group, '--location', options.location || 'westeurope',
-        '--tags', `scenario=${scenario}`, `owner=${state.owner}`);
+      throw new Error('Operator must pre-create and designate the resource group; setup never creates groups');
     }
-    const result = await az('deployment', 'group', 'create', '--resource-group', group,
-      '--name', 'alctx-infrastructure', '--template-file', path.join(capsule, 'infra/bicep/main.bicep'),
-      '--parameters', `owner=${state.owner}`, `location=${options.location || 'westeurope'}`);
-    const outputs = result.properties.outputs;
+    if (operation === 'deploy') await exportEvidence();
+    const apps = await az('webapp', 'list', '--resource-group', group);
+    for (const namespace of ['Microsoft.Web', 'Microsoft.Insights', 'Microsoft.OperationalInsights']) {
+      await az('provider', 'register', '--namespace', namespace, '--wait');
+    }
+    if (!owned(resourceGroup.tags)) {
+      await az('group', 'update', '--name', group, '--set', `tags.scenario=${scenario}`, `tags.owner=${state.owner}`);
+    }
+    const outputsFile = path.join(directory, `outputs-${randomUUID()}.json`);
+    await placement('deploy', ['--param', `owner=${state.owner}`,
+      '--outputs-file', outputsFile]);
+    const outputs = JSON.parse(await readFile(outputsFile, 'utf8'));
     state.appName = outputs.appName.value;
     state.url = outputs.url.value;
     state.workspaceId = outputs.workspaceId.value;
@@ -155,17 +210,13 @@ async function main() {
     }
     await save();
     // Repeated setup must not silently reset an existing incident.
-    if (!state.revision) await deploy('healthy');
-    console.log(`Setup ready: ${state.url}; state: ${stateFile}`);
+    if (operation === 'deploy' || !state.revision || !apps.length) await deploy();
+    if (operation === 'setup') console.log(`Setup ready: ${state.url}; state: ${stateFile}`);
   } else if (operation === 'inject') {
-    await deploy('faulty');
+    await deploy();
   } else if (operation === 'reset') {
     await exportEvidence();
-    await deploy('healthy');
-  } else if (operation === 'deploy') {
-    if (options.reviewed !== 'yes' || !options['source-dir']) throw new Error('Deploy requires --reviewed yes --source-dir PATH after human review');
-    await exportEvidence();
-    await deploy('reviewed');
+    await deploy();
   } else if (operation === 'evidence') {
     await exportEvidence();
   } else if (operation === 'validate') {

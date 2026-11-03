@@ -11,8 +11,11 @@ for (const shell of ['bash', 'pwsh']) {
     const root = path.join(capsule, '.test-runs', `coding-${shell}-${process.pid}`);
     const target = path.join(root, 'scenarios/appservice-latency-context');
     await mkdir(target, { recursive: true });
+    const env = { ...process.env };
+    delete env.GIT_DIR;
+    delete env.GIT_WORK_TREE;
     const git = (...args) => {
-      const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+      const result = spawnSync('git', args, { cwd: root, env, encoding: 'utf8' });
       assert.equal(result.status, 0, result.stderr);
       return result.stdout;
     };
@@ -20,7 +23,7 @@ for (const shell of ['bash', 'pwsh']) {
       ...(shell === 'bash' ? [] : ['-NoProfile', '-File']),
       path.join(target, `scripts/prepare-code.${shell === 'bash' ? 'sh' : 'ps1'}`),
       '--confirm', 'faulty',
-    ], { cwd: root, encoding: 'utf8' });
+    ], { cwd: root, env, encoding: 'utf8' });
     try {
       for (const entry of ['scripts', 'src', 'tests/fixtures']) {
         await cp(path.join(capsule, entry), path.join(target, entry), { recursive: true });

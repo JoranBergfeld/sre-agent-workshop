@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$REAL_NODE" "$(dirname "$0")/../node.mjs" "$@"
