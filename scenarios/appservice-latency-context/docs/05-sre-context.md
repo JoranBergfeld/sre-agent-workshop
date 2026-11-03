@@ -196,9 +196,9 @@ output never counts as an observed invocation.
    Python tool**, not Kusto tool. Description:
    “Read bounded order/health latency and error summaries with correlated stage
    samples from the learner-supplied capsule scope; no mutations.”
-4. Paste the complete `investigation/query-latency.py` into **Code**. Keep the
-   guards; do not replace them with generated free-form execution. `requests`
-   and `azure-identity` are documented as preinstalled.
+4. Open the complete `investigation/query-latency.py` for replacement code after
+   configuring Identity below. Keep its guards; do not generate free-form
+   execution. `requests` and `azure-identity` are documented as preinstalled.
 5. Select **Identity > Enable Azure Identity**. Under **Token Scopes**, inspect
    **Configured Scopes**. Use **Remove scope** on the default ARM entry; this
    read-only wrapper needs only the LA audience. In **Enter scope URL
@@ -206,8 +206,16 @@ output never counts as an observed invocation.
    `https://api.loganalytics.io/.default`, then select the **adjacent add button**
    (observed without an accessible name). Confirm the exact LA URL appears in
    **Configured Scopes**. Enabling identity injects a `DefaultAzureCredential`
-   and `credential.get_token(scope)` example: keep the wrapper's LA-scoped
-   credential call, not duplicate sample code or token-printing statements.
+   and `credential.get_token(scope)` example. Return to **Code**, click inside
+   the Monaco editor, **Select All** (`Ctrl+A`, or `Cmd+A` on macOS, with editor
+   focus), then paste the complete wrapper to **replace**, not insert before,
+   existing content. Verify there is exactly one six-parameter `main`, no
+   generated default main, and no duplicate ARM/token-printing code. Do not
+   select Generate afterward. If a paste inserted the wrapper before the
+   injected block, the safest recovery is Select All and replace again.
+   Alternatively, Find `# Azure Identity Authentication`; only after confirming
+   it starts the unwanted suffix below the complete wrapper, select that suffix
+   through the end and delete it. Recheck the single `main` and configured scope.
    Record whether the form accepts the scope; entry controls alone do not prove
    acceptance or token acquisition. If these controls are absent in your tenant,
    record the UI difference and use the fallback. No new resource or secret is
