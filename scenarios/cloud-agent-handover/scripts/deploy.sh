@@ -4,17 +4,24 @@ set -euo pipefail
 RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-rg-srelabapp}"
 WEB_APP="${AZURE_WEBAPP_NAME:-}"
 PUBLISH_DIR=""
+LOCAL_BUILD=false
+REPOSITORY=""
 
 usage() {
   cat <<'EOF'
-Usage: deploy.sh [-g|--resource-group <name>] [-a|--app-name <name>] [-s|--subscription-id <id>]
+Usage: deploy.sh [-g|--resource-group <name>] [-a|--app-name <name>] [-s|--subscription-id <id>] [--repo <owner/name>] [--local-build]
 
-Deploys the Cloud Agent Handover application from the current checkout.
+Deploys the Cloud Agent Handover application for the current commit. By
+default it deploys the exact-commit build artifact from this repository's
+successful 'Validate Cloud Agent Handover Application' run after verifying its
+provenance and checksums; the checkout must have no uncommitted app changes.
 
 Options:
   -g, --resource-group   Azure resource group (default: AZURE_RESOURCE_GROUP or rg-srelabapp)
   -a, --app-name        App Service name (default: AZURE_WEBAPP_NAME or the first app in the resource group)
   -s, --subscription-id Azure subscription ID (default: AZURE_SUBSCRIPTION_ID or active subscription)
+      --repo            GitHub repository that built the artifact (default: the checkout's repository)
+      --local-build     Test and publish locally instead (needs dotnet and zip)
   -h, --help            Show this help
 EOF
 }
@@ -53,6 +60,15 @@ while [ "$#" -gt 0 ]; do
       export AZURE_SUBSCRIPTION_ID="$2"
       shift 2
       ;;
+    --repo)
+      require_option_value "$1" "${2:-}"
+      REPOSITORY="$2"
+      shift 2
+      ;;
+    --local-build)
+      LOCAL_BUILD=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -65,7 +81,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-for required_command in az dotnet zip; do
+if [ "$LOCAL_BUILD" = true ]; then REQUIRED_COMMANDS=(az dotnet zip); else REQUIRED_COMMANDS=(az gh node); fi
+for required_command in "${REQUIRED_COMMANDS[@]}"; do
   if ! command -v "$required_command" >/dev/null 2>&1; then
     echo "Required command not found: $required_command" >&2
     exit 1
@@ -129,16 +146,29 @@ cd "$REPO_ROOT"
 PUBLISH_DIR=$(mktemp -d)
 trap cleanup_temp EXIT
 
-dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
-dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
-  --configuration Release \
-  --output "$PUBLISH_DIR/publish"
-(cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)
+if [ "$LOCAL_BUILD" = true ]; then
+  dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+  dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
+    --configuration Release \
+    --output "$PUBLISH_DIR/publish"
+  (cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)
+  PACKAGE="$PUBLISH_DIR/app.zip"
+  PACKAGE_SOURCE="a local build of the current checkout"
+else
+  RESOLVE_ARGS=(--scenario cloud-agent-handover --variant application --output-dir "$PUBLISH_DIR")
+  if [ -n "$REPOSITORY" ]; then RESOLVE_ARGS+=(--repo "$REPOSITORY"); fi
+  if ! ARTIFACT=$(node scripts/build-artifacts/resolve.mjs "${RESOLVE_ARGS[@]}"); then
+    echo "Nothing was deployed. Dispatch the build shown above and rerun, or rerun with --local-build." >&2
+    exit 1
+  fi
+  PACKAGE=$(node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>process.stdout.write(JSON.parse(d).deploymentZip))' <<<"$ARTIFACT")
+  PACKAGE_SOURCE="the verified build artifact for commit $(node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>process.stdout.write(JSON.parse(d).sourceSha))' <<<"$ARTIFACT")"
+fi
 
 az webapp deploy \
   --resource-group "$RESOURCE_GROUP" \
   --name "$WEB_APP" \
-  --src-path "$PUBLISH_DIR/app.zip" \
+  --src-path "$PACKAGE" \
   --type zip \
   --output none
 
@@ -148,6 +178,6 @@ HOST=$(az webapp show \
   --query defaultHostName \
   --output tsv)
 
-echo "Application deployed from the current checkout."
+echo "Application deployed from $PACKAGE_SOURCE."
 echo "Application: https://$HOST"
 echo "Health:      https://$HOST/health"

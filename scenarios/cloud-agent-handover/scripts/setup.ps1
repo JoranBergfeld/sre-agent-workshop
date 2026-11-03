@@ -11,8 +11,15 @@ param(
 
     # Only try the preferred region instead of falling back through
     # infra/placement.json. Existing deployments always stay pinned.
-    [switch]$NoRegionFallback
+    [switch]$NoRegionFallback,
+
+    # Test and publish the app locally (needs dotnet) instead of deploying the
+    # verified build artifact for the current commit from this repository.
+    [switch]$LocalBuild
 )
+
+# The resource group rg-<workload> must already exist; setup never creates,
+# relocates, or deletes resource groups, identities, or repository variables.
 
 $ErrorActionPreference = "Stop"
 $UpstreamRepository = "JoranBergfeld/sre-agent-workshop"
@@ -43,7 +50,9 @@ function Invoke-NativeCommand {
     return $output
 }
 
-foreach ($requiredCommand in @("az", "gh", "node", "dotnet")) {
+$requiredCommands = @("az", "gh", "node")
+if ($LocalBuild) { $requiredCommands += "dotnet" }
+foreach ($requiredCommand in $requiredCommands) {
     if (-not (Get-Command $requiredCommand -ErrorAction SilentlyContinue)) {
         throw "Required command not found: $requiredCommand"
     }
@@ -111,138 +120,151 @@ query($owner:String!, $name:String!) {
 
     $resourceGroup = "rg-$Workload"
 
-    foreach ($provider in @(
-        "Microsoft.Web",
-        "Microsoft.Insights",
-        "Microsoft.OperationalInsights"
-    )) {
-        Invoke-NativeCommand -Command "az" -Arguments @(
-            "provider", "register",
-            "--namespace", $provider,
-            "--wait",
-            "--output", "none"
-        ) -DiscardOutput
-    }
-
-    $legacyIdentityName = "$Workload-github-deploy"
-    $managedIdentityState = [string](Invoke-NativeCommand -Command "az" -Arguments @(
-        "provider", "show",
-        "--namespace", "Microsoft.ManagedIdentity",
-        "--query", "registrationState",
-        "--output", "tsv"
-    ))
-    $legacyPrincipalId = ""
-    $resourceGroupExists = ([string](Invoke-NativeCommand -Command "az" -Arguments @(
-        "group", "exists", "--name", $resourceGroup, "--output", "tsv"
-    ))).Trim() -ceq "true"
-    if ($managedIdentityState.Trim() -ceq "Registered" -and $resourceGroupExists) {
-        $legacyPrincipalIdRaw = Invoke-NativeCommand -Command "az" -Arguments @(
-            "identity", "list",
-            "--resource-group", $resourceGroup,
-            "--query", "[?name=='$legacyIdentityName'].principalId | [0]",
-            "--output", "tsv"
-        )
-        $legacyPrincipalId = if ($null -eq $legacyPrincipalIdRaw) { "" } else { ([string]$legacyPrincipalIdRaw).Trim() }
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($legacyPrincipalId)) {
-        $resourceGroupId = [string](Invoke-NativeCommand -Command "az" -Arguments @(
-            "group", "show",
-            "--name", $resourceGroup,
-            "--query", "id",
-            "--output", "tsv"
-        ))
-        $websiteContributorRoleId = "/subscriptions/$activeSubscriptionId/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772"
-        $legacyRoleAssignmentIds = @(Invoke-NativeCommand -Command "az" -Arguments @(
-            "role", "assignment", "list",
-            "--assignee-object-id", $legacyPrincipalId,
-            "--scope", $resourceGroupId.Trim(),
-            "--role", $websiteContributorRoleId,
-            "--query", "[].id",
-            "--output", "tsv"
-        ))
-
-        if ($legacyRoleAssignmentIds.Count -gt 0) {
-            $deleteRoleAssignmentArguments = @(
-                "role", "assignment", "delete",
-                "--ids"
-            ) + $legacyRoleAssignmentIds
-            Invoke-NativeCommand `
-                -Command "az" `
-                -Arguments $deleteRoleAssignmentArguments `
-                -DiscardOutput
-        }
-
-        Invoke-NativeCommand -Command "az" -Arguments @(
-            "identity", "delete",
-            "--resource-group", $resourceGroup,
-            "--name", $legacyIdentityName,
-            "--output", "none"
-        ) -DiscardOutput
-        Write-Host "Removed legacy GitHub deployment identity: $legacyIdentityName"
-    }
-
-    # The shared placement engine creates the resource group and deploys
-    # infra/bicep/main.bicep in the first eligible region (App Service Linux
-    # B1, providers and quota), retrying only classified capacity/SKU/quota
-    # failures. An existing resource group is never relocated.
-    $outputsFile = [System.IO.Path]::GetTempFileName()
-    try {
-        $placementArguments = @(
-            "scripts/placement/provision.mjs", "deploy", "cloud-agent-handover",
-            "--location", $Location,
-            "--workload", $Workload,
-            "--resource-group", $resourceGroup,
-            "--outputs-file", $outputsFile
-        )
-        if ($NoRegionFallback) { $placementArguments += "--no-region-fallback" }
-        & node @placementArguments
-        if ($LASTEXITCODE -ne 0) { throw "Infrastructure provisioning failed (exit code $LASTEXITCODE)." }
-        $outputs = Get-Content -Raw $outputsFile | ConvertFrom-Json
-    }
-    finally {
-        Remove-Item -LiteralPath $outputsFile -Force -ErrorAction SilentlyContinue
-    }
-    $Location = [string](Get-Content -Raw ".sre-workshop/cloud-agent-handover-placement.json" | ConvertFrom-Json).location
-    Write-Host "Azure region: $Location"
-
-    $webApp = [string]$outputs.webAppName.value
-    $webHost = [string]$outputs.webAppHostName.value
-
-    foreach ($outputValue in @{
-        webAppName = $webApp
-        webAppHostName = $webHost
-    }.GetEnumerator()) {
-        if ([string]::IsNullOrWhiteSpace($outputValue.Value)) {
-            throw "Deployment output '$($outputValue.Key)' was empty."
-        }
-    }
+    # Read-only ownership/eligibility check before anything is changed: the
+    # designated resource group must already exist and be empty or owned by
+    # this scenario, and an existing deployment stays pinned.
+    $checkArguments = @(
+        "scripts/placement/provision.mjs", "check", "cloud-agent-handover",
+        "--location", $Location,
+        "--workload", $Workload,
+        "--resource-group", $resourceGroup,
+        "--require-group"
+    )
+    if ($NoRegionFallback) { $checkArguments += "--no-region-fallback" }
+    & node @checkArguments
+    if ($LASTEXITCODE -ne 0) { throw "Setup stopped before changing anything." }
 
     $publishRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sre-handover-$([Guid]::NewGuid())"
     New-Item -ItemType Directory -Force -Path $publishRoot | Out-Null
-
     try {
-        Invoke-NativeCommand -Command "dotnet" -Arguments @(
-            "test", "scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
-        ) -DiscardOutput
-        Invoke-NativeCommand -Command "dotnet" -Arguments @(
-            "publish", "scenarios/cloud-agent-handover/src/HandoverApp.csproj",
-            "--configuration", "Release",
-            "--output", (Join-Path $publishRoot "publish")
-        ) -DiscardOutput
+        if ($LocalBuild) {
+            Invoke-NativeCommand -Command "dotnet" -Arguments @(
+                "test", "scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
+            ) -DiscardOutput
+            Invoke-NativeCommand -Command "dotnet" -Arguments @(
+                "publish", "scenarios/cloud-agent-handover/src/HandoverApp.csproj",
+                "--configuration", "Release",
+                "--output", (Join-Path $publishRoot "publish")
+            ) -DiscardOutput
+            $package = Join-Path $publishRoot "app.zip"
+            Compress-Archive -Path (Join-Path $publishRoot "publish/*") -DestinationPath $package
+            $packageSource = "local build of the current checkout"
+        }
+        else {
+            # Exact-commit, provenance- and checksum-verified ZIP from this
+            # repository's successful 'Validate Cloud Agent Handover
+            # Application' run.
+            $artifactJson = & node scripts/build-artifacts/resolve.mjs `
+                --scenario cloud-agent-handover `
+                --variant application `
+                --output-dir $publishRoot `
+                --repo $repository
+            if ($LASTEXITCODE -ne 0) {
+                throw "Setup stopped before changing anything. Dispatch the build shown above, wait for it to succeed, and rerun setup; or rerun with -LocalBuild."
+            }
+            $artifact = ($artifactJson -join "`n") | ConvertFrom-Json
+            $package = [string]$artifact.deploymentZip
+            $packageSource = "build artifact for commit $($artifact.sourceSha)"
+        }
 
-        Compress-Archive `
-            -Path (Join-Path $publishRoot "publish/*") `
-            -DestinationPath (Join-Path $publishRoot "app.zip")
+        # Earlier versions created a '<workload>-github-deploy' identity and
+        # AZURE_* repository variables. They are never deleted automatically:
+        # they may belong to another deployment or still be in use.
+        $legacyIdentityName = "$Workload-github-deploy"
+        $legacyGuidance = @()
+        $managedIdentityState = [string](Invoke-NativeCommand -Command "az" -Arguments @(
+            "provider", "show",
+            "--namespace", "Microsoft.ManagedIdentity",
+            "--query", "registrationState",
+            "--output", "tsv"
+        ))
+        if ($managedIdentityState.Trim() -ceq "Registered") {
+            $legacyPrincipalIdRaw = Invoke-NativeCommand -Command "az" -Arguments @(
+                "identity", "list",
+                "--resource-group", $resourceGroup,
+                "--query", "[?name=='$legacyIdentityName'].principalId | [0]",
+                "--output", "tsv"
+            )
+            $legacyPrincipalId = if ($null -eq $legacyPrincipalIdRaw) { "" } else { ([string]$legacyPrincipalIdRaw).Trim() }
+            if (-not [string]::IsNullOrWhiteSpace($legacyPrincipalId)) {
+                $legacyGuidance += "Legacy identity $legacyIdentityName exists in $resourceGroup. If nothing uses it, remove it and its role assignments manually:"
+                $legacyGuidance += "  az role assignment delete --assignee $legacyPrincipalId --role `"Website Contributor`" --resource-group $resourceGroup"
+                $legacyGuidance += "  az identity delete --resource-group $resourceGroup --name $legacyIdentityName"
+            }
+        }
+        $existingVariables = @(Invoke-NativeCommand -Command "gh" -Arguments @(
+            "variable", "list",
+            "--repo", $repository,
+            "--json", "name",
+            "--jq", ".[].name"
+        ))
+        foreach ($legacyVariable in @(
+            "AZURE_CLIENT_ID",
+            "AZURE_TENANT_ID",
+            "AZURE_SUBSCRIPTION_ID"
+        )) {
+            if ($existingVariables -contains $legacyVariable) {
+                $legacyGuidance += "Legacy repository variable $legacyVariable is unused by this scenario. If nothing else uses it: gh variable delete $legacyVariable --repo $repository"
+            }
+        }
+
+        foreach ($provider in @(
+            "Microsoft.Web",
+            "Microsoft.Insights",
+            "Microsoft.OperationalInsights"
+        )) {
+            Invoke-NativeCommand -Command "az" -Arguments @(
+                "provider", "register",
+                "--namespace", $provider,
+                "--wait",
+                "--output", "none"
+            ) -DiscardOutput
+        }
+
+        # The shared placement engine deploys infra/bicep/main.bicep into the
+        # designated resource group in the first eligible region, retrying only
+        # classified capacity/SKU/quota failures that are proven non-mutating.
+        # An existing deployment is never relocated or deleted.
+        $outputsFile = [System.IO.Path]::GetTempFileName()
+        try {
+            $placementArguments = @(
+                "scripts/placement/provision.mjs", "deploy", "cloud-agent-handover",
+                "--location", $Location,
+                "--workload", $Workload,
+                "--resource-group", $resourceGroup,
+                "--outputs-file", $outputsFile
+            )
+            if ($NoRegionFallback) { $placementArguments += "--no-region-fallback" }
+            & node @placementArguments
+            if ($LASTEXITCODE -ne 0) { throw "Infrastructure provisioning failed (exit code $LASTEXITCODE)." }
+            $outputs = Get-Content -Raw $outputsFile | ConvertFrom-Json
+        }
+        finally {
+            Remove-Item -LiteralPath $outputsFile -Force -ErrorAction SilentlyContinue
+        }
+        $Location = [string](Get-Content -Raw ".sre-workshop/cloud-agent-handover-placement.json" | ConvertFrom-Json).location
+        Write-Host "Azure region: $Location"
+
+        $webApp = [string]$outputs.webAppName.value
+        $webHost = [string]$outputs.webAppHostName.value
+        foreach ($outputValue in @{
+            webAppName = $webApp
+            webAppHostName = $webHost
+        }.GetEnumerator()) {
+            if ([string]::IsNullOrWhiteSpace($outputValue.Value)) {
+                throw "Deployment output '$($outputValue.Key)' was empty."
+            }
+        }
 
         Invoke-NativeCommand -Command "az" -Arguments @(
             "webapp", "deploy",
             "--resource-group", $resourceGroup,
             "--name", $webApp,
-            "--src-path", (Join-Path $publishRoot "app.zip"),
+            "--src-path", $package,
             "--type", "zip",
             "--output", "none"
         ) -DiscardOutput
+        Write-Host "Deployed $packageSource."
     }
     finally {
         if (Test-Path -LiteralPath $publishRoot) {
@@ -263,24 +285,7 @@ query($owner:String!, $name:String!) {
         ) -DiscardOutput
     }
 
-    $existingVariables = @(Invoke-NativeCommand -Command "gh" -Arguments @(
-        "variable", "list",
-        "--repo", $repository,
-        "--json", "name",
-        "--jq", ".[].name"
-    ))
-    foreach ($legacyVariable in @(
-        "AZURE_CLIENT_ID",
-        "AZURE_TENANT_ID",
-        "AZURE_SUBSCRIPTION_ID"
-    )) {
-        if ($existingVariables -contains $legacyVariable) {
-            Invoke-NativeCommand -Command "gh" -Arguments @(
-                "variable", "delete", $legacyVariable,
-                "--repo", $repository
-            ) -DiscardOutput
-        }
-    }
+    foreach ($line in $legacyGuidance) { Write-Host $line }
 
     Write-Host "Application: https://$webHost"
     Write-Host "Health:      https://$webHost/health"

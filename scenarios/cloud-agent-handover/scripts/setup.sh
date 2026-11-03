@@ -6,10 +6,15 @@ WORKLOAD="srelabapp"
 PUBLISH_DIR=""
 UPSTREAM_REPOSITORY="JoranBergfeld/sre-agent-workshop"
 REGION_FALLBACK_ARGS=()
+LOCAL_BUILD=false
 
 usage() {
   cat <<'EOF'
-Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>] [--no-region-fallback]
+Usage: setup.sh [-l|--location <region>] [-w|--workload <name>] [-s|--subscription-id <id>] [--no-region-fallback] [--local-build]
+
+The resource group rg-<workload> must already exist (create it with
+'az group create --name rg-<workload> --location <region>'); setup never
+creates, relocates, or deletes resource groups.
 
 Options:
   -l, --location  Preferred Azure region (default: eastus2). A new deployment
@@ -18,6 +23,9 @@ Options:
       --no-region-fallback  Only try the preferred region
   -w, --workload  Workload name (default: srelabapp)
   -s, --subscription-id  Azure subscription ID (default: AZURE_SUBSCRIPTION_ID or active subscription)
+      --local-build  Test and publish the app locally (needs dotnet and zip)
+                  instead of deploying the verified build artifact for the
+                  current commit from this repository's Actions
   -h, --help      Show this help
 EOF
 }
@@ -60,6 +68,10 @@ while [ "$#" -gt 0 ]; do
       REGION_FALLBACK_ARGS=(--no-region-fallback)
       shift
       ;;
+    --local-build)
+      LOCAL_BUILD=true
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -85,7 +97,9 @@ if [[ ! "$WORKLOAD" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || [ "${#WORKLOAD}" -gt 51 ];
   exit 1
 fi
 
-for required_command in az gh node dotnet zip jq; do
+REQUIRED_COMMANDS=(az gh node)
+if [ "$LOCAL_BUILD" = true ]; then REQUIRED_COMMANDS+=(dotnet zip); fi
+for required_command in "${REQUIRED_COMMANDS[@]}"; do
   if ! command -v "$required_command" >/dev/null 2>&1; then
     echo "Required command not found: $required_command" >&2
     exit 1
@@ -148,92 +162,70 @@ fi
 
 RESOURCE_GROUP="rg-$WORKLOAD"
 
-for provider in \
-  Microsoft.Web \
-  Microsoft.Insights \
-  Microsoft.OperationalInsights; do
-  az provider register --namespace "$provider" --wait --output none
-done
+json_field() {
+  node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{let v=JSON.parse(d);for(const k of process.argv[1].split("."))v=v?.[k];if(typeof v!=="string"||!v){process.exit(1)}process.stdout.write(v)})' "$1"
+}
 
-LEGACY_IDENTITY_NAME="$WORKLOAD-github-deploy"
-LEGACY_PRINCIPAL_ID=""
-MANAGED_IDENTITY_STATE=$(az provider show \
-  --namespace Microsoft.ManagedIdentity \
-  --query registrationState \
-  --output tsv)
-RESOURCE_GROUP_EXISTS=$(az group exists --name "$RESOURCE_GROUP" --output tsv)
-if [ "$MANAGED_IDENTITY_STATE" = "Registered" ] && [ "$RESOURCE_GROUP_EXISTS" = "true" ]; then
-  LEGACY_PRINCIPAL_ID=$(az identity list \
-    --resource-group "$RESOURCE_GROUP" \
-    --query "[?name=='$LEGACY_IDENTITY_NAME'].principalId | [0]" \
-    --output tsv)
-fi
-
-if [ -n "$LEGACY_PRINCIPAL_ID" ]; then
-  RESOURCE_GROUP_ID=$(az group show \
-    --name "$RESOURCE_GROUP" \
-    --query id \
-    --output tsv)
-  WEBSITE_CONTRIBUTOR_ROLE_ID="/subscriptions/$active_subscription_id/providers/Microsoft.Authorization/roleDefinitions/de139f84-1756-47ae-9be6-808fbbe84772"
-  LEGACY_ROLE_ASSIGNMENT_IDS=$(az role assignment list \
-    --assignee-object-id "$LEGACY_PRINCIPAL_ID" \
-    --scope "$RESOURCE_GROUP_ID" \
-    --role "$WEBSITE_CONTRIBUTOR_ROLE_ID" \
-    --query '[].id' \
-    --output tsv)
-
-  if [ -n "$LEGACY_ROLE_ASSIGNMENT_IDS" ]; then
-    # Azure resource IDs contain no shell whitespace.
-    # shellcheck disable=SC2086
-    az role assignment delete --ids $LEGACY_ROLE_ASSIGNMENT_IDS
-  fi
-
-  az identity delete \
-    --resource-group "$RESOURCE_GROUP" \
-    --name "$LEGACY_IDENTITY_NAME" \
-    --output none
-  echo "Removed legacy GitHub deployment identity: $LEGACY_IDENTITY_NAME"
-fi
-
-# The shared placement engine creates the resource group and deploys
-# infra/bicep/main.bicep in the first eligible region (App Service Linux B1,
-# providers and quota), retrying only classified capacity/SKU/quota failures.
-# An existing resource group is never relocated.
-OUTPUTS_FILE=$(mktemp)
-node scripts/placement/provision.mjs deploy cloud-agent-handover \
+# Read-only ownership/eligibility check before anything is changed: the
+# designated resource group must already exist and be empty or owned by this
+# scenario, and an existing deployment stays pinned to its region and SKU.
+if ! node scripts/placement/provision.mjs check cloud-agent-handover \
   --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
   --workload "$WORKLOAD" \
   --resource-group "$RESOURCE_GROUP" \
-  --outputs-file "$OUTPUTS_FILE"
-OUTPUTS=$(cat "$OUTPUTS_FILE")
-rm -f -- "$OUTPUTS_FILE"
-LOCATION=$(jq -er '.location' .sre-workshop/cloud-agent-handover-placement.json)
-echo "Azure region: $LOCATION"
-
-WEB_APP=$(jq -er '.webAppName.value' <<<"$OUTPUTS")
-WEB_HOST=$(jq -er '.webAppHostName.value' <<<"$OUTPUTS")
+  --require-group; then
+  echo "Setup stopped before changing anything." >&2
+  exit 1
+fi
 
 PUBLISH_DIR=$(mktemp -d)
 trap cleanup_temp EXIT
 
-dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
-dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
-  --configuration Release \
-  --output "$PUBLISH_DIR/publish"
-(cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)
+if [ "$LOCAL_BUILD" = true ]; then
+  dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj
+  dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
+    --configuration Release \
+    --output "$PUBLISH_DIR/publish"
+  (cd "$PUBLISH_DIR/publish" && zip -qr "$PUBLISH_DIR/app.zip" .)
+  PACKAGE="$PUBLISH_DIR/app.zip"
+  PACKAGE_SOURCE="local build of the current checkout"
+else
+  # Exact-commit, provenance- and checksum-verified ZIP from this repository's
+  # successful 'Validate Cloud Agent Handover Application' run.
+  if ! ARTIFACT=$(node scripts/build-artifacts/resolve.mjs \
+    --scenario cloud-agent-handover \
+    --variant application \
+    --output-dir "$PUBLISH_DIR" \
+    --repo "$REPOSITORY"); then
+    echo "Setup stopped before changing anything. Dispatch the build shown above, wait for it to succeed, and rerun setup; or rerun with --local-build." >&2
+    exit 1
+  fi
+  PACKAGE=$(json_field deploymentZip <<<"$ARTIFACT")
+  PACKAGE_SOURCE="build artifact for commit $(json_field sourceSha <<<"$ARTIFACT")"
+fi
 
-az webapp deploy \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$WEB_APP" \
-  --src-path "$PUBLISH_DIR/app.zip" \
-  --type zip \
-  --output none
-
-gh variable set AZURE_RESOURCE_GROUP --repo "$REPOSITORY" --body "$RESOURCE_GROUP"
-gh variable set AZURE_WEBAPP_NAME --repo "$REPOSITORY" --body "$WEB_APP"
-gh variable set AZURE_LOCATION --repo "$REPOSITORY" --body "$LOCATION"
-gh variable set WORKLOAD_NAME --repo "$REPOSITORY" --body "$WORKLOAD"
-
+# Earlier versions created a '<workload>-github-deploy' identity and AZURE_*
+# repository variables. They are never deleted automatically: they may belong
+# to another deployment or still be in use. Report them for manual review.
+LEGACY_IDENTITY_NAME="$WORKLOAD-github-deploy"
+LEGACY_GUIDANCE=()
+MANAGED_IDENTITY_STATE=$(az provider show \
+  --namespace Microsoft.ManagedIdentity \
+  --query registrationState \
+  --output tsv)
+if [ "$MANAGED_IDENTITY_STATE" = "Registered" ]; then
+  LEGACY_PRINCIPAL_ID=$(az identity list \
+    --resource-group "$RESOURCE_GROUP" \
+    --query "[?name=='$LEGACY_IDENTITY_NAME'].principalId | [0]" \
+    --output tsv)
+  if [ -n "$LEGACY_PRINCIPAL_ID" ]; then
+    LEGACY_GUIDANCE+=(
+      "Legacy identity $LEGACY_IDENTITY_NAME exists in $RESOURCE_GROUP. If nothing uses it, remove it and its role assignments manually:"
+      "  az role assignment delete --assignee $LEGACY_PRINCIPAL_ID --role \"Website Contributor\" --resource-group $RESOURCE_GROUP"
+      "  az identity delete --resource-group $RESOURCE_GROUP --name $LEGACY_IDENTITY_NAME"
+    )
+  fi
+fi
 EXISTING_VARIABLES=$(gh variable list \
   --repo "$REPOSITORY" \
   --json name \
@@ -243,8 +235,51 @@ for legacy_variable in \
   AZURE_TENANT_ID \
   AZURE_SUBSCRIPTION_ID; do
   if grep -Fxq "$legacy_variable" <<<"$EXISTING_VARIABLES"; then
-    gh variable delete "$legacy_variable" --repo "$REPOSITORY"
+    LEGACY_GUIDANCE+=("Legacy repository variable $legacy_variable is unused by this scenario. If nothing else uses it: gh variable delete $legacy_variable --repo $REPOSITORY")
   fi
+done
+
+for provider in \
+  Microsoft.Web \
+  Microsoft.Insights \
+  Microsoft.OperationalInsights; do
+  az provider register --namespace "$provider" --wait --output none
+done
+
+# The shared placement engine deploys infra/bicep/main.bicep into the
+# designated resource group in the first eligible region (App Service Linux
+# B1, providers and quota), retrying only classified capacity/SKU/quota
+# failures that are proven non-mutating. An existing deployment is never
+# relocated, and resources are never deleted automatically.
+OUTPUTS_FILE=$(mktemp)
+node scripts/placement/provision.mjs deploy cloud-agent-handover \
+  --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
+  --workload "$WORKLOAD" \
+  --resource-group "$RESOURCE_GROUP" \
+  --outputs-file "$OUTPUTS_FILE"
+OUTPUTS=$(cat "$OUTPUTS_FILE")
+rm -f -- "$OUTPUTS_FILE"
+LOCATION=$(json_field location < .sre-workshop/cloud-agent-handover-placement.json)
+echo "Azure region: $LOCATION"
+
+WEB_APP=$(json_field webAppName.value <<<"$OUTPUTS")
+WEB_HOST=$(json_field webAppHostName.value <<<"$OUTPUTS")
+
+az webapp deploy \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$WEB_APP" \
+  --src-path "$PACKAGE" \
+  --type zip \
+  --output none
+echo "Deployed $PACKAGE_SOURCE."
+
+gh variable set AZURE_RESOURCE_GROUP --repo "$REPOSITORY" --body "$RESOURCE_GROUP"
+gh variable set AZURE_WEBAPP_NAME --repo "$REPOSITORY" --body "$WEB_APP"
+gh variable set AZURE_LOCATION --repo "$REPOSITORY" --body "$LOCATION"
+gh variable set WORKLOAD_NAME --repo "$REPOSITORY" --body "$WORKLOAD"
+
+for line in "${LEGACY_GUIDANCE[@]}"; do
+  echo "$line"
 done
 
 echo "Application: https://$WEB_HOST"

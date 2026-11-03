@@ -2,7 +2,14 @@
 param(
     [string]$ResourceGroup = $(if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP } else { "rg-srelabapp" }),
     [string]$AppName = $env:AZURE_WEBAPP_NAME,
-    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID
+    [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID,
+
+    # GitHub repository that built the artifact (default: the checkout's repository).
+    [string]$Repo,
+
+    # Test and publish locally (needs dotnet) instead of deploying the verified
+    # exact-commit build artifact from this repository's Actions.
+    [switch]$LocalBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +40,8 @@ function Invoke-NativeCommand {
     return $output
 }
 
-foreach ($requiredCommand in @("az", "dotnet")) {
+$requiredCommands = if ($LocalBuild) { @("az", "dotnet") } else { @("az", "gh", "node") }
+foreach ($requiredCommand in $requiredCommands) {
     if (-not (Get-Command $requiredCommand -ErrorAction SilentlyContinue)) {
         throw "Required command not found: $requiredCommand"
     }
@@ -104,24 +112,41 @@ New-Item -ItemType Directory -Force -Path $publishRoot | Out-Null
 
 Push-Location $repoRoot
 try {
-    Invoke-NativeCommand -Command "dotnet" -Arguments @(
-        "test", "scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
-    ) -DiscardOutput
-    Invoke-NativeCommand -Command "dotnet" -Arguments @(
-        "publish", "scenarios/cloud-agent-handover/src/HandoverApp.csproj",
-        "--configuration", "Release",
-        "--output", (Join-Path $publishRoot "publish")
-    ) -DiscardOutput
-
-    Compress-Archive `
-        -Path (Join-Path $publishRoot "publish/*") `
-        -DestinationPath (Join-Path $publishRoot "app.zip")
+    if ($LocalBuild) {
+        Invoke-NativeCommand -Command "dotnet" -Arguments @(
+            "test", "scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj"
+        ) -DiscardOutput
+        Invoke-NativeCommand -Command "dotnet" -Arguments @(
+            "publish", "scenarios/cloud-agent-handover/src/HandoverApp.csproj",
+            "--configuration", "Release",
+            "--output", (Join-Path $publishRoot "publish")
+        ) -DiscardOutput
+        $package = Join-Path $publishRoot "app.zip"
+        Compress-Archive -Path (Join-Path $publishRoot "publish/*") -DestinationPath $package
+        $packageSource = "a local build of the current checkout"
+    }
+    else {
+        $resolveArguments = @(
+            "scripts/build-artifacts/resolve.mjs",
+            "--scenario", "cloud-agent-handover",
+            "--variant", "application",
+            "--output-dir", $publishRoot
+        )
+        if (-not [string]::IsNullOrWhiteSpace($Repo)) { $resolveArguments += @("--repo", $Repo) }
+        $artifactJson = & node @resolveArguments
+        if ($LASTEXITCODE -ne 0) {
+            throw "Nothing was deployed. Dispatch the build shown above and rerun, or rerun with -LocalBuild."
+        }
+        $artifact = ($artifactJson -join "`n") | ConvertFrom-Json
+        $package = [string]$artifact.deploymentZip
+        $packageSource = "the verified build artifact for commit $($artifact.sourceSha)"
+    }
 
     Invoke-NativeCommand -Command "az" -Arguments @(
         "webapp", "deploy",
         "--resource-group", $ResourceGroup,
         "--name", $AppName,
-        "--src-path", (Join-Path $publishRoot "app.zip"),
+        "--src-path", $package,
         "--type", "zip",
         "--output", "none"
     ) -DiscardOutput
@@ -135,7 +160,7 @@ try {
     ))
     $hostName = $hostName.Trim()
 
-    Write-Host "Application deployed from the current checkout."
+    Write-Host "Application deployed from $packageSource."
     Write-Host "Application: https://$hostName"
     Write-Host "Health:      https://$hostName/health"
 }
