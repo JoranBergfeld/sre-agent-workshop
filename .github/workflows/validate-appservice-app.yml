@@ -1,14 +1,18 @@
 name: Validate Cloud Agent Handover Application
 
 on:
+  # Dispatch with a branch or tag (--ref); GitHub does not accept a raw commit SHA.
+  workflow_dispatch:
   pull_request:
     paths:
       - 'scenarios/cloud-agent-handover/**'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-app.yml'
   push:
     branches: [main]
     paths:
       - 'scenarios/cloud-agent-handover/**'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-appservice-app.yml'
 
 permissions:
@@ -30,7 +34,6 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Setup Python
-        if: github.event_name == 'pull_request'
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -47,6 +50,7 @@ jobs:
         shell: bash
         run: |
           dotnet test scenarios/cloud-agent-handover/tests/HandoverApp.Tests.csproj \
+            --configuration Release \
             --collect:"XPlat Code Coverage" \
             --results-directory scenarios/cloud-agent-handover/TestResults \
             -- \
@@ -79,3 +83,26 @@ jobs:
           --compare-branch="$COMPARE_BRANCH"
           --fail-under=100
           --show-uncovered
+
+      - name: Test artifact packaging
+        run: python -m unittest discover -s scripts/build-artifacts -p 'test_*.py'
+
+      - name: Publish tested Release application
+        if: github.event_name != 'pull_request'
+        run: |
+          dotnet publish scenarios/cloud-agent-handover/src/HandoverApp.csproj \
+            --configuration Release --runtime linux-x64 --self-contained false \
+            --output "$RUNNER_TEMP/cloud-publish"
+          python scripts/build-artifacts/artifact.py dotnet \
+            --source "$RUNNER_TEMP/cloud-publish" --output dist/cloud/application/deployment.zip
+          python scripts/build-artifacts/artifact.py metadata \
+            --scenario cloud-agent-handover --variant application \
+            --archive dist/cloud/application/deployment.zip --output dist/cloud/application/metadata.json
+
+      - name: Upload exact-source deployment artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-agent-handover-application-${{ github.sha }}
+          path: dist/cloud/application/*
+          if-no-files-found: error

@@ -1,0 +1,65 @@
+name: Build App Service Latency Context Artifacts
+
+on:
+  # --ref accepts a branch or tag; metadata records the resolved commit.
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/appservice-latency-context/src/**'
+      - 'scenarios/appservice-latency-context/scripts/package.mjs'
+      - 'scenarios/appservice-latency-context/scripts/build-artifact.mjs'
+      - 'scenarios/appservice-latency-context/scripts/local.mjs'
+      - 'scenarios/appservice-latency-context/tests/**'
+      - 'scenarios/appservice-latency-context/infra/nginx.conf'
+      - 'scripts/build-artifacts/**'
+      - '.github/workflows/build-appservice-latency-context.yml'
+  pull_request:
+    paths:
+      - 'scenarios/appservice-latency-context/src/**'
+      - 'scenarios/appservice-latency-context/scripts/package.mjs'
+      - 'scenarios/appservice-latency-context/scripts/build-artifact.mjs'
+      - 'scenarios/appservice-latency-context/scripts/local.mjs'
+      - 'scenarios/appservice-latency-context/tests/**'
+      - 'scenarios/appservice-latency-context/infra/nginx.conf'
+      - 'scripts/build-artifacts/**'
+      - '.github/workflows/build-appservice-latency-context.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [healthy, faulty, reviewed-source]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test packaging and variant isolation
+        run: python -m unittest discover -s scripts/build-artifacts -p 'test_*.py'
+      - name: Test source repair contract
+        if: matrix.variant == 'reviewed-source' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+        run: node --test scenarios/appservice-latency-context/tests/http.test.mjs scenarios/appservice-latency-context/tests/security-fixture.test.mjs
+      # reviewed-source is the tracked source, never a fixture or a claim that CI replaces human review.
+      - name: Package deployment variant
+        if: github.event_name != 'pull_request' && (matrix.variant != 'reviewed-source' || github.ref == 'refs/heads/main')
+        run: |
+          node scenarios/appservice-latency-context/scripts/build-artifact.mjs \
+            "${{ matrix.variant }}" dist/latency
+          python scripts/build-artifacts/artifact.py metadata \
+            --scenario appservice-latency-context --variant "${{ matrix.variant }}" \
+            --archive dist/latency/deployment.zip --output dist/latency/metadata.json
+      - name: Upload exact-source deployment artifact
+        if: github.event_name != 'pull_request' && (matrix.variant != 'reviewed-source' || github.ref == 'refs/heads/main')
+        uses: actions/upload-artifact@v4
+        with:
+          name: appservice-latency-context-${{ matrix.variant }}-${{ github.sha }}
+          path: dist/latency/*
+          if-no-files-found: error

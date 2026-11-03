@@ -1,16 +1,20 @@
 name: Validate Azure Boards Copilot Handover Application
 
 on:
+  # Dispatch with a branch or tag (--ref), never a raw commit SHA.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'scenarios/azure-boards-copilot-handover/app/**'
       - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
   pull_request:
     paths:
       - 'scenarios/azure-boards-copilot-handover/app/**'
       - 'scenarios/azure-boards-copilot-handover/CODE_QUALITY.md'
+      - 'scripts/build-artifacts/**'
       - '.github/workflows/validate-azure-boards-copilot-handover-app.yml'
 
 permissions:
@@ -78,3 +82,41 @@ jobs:
             echo "::error::The repair suite must fail only for the three intentionally unsupported v2 events."
             exit 1
           fi
+
+      - name: Test artifact packaging
+        working-directory: .
+        run: python -m unittest discover -s scripts/build-artifacts -p 'test_*.py'
+
+      - name: Package Linux Python 3.12 Functions application
+        if: github.event_name != 'pull_request'
+        working-directory: .
+        run: |
+          python -m pip install \
+            --requirement scenarios/azure-boards-copilot-handover/app/requirements.txt \
+            --target "$RUNNER_TEMP/functions-dependencies" \
+            --platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --abi cp312 \
+            --only-binary=:all: --no-compile
+          python scripts/build-artifacts/artifact.py functions \
+            --source scenarios/azure-boards-copilot-handover/app \
+            --dependencies "$RUNNER_TEMP/functions-dependencies" \
+            --output dist/boards/application/deployment.zip
+          python scripts/build-artifacts/artifact.py metadata \
+            --scenario azure-boards-copilot-handover --variant application \
+            --archive dist/boards/application/deployment.zip --output dist/boards/application/metadata.json
+
+      - name: Smoke test packaged Functions imports
+        if: github.event_name != 'pull_request'
+        working-directory: .
+        run: |
+          python -m zipfile -e dist/boards/application/deployment.zip "$RUNNER_TEMP/functions-smoke"
+          cd "$RUNNER_TEMP/functions-smoke"
+          PYTHONPATH="$PWD/.python_packages/lib/site-packages" python -c \
+            'import function_app; assert len(function_app.app.get_functions()) == 4'
+
+      - name: Upload exact-source deployment artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-boards-copilot-handover-application-${{ github.sha }}
+          path: dist/boards/application/*
+          if-no-files-found: error

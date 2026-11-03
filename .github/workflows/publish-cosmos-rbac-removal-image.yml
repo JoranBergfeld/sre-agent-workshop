@@ -5,7 +5,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['scenarios/cosmos-rbac-removal/src/**']
+    paths:
+      - 'scenarios/cosmos-rbac-removal/src/**'
+      - 'scripts/build-artifacts/**'
+      - '.github/workflows/publish-cosmos-rbac-removal-image.yml'
 
 permissions:
   packages: write
@@ -17,6 +20,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test artifact metadata
+        run: python -m unittest discover -s scripts/build-artifacts -p 'test_*.py'
 
       - name: Lowercase repository name
         id: repo
@@ -30,10 +40,30 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: scenarios/cosmos-rbac-removal/src/app
           push: true
+          platforms: linux/amd64
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:latest
             ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app:${{ github.sha }}
+
+      - name: Record immutable image reference
+        env:
+          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}/cosmos-rbac-removal/app
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python scripts/build-artifacts/artifact.py metadata \
+            --scenario cosmos-rbac-removal --variant application \
+            --image "$IMAGE" --digest "$DIGEST" --output dist/image/metadata.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cosmos-rbac-removal-application-${{ github.sha }}
+          path: dist/image/metadata.json
+          if-no-files-found: error
