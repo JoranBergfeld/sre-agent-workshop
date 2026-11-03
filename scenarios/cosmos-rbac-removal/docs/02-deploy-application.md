@@ -26,7 +26,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
    - **workloadName** (default: `srelabcosmos`) — **must match what you used in Module 1**.
    - **imageTag** — the published full 40-character lowercase Git SHA from `Publish Cosmos RBAC Removal Image` (for example, `0123456789abcdef0123456789abcdef01234567`).
-5. **Click "Run workflow"** and wait for completion (~3–5 minutes). The workflow preflights and deploys exactly `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app:<imageTag>`.
+5. **Click "Run workflow"** and wait for completion (~3–5 minutes). The workflow checks out that commit, resolves the image's immutable `sha256` digest from the successful publish run's verified metadata (the publish run only records an image after it started it and `/health` answered), preflights it, and deploys exactly `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app@sha256:<digest>`. See [Exact-commit build artifacts](../../../docs/build-artifacts.md).
 
 **What the workflow does under the hood:**
 
@@ -140,9 +140,9 @@ This usually means the cluster nodes don't have enough capacity. Check that Modu
 kubectl describe pod -n cosmos-rbac-removal <pod-name>
 # Look for the "Events" section — it will show the exact image URL and pull error
 ```
-The workflow deploys `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app:<imageTag>` and pulls it using `ghcr-pull`. Common causes:
+The workflow deploys the verified digest `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app@sha256:<digest>` for `<imageTag>` and pulls it using `ghcr-pull`. Common causes:
 - `GHCR_READ_TOKEN` is missing, expired, or lacks **Packages: read** access
-- The value entered for `imageTag` was not published by `Publish Cosmos RBAC Removal Image`
+- The value entered for `imageTag` was not published by `Publish Cosmos RBAC Removal Image` (the resolver then fails with the exact `gh workflow run publish-cosmos-rbac-removal-image.yml ...` command to publish it)
 - The pod spec is not using `ghcr-pull` (check the image URL and image pull secrets in the pod events)
 
 **`/items` returns 500 with auth error:**

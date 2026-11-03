@@ -55,6 +55,17 @@ az login
 az account show --query '{name:name,id:id}' --output table
 ```
 
+## Region and build artifact
+
+Setup prefers the region you pass and, for a new deployment, falls back
+through `eastus2`, `swedencentral` and `australiaeast` when Linux Python
+Functions, Service Bus, storage or monitoring are unavailable there. An
+existing deployment stays in its region. By default the deploy step uses the
+tested Linux Functions ZIP built for your exact commit by this repository's
+build workflow; `--build-mode source` builds it locally instead. See
+[Region and VM-size fallback](../../../docs/region-and-sku-fallback.md) and
+[Exact-commit build artifacts](../../../docs/build-artifacts.md).
+
 ## Optional source-build and local review tools
 
 The default deployment downloads and verifies the repo-built Linux Python 3.12

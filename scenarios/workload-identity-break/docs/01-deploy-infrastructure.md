@@ -72,6 +72,26 @@ Choose one of the two deployment options below. **Option A (GitHub Actions) is r
 
 ### Option A: GitHub Actions (Recommended)
 
+#### Before you deploy: designate the resource group
+
+Both options deploy into a resource group you create once. The tooling never
+creates, relocates or deletes resource groups (the group's region is only
+metadata):
+
+```bash
+az group exists --name rg-srelabidentity   # must print false
+az group create --name rg-srelabidentity --location eastus2 --tags sre-workshop-scenario=workload-identity-break
+```
+
+The placement engine then checks AKS system-node SKU restrictions and quota
+(two nodes plus one upgrade surge node), a supported AKS minor version,
+monitoring and serverless Cosmos DB availability. It tries
+`Standard_D4ads_v6`, `Standard_D4ads_v5`, `Standard_D4s_v5` and
+`Standard_D4as_v5` in the chosen region before falling back through East US 2,
+Sweden Central and Australia East. A rerun keeps the cluster's region, node
+size and exact running Kubernetes patch version. See
+[Region and VM-size fallback](../../../docs/region-and-sku-fallback.md).
+
 #### Step 1: Navigate to GitHub Actions
 
 Go to your generated workshop repository on GitHub:
@@ -89,6 +109,10 @@ Go to your generated workshop repository on GitHub:
      - `eastus2` (recommended for US)
      - `swedencentral` (recommended for Europe)
      - `australiaeast` (recommended for Asia-Pacific)
+
+     This is the preferred region. If it lacks capacity or quota, the
+     deployment falls back to the next supported region; clear
+     **regionFallback** to allow only the chosen region.
    
    - **workloadName** (text input)  
      Defaults to `srelabidentity`. You can customize this if desired (e.g., `srelabidentityteam1`). This name is used in all resource naming. **Keep this name handy — you'll need it in future modules.** Use lowercase alphanumeric only, no special characters. Custom workload names must be unique: `srelabcosmos` and `srelabidentity` are intentionally distinct defaults for the two capsules.
@@ -105,7 +129,7 @@ The workflow will start immediately. You'll see a yellow icon next to the workfl
 3. Watch the steps execute in real-time
 
 The workflow performs these steps:
-- Creates the resource group (`rg-{workloadName}`)
+- Verifies the designated resource group (`rg-{workloadName}`) and preflights region, SKU and quota
 - Deploys the monitoring stack (Log Analytics + Application Insights)
 - Deploys the AKS cluster with workload identity enabled
 - Deploys the CosmosDB account and database
@@ -120,7 +144,7 @@ The workflow performs these steps:
   Infrastructure Deployment Complete
 ============================================
 Resource Group:      rg-srelabidentity
-Location:            eastus2
+Location:            eastus2   (the region actually used)
 AKS Cluster:         srelabidentity-aks
 CosmosDB Endpoint:   https://srelabidentity-cosmos-xxxx.documents.azure.com:443/
 UAMI Client ID:     xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -141,6 +165,7 @@ Deploy infrastructure directly from your machine using the Azure CLI. This is us
   az --version
   az login
   ```
+- **Node.js 20+** (runs the shared placement engine)
 - **jq** installed (for parsing deployment outputs):
   - macOS: `brew install jq`
   - Linux: `apt-get install jq` or `yum install jq`
@@ -170,31 +195,12 @@ az account show --query '{name:name,id:id}' --output table
 - Remember this name for future modules
 - Use a workload name unique to this deployment; the supplied defaults are intentionally distinct so both capsules can run at once.
 
-#### Step 2: Create the Resource Group
+#### Step 2: Confirm the Designated Resource Group
+
+Create the group as shown in **Before you deploy** if you haven't already:
 
 ```bash
-az group create \
-  --name "${RESOURCE_GROUP}" \
-  --location "${LOCATION}" \
-  --tags workshop=sre-agent environment=demo
-```
-
-**Example output using the default workload:**
-```json
-{
-  "id": "/subscriptions/.../resourceGroups/rg-srelabidentity",
-  "location": "eastus2",
-  "managedBy": null,
-  "name": "rg-srelabidentity",
-  "properties": {
-    "provisioningState": "Succeeded"
-  },
-  "tags": {
-    "environment": "demo",
-    "workshop": "sre-agent"
-  },
-  "type": "Microsoft.Resources/resourceGroups"
-}
+az group show --name "${RESOURCE_GROUP}" --query "tags.\"sre-workshop-scenario\"" -o tsv
 ```
 
 #### Step 3: Deploy the Bicep Template
@@ -202,16 +208,11 @@ az group create \
 From the repository root, run:
 
 ```bash
-az deployment group create \
-  --resource-group "${RESOURCE_GROUP}" \
-  --template-file scenarios/workload-identity-break/infra/bicep/main.bicep \
-  --parameters scenarios/workload-identity-break/infra/bicep/main.bicepparam \
-    location="${LOCATION}" \
-    workloadName="${WORKLOAD_NAME}" \
-  --query 'properties.outputs' \
-  -o json > deployment-outputs.json
-
-cat deployment-outputs.json
+node scripts/placement/provision.mjs deploy workload-identity-break \
+  --location "${LOCATION}" \
+  --workload "${WORKLOAD_NAME}" \
+  --outputs-file deployment-outputs.json
+export LOCATION=$(az group show --name "${RESOURCE_GROUP}" --query "tags.\"sre-workshop-location\"" -o tsv)
 ```
 
 The deployment typically takes **10–15 minutes**. You'll see progress output as resources are created.
@@ -230,7 +231,6 @@ echo "AKS Cluster:          $(jq -r '.aksClusterName.value' deployment-outputs.j
 echo "CosmosDB Endpoint:    $(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)"
 echo "UAMI Client ID:       $(jq -r '.uamiClientId.value' deployment-outputs.json)"
 echo "Log Analytics ID:     $(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)"
-echo "App Insights CS:      $(jq -r '.appInsightsConnectionString.value' deployment-outputs.json)"
 echo "============================================"
 ```
 

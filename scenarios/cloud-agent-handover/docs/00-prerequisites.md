@@ -40,9 +40,10 @@ You need:
 | --- | --- |
 | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) | `az` |
 | [GitHub CLI](https://cli.github.com/) | `gh` |
-| [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet` 10.x |
+| [Node.js](https://nodejs.org/) | `node` 20+ (placement engine and artifact resolver) |
+| [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet` 10.x, only for `--local-build` or local app changes |
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | `uv` (only for local changed-line coverage; CI installs its own pinned `diff-cover` dependency) |
-| Bash path | `zip` and `jq` |
+| Bash path | `jq`; `zip` only for `--local-build` |
 | PowerShell path | PowerShell 7 |
 
 Outside Codespaces, authenticate before running setup:
@@ -94,20 +95,27 @@ uv --version
 uv --version
 ```
 
-## Supported regions
+## Supported regions and build artifacts
 
-Choose one:
+Setup prefers the region you pass (default `eastus2`) and, for a new
+deployment, falls back through `eastus2`, `swedencentral` and `australiaeast`
+when App Service Linux B1, the .NET 10 stack or quota is unavailable. An
+existing deployment stays in its region. See
+[Region and VM-size fallback](../../../docs/region-and-sku-fallback.md).
 
-- `eastus2`
-- `swedencentral`
-- `australiaeast`
+By default setup deploys the tested .NET Release publish ZIP built by
+**Validate Cloud Agent Handover Application** for your exact commit in this
+repository, so no local .NET SDK is needed. `--local-build` (`-LocalBuild`)
+builds and tests locally instead. See
+[Exact-commit build artifacts](../../../docs/build-artifacts.md).
 
 ## Readiness checklist
 
 - [ ] The current clone is the repository created with **Use this template**.
 - [ ] `az account show` returns the intended subscription.
 - [ ] `gh auth status` succeeds for the active GitHub credential.
-- [ ] `dotnet --version` reports 10.x.
+- [ ] `node --version` reports 20 or later.
+- [ ] `dotnet --version` reports 10.x (only for `--local-build`).
 - [ ] `uv --version` reports a version when you plan to run local changed-line coverage.
 - [ ] Your Azure CLI identity has Contributor access to the scenario resource group.
 - [ ] For an older deployment only, you can remove its legacy role assignment

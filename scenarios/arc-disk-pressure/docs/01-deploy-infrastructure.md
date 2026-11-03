@@ -13,37 +13,48 @@ The Windows `computerName` is `srearc01`, matching the alert and investigation
 queries; Azure Monitor Perf records use this name rather than the longer ARM
 VM name.
 
+Create and designate an unused resource group once (the tooling never creates
+or deletes groups; its region is only metadata):
+
+```bash
+az group exists --name rg-srelabarcdisk   # must print false
+az group create --name rg-srelabarcdisk --location eastus2 --tags sre-workshop-scenario=arc-disk-pressure
+```
+
+Deploy through the **Deploy Arc Disk Pressure Infrastructure** workflow, or
+manually with the placement engine. Use the region it reports (`location` in
+the outputs file) for Arc onboarding:
+
 ```bash
 export RESOURCE_GROUP=rg-srelabarcdisk
-export LOCATION=eastus2
 export WORKLOAD_NAME=srelabarcdisk
-read -rsp "Windows VM administrator password: " VM_ADMIN_PASSWORD; echo
-
-az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
-az deployment group create \
-  --resource-group "$RESOURCE_GROUP" \
-  --template-file scenarios/arc-disk-pressure/infra/bicep/main.bicep \
-  --parameters scenarios/arc-disk-pressure/infra/bicep/main.bicepparam \
-  workloadName="$WORKLOAD_NAME" \
-  adminPassword="$VM_ADMIN_PASSWORD"
+read -rsp "Windows VM administrator password: " ADMIN_PASSWORD; echo; export ADMIN_PASSWORD
+node scripts/placement/provision.mjs deploy arc-disk-pressure \
+  --location eastus2 --workload "$WORKLOAD_NAME" \
+  --secure-param-env adminPassword=ADMIN_PASSWORD \
+  --outputs-file arc-disk-pressure-outputs.json
+export LOCATION=$(az group show --name "$RESOURCE_GROUP" --query "tags.\"sre-workshop-location\"" -o tsv)
 ```
 
 ```powershell
 $resourceGroup = 'rg-srelabarcdisk'
-$location = 'eastus2'
 $workloadName = 'srelabarcdisk'
-$adminPassword = ConvertFrom-SecureString `
-  (Read-Host 'Windows VM administrator password' -AsSecureString) `
-  -AsPlainText
-
-az group create --name $resourceGroup --location $location
-az deployment group create `
-  --resource-group $resourceGroup `
-  --template-file scenarios/arc-disk-pressure/infra/bicep/main.bicep `
-  --parameters scenarios/arc-disk-pressure/infra/bicep/main.bicepparam `
-  workloadName=$workloadName `
-  adminPassword=$adminPassword
+$env:ADMIN_PASSWORD = ConvertFrom-SecureString `
+  (Read-Host 'Windows VM administrator password' -AsSecureString) -AsPlainText
+node scripts/placement/provision.mjs deploy arc-disk-pressure `
+  --location eastus2 --workload $workloadName `
+  --secure-param-env adminPassword=ADMIN_PASSWORD `
+  --outputs-file arc-disk-pressure-outputs.json
+$location = az group show --name $resourceGroup --query 'tags."sre-workshop-location"' -o tsv
 ```
+
+The engine checks SKU restrictions, capabilities and vCPU quota for the whole
+fleet, then tries the VM sizes in `infra/placement.json` (D2s v7 first, then compatible small D2s/D2as generations) in a region
+before falling back to Sweden Central and Australia East. It records the
+region and size it used on the resource group; reruns stay pinned to them and
+never resize, relocate or delete anything. See
+[Region and VM-size fallback](../../../docs/region-and-sku-fallback.md).
+Requires Node.js 20+.
 
 Capture the deployment outputs for the ARM VM name, Windows computer name,
 Bastion name, and Log Analytics workspace ID. Then onboard the evaluation host

@@ -13,27 +13,24 @@ read-only access.
 export SRE_AGENT_PRINCIPAL_ID='<SRE-Agent-managed-identity-object-id>'
 ./scenarios/vm-size-retirement/scripts/setup.sh \
   --sre-agent-principal-id "$SRE_AGENT_PRINCIPAL_ID"
-az deployment group create \
-  --resource-group rg-srelabretirement \
-  --template-file ./scenarios/vm-size-retirement/infra/bicep/main.bicep \
-  --parameters ./scenarios/vm-size-retirement/infra/bicep/main.bicepparam \
-  --parameters adminPassword="$VM_ADMIN_PASSWORD" \
-  --parameters sreAgentPrincipalId="$SRE_AGENT_PRINCIPAL_ID"
+node scripts/placement/provision.mjs deploy vm-size-retirement \
+  --workload srelabretirement \
+  --secure-param-env adminPassword=VM_ADMIN_PASSWORD \
+  --param sreAgentPrincipalId="$SRE_AGENT_PRINCIPAL_ID"
 ```
 
 ```powershell
 $env:SRE_AGENT_PRINCIPAL_ID = '<SRE-Agent-managed-identity-object-id>'
 ./scenarios/vm-size-retirement/scripts/setup.ps1 `
   -SreAgentPrincipalId $env:SRE_AGENT_PRINCIPAL_ID
-az deployment group create `
-  --resource-group rg-srelabretirement `
-  --template-file ./scenarios/vm-size-retirement/infra/bicep/main.bicep `
-  --parameters ./scenarios/vm-size-retirement/infra/bicep/main.bicepparam `
-  --parameters adminPassword=$env:VM_ADMIN_PASSWORD `
-  --parameters sreAgentPrincipalId=$env:SRE_AGENT_PRINCIPAL_ID
+node scripts/placement/provision.mjs deploy vm-size-retirement `
+  --workload srelabretirement `
+  --secure-param-env adminPassword=VM_ADMIN_PASSWORD `
+  --param sreAgentPrincipalId=$env:SRE_AGENT_PRINCIPAL_ID
 ```
 
-The deployment grants that principal **Reader** and **Monitoring Reader**.
+This rerun stays pinned to the region and VM size recorded by the first
+deployment; it never resizes or relocates the VMs. The deployment grants that principal **Reader** and **Monitoring Reader**.
 Local tools continue to use the signed-in operator's Azure CLI identity.
 
 Continue to [02 Configure incident response](./02-configure-incident-response.md).

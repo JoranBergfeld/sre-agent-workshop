@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/JoranBergfeld/sre-agent-workshop/schemas/placement.schema.json",
+  "title": "Scenario placement policy",
+  "description": "Scenario-owned, bounded region and SKU fallback policy consumed by scripts/placement. See docs/region-and-sku-fallback.md. The engine's validatePolicy enforces additional cross-field rules.",
+  "type": "object",
+  "required": ["scenario", "regions", "defaultWorkload", "resourceGroup", "deployment"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "scenario": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "description": { "type": "string" },
+    "regions": {
+      "description": "Ordered candidate regions; the first is preferred.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+$" }
+    },
+    "defaultWorkload": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "resourceGroup": { "type": "string", "minLength": 1 },
+    "regionChecks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "enum": ["provider", "aksVersion", "appServiceLinux", "functionsConsumption", "runtimeStack", "cosmos"] },
+          "namespace": { "type": "string" },
+          "resourceType": { "type": "string" },
+          "minVersion": { "type": "string" },
+          "sku": { "type": "string" },
+          "host": { "enum": ["webapp", "functionapp"] },
+          "stack": { "type": "string" },
+          "runtimeVersion": { "type": "string" },
+          "functionsExtensionVersion": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "compute": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["vm", "aks", "none"] },
+        "count": { "type": "integer", "minimum": 1 },
+        "surge": { "type": "integer", "minimum": 0 },
+        "skus": {
+          "description": "Ordered compatible sizes; all are tried in a region before the next region.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^Standard_" }
+        },
+        "baselineNames": {
+          "description": "Template-managed baseline VM names; tokens {workload} and {workloadCompact10}.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fleetVmNames": { "type": "array", "items": { "type": "string" } },
+        "clusterName": { "type": "string" },
+        "requires": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "fixedFleetLabel": { "type": "string" },
+    "fixedFleet": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sku", "count"],
+        "properties": {
+          "sku": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 },
+          "requires": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "remediationTargets": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "type": "string" } },
+    "remediationRequires": { "type": "object" },
+    "fleetUnavailableDiagnostic": { "type": "string" },
+    "groupTags": { "type": "object", "additionalProperties": { "type": "string" } },
+    "legacyOwnership": { "type": "object" },
+    "deployment": {
+      "type": "object",
+      "required": ["scope", "template", "name", "parameters"],
+      "properties": {
+        "scope": { "enum": ["group", "subscription"] },
+        "template": { "type": "string" },
+        "name": { "type": "string" },
+        "parameters": { "type": "object" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

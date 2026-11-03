@@ -46,6 +46,8 @@ These guides explain the shared service and incident-response model:
 1. [What is the SRE Agent?](docs/00-what-is-sre-agent.md)
 2. [Why use it?](docs/01-why-sre-agent.md)
 3. [How it works](docs/02-how-it-works.md)
+4. [Region and VM-size fallback](docs/region-and-sku-fallback.md) — how provisioning chooses and pins a region and size
+5. [Exact-commit build artifacts](docs/build-artifacts.md) — how deployable apps and images are built in your repository
 
 ## Choose a scenario
 
@@ -160,7 +162,12 @@ sre-agent-workshop/
 ### Regions
 
 Azure SRE Agent is available in **East US 2**, **Sweden Central**, and
-**Australia East**. Choose a supported region when provisioning a scenario.
+**Australia East**. Each scenario's `infra/placement.json` lists a bounded,
+ordered set of candidate regions and compatible VM or node sizes. For a new
+deployment, provisioning preflights SKU availability, capabilities and quota
+for the whole planned fleet and falls back through sizes, then regions;
+existing deployments always stay where they are. See
+[Region and VM-size fallback](docs/region-and-sku-fallback.md).
 
 ### Network requirements
 

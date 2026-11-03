@@ -250,6 +250,19 @@ regional pricing and your subscription budget before continuing. When you're
 done, **run the cleanup steps in Module 7** to delete all resources and stop
 incurring charges.
 
+
+## Region, size, and cost
+
+Provisioning uses the shared placement engine, which needs **Node.js 20+**.
+For a new deployment it preflights subscription SKU restrictions, capabilities
+and quota, then tries the AKS system node pool (plus one surge node during upgrades) as `Standard_D4ads_v6`, then `Standard_D4ads_v5`, then `Standard_D4s_v5`, then `Standard_D4as_v5` in the preferred region before falling
+back through `eastus2`, `swedencentral`, `australiaeast`. An existing deployment stays pinned to its
+region and size. Sizes later in the list can cost more per hour; the
+engine reports the region and size it chose. Create and designate the resource
+group first (`az group create --name <group> --location <region> --tags
+sre-workshop-scenario=workload-identity-break`). See
+[Region and VM-size fallback](../../../docs/region-and-sku-fallback.md).
+
 ## Next Step
 
 → **[Module 1: Deploy Infrastructure](./01-deploy-infrastructure.md)**

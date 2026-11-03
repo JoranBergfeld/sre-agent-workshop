@@ -7,6 +7,7 @@ The platform is scenario metadata, not a directory hierarchy.
 ## Prerequisites
 
 - Node.js 22+ for `scripts/scenario-tools/`
+- Node.js 20+ for the shared placement engine (`scripts/placement/`) and artifact resolver (`scripts/build-artifacts/`)
 - Azure CLI with Bicep (`az bicep version`)
 - PowerShell 7+ to exercise PowerShell script variants
 
@@ -110,6 +111,37 @@ Handover Application** for its application tests. After an approved Copilot
 fix is reviewed and merged, the operator updates the local `main` checkout and
 deploys the reviewed application with the scenario's Bash or PowerShell
 deployment helper.
+
+## Placement policy
+
+Every capsule owns `infra/placement.json`, validated by
+`schemas/placement.schema.json` and the engine's `validatePolicy`. Keep it
+explicit and bounded:
+
+- `regions`: 1-6 ordered candidates where the SRE Agent and every service the
+  capsule needs are available; the first is preferred.
+- `compute.skus`: 1-6 ordered, genuinely compatible sizes (same architecture,
+  disk, generation and vCPU contract) passed to the template through `{sku}`.
+- `compute.baselineNames` (VM) or `compute.clusterName` (AKS): the exact
+  template-managed names, using `{workload}` or `{workloadCompact10}`, so
+  reruns reuse only this workload's resources and never resize or relocate them.
+- `fixedFleet`, `remediationTargets` and `regionChecks` for any other capacity
+  the scenario needs later, so the preflight covers the complete fleet.
+
+Lifecycle scripts call `node scripts/placement/provision.mjs` instead of
+`az deployment group create`. See
+[Region and VM-size fallback](docs/region-and-sku-fallback.md).
+
+## Build artifacts
+
+Capsules that deploy an application build it in a path-scoped, scenario-named
+workflow that needs no Azure credentials, supports `workflow_dispatch` with an
+exact `ref`, triggers on the application, packager, placement policy and
+`scripts/placement/**` paths, and never publishes trusted artifacts from fork
+pull requests. Images are smoke-tested before metadata is recorded. Default
+consumers verify repository, scenario, exact commit, variant, run success and
+checksums, and offer an explicit local-build mode. VM-only capsules need no
+artifact workflow. See [Exact-commit build artifacts](docs/build-artifacts.md).
 
 ## Style
 
