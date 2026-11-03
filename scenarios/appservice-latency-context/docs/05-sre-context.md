@@ -98,10 +98,12 @@ connection targets this workspace, not the agent's own diagnostic workspace.
 **Important current product constraint:** the **Kusto tool** form is for an
 **Azure Data Explorer connector**, not a Log Analytics connector. Do not select
 an imaginary LA connector or provision ADX for this exercise. The Python tool
-creation surface is supported, but its documented Identity presets are only
-**ARM, Key Vault and Storage**. An ARM token is not a Log Analytics audience
-token. The legacy ARM LA `/api/query?api-version=2017-01-01-preview` route is
-deprecated; current Microsoft guidance says migrate to the direct `v1` API.
+Identity tab supports a **custom token scope URL**, observed in the live UI
+on 2026-11-03, in addition to the documented ARM, Key Vault and Storage presets.
+Configure the Log Analytics scope below; remove the unnecessary default ARM
+scope. An ARM token is not a Log Analytics audience token. The legacy ARM LA
+`/api/query?api-version=2017-01-01-preview` route is deprecated; current
+Microsoft guidance says migrate to the direct `v1` API.
 
 The supplied wrapper therefore uses the current endpoint:
 
@@ -110,13 +112,13 @@ POST https://api.loganalytics.azure.com/v1/workspaces/{workspaceId}/query
 Token scope: https://api.loganalytics.io/.default
 ```
 
-It requests that scope with `DefaultAzureCredential`, using the provided
-identity environment, never a secret. **Availability gate:** the runtime must
-actually supply that audience. If the current Identity tab/runtime only permits
-the three documented presets, this connected custom-tool route is unavailable.
-Do not treat selecting ARM as resolving it. Follow the fallback below and
-record the limitation; a successful tool creation or syntax test is not accepted
-Log Analytics execution.
+It requests that scope with `DefaultAzureCredential`, using the configured
+identity environment, never a secret. **Verified control; unverified execution:**
+the custom scope entry and removal controls were observed, but accepted scope
+configuration, token acquisition, live KQL execution and chat invocation still
+require an actual test. A successful tool creation or syntax test alone is not
+accepted Log Analytics execution. If your tenant lacks the custom scope control
+or execution fails, preserve the specific gap and follow the fallback below.
 
 **Explanation of executable bounds:** resource inputs must match the capsule
 prefix, Insights component and app name; workspace must be a GUID. There is no
@@ -146,9 +148,12 @@ Log evidence, not package preparation time.
 **Troubleshoot and continue:**
 
 - `invalid_input`: correct resource names or UTC bounds; do not loosen guards.
-- `log_analytics_identity_unavailable`: check the supported identity audience.
-  ARM-only presets are a capability gap, not missing application permissions.
-  Do not add a client secret or change the endpoint to bypass this gate.
+- `log_analytics_identity_unavailable`: check **Enable Azure Identity** and
+  confirm the exact custom LA scope is present under **Configured Scopes**.
+  Inspect whether the form accepted it and the authentication snippet uses that
+  scope. Default ARM alone is insufficient. Distinguish configuration/token
+  failure from workspace RBAC; never add a client secret or change the endpoint
+  to bypass the failure.
 - HTTP 401/403: distinguish wrong audience from workspace/table RBAC. Confirm
   the caller identity and exact workspace. Do not grant Contributor to query logs.
 - Empty results: check resource/role filters, telemetry export, ingestion delay,
@@ -162,9 +167,9 @@ workspace > Logs > KQL mode**, or an already supported connected Log Analytics
 query capability. It returns at most two summaries and three request samples.
 Record manual/alternate execution and its caller separately from custom-tool
 use; stage/deployment evidence remains a gap until separately obtained. Continue
-authoring the skill and handover; resume the same bounded tool test once a
-supported LA-audience identity path is available. Reference output never counts
-as an observed invocation.
+authoring the skill and handover; resume the same bounded tool test after the
+identified configuration, permission or execution issue is resolved. Reference
+output never counts as an observed invocation.
 
 <details>
 <summary>Show exact steps</summary>
@@ -194,13 +199,20 @@ as an observed invocation.
 4. Paste the complete `investigation/query-latency.py` into **Code**. Keep the
    guards; do not replace them with generated free-form execution. `requests`
    and `azure-identity` are documented as preinstalled.
-5. Inspect **Identity**. Establish whether the current supported environment
-   can issue the required LA-audience token. If only ARM/Key Vault/Storage are
-   offered and LA acquisition cannot be supported, record **custom tool
-   unavailable: identity audience**, skip creation/attachment claims and use
-   the fallback. No new Azure resource or credential is needed.
-6. Where supported, enable the correct managed-identity authentication and use
-   **Test playground** with `workspace_id`, `insights_resource_id`, `app_name`,
+5. Select **Identity > Enable Azure Identity**. Under **Token Scopes**, inspect
+   **Configured Scopes**. Use **Remove scope** on the default ARM entry; this
+   read-only wrapper needs only the LA audience. In **Enter scope URL
+   (e.g., https://example.com/.default)**, enter
+   `https://api.loganalytics.io/.default`, then select the **adjacent add button**
+   (observed without an accessible name). Confirm the exact LA URL appears in
+   **Configured Scopes**. Enabling identity injects a `DefaultAzureCredential`
+   and `credential.get_token(scope)` example: keep the wrapper's LA-scoped
+   credential call, not duplicate sample code or token-printing statements.
+   Record whether the form accepts the scope; entry controls alone do not prove
+   acceptance or token acquisition. If these controls are absent in your tenant,
+   record the UI difference and use the fallback. No new resource or secret is
+   needed.
+6. Use **Test playground** with `workspace_id`, `insights_resource_id`, `app_name`,
    `start_utc`, `end_utc`, `sample_limit`. Times look like
    `2026-11-03T08:30:00Z`, but use your actual recent observation window, not
    this example date. First test `sample_limit=11`; then test `3` with valid
@@ -224,7 +236,8 @@ Checked 2026-11-03:
   documents Code, Test playground and Identity.
 - [Python execution](https://learn.microsoft.com/azure/sre-agent/python-code-execution)
   documents packages, outbound networking and ARM/Key Vault/Storage scopes;
-  it does not establish a Log Analytics preset.
+  live UI additionally exposes custom scope entry, so the preset list is not
+  an exhaustive list of configurable audiences.
 - [Create Kusto tool](https://learn.microsoft.com/azure/sre-agent/create-kusto-tool)
   requires ADX and a Kusto connector.
 - [Log API authentication](https://learn.microsoft.com/azure/azure-monitor/logs/api/access-api),
@@ -235,8 +248,12 @@ Checked 2026-11-03:
   explicitly moves ARM LA queries to direct `v1`; beta support ended
   2026-03-31.
 
-Live UI observation confirmed the Create > Tool choices and the ADX-only Kusto
-form, not saved-tool acceptance, identity availability or query execution.
+Live UI observation confirmed the Create > Tool choices, the ADX-only Kusto
+form (its connector dropdown omitted an existing LA connector), and Python
+**Identity > Enable Azure Identity > Token Scopes**, including custom scope URL
+entry and removal of configured scopes. This is verified control evidence, not
+accepted scope configuration, token acquisition, saved-tool acceptance or query
+execution; those remain unverified execution until tested.
 Local guard/response tests use controlled external boundaries; they do not prove
 tenant access, KQL compilation or connected invocation. Preserve your own live
 acceptance/error evidence, including unavailable capabilities.
