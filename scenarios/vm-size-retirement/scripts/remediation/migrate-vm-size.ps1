@@ -46,7 +46,7 @@ try {
     # pending legacy VM (deallocated VMs count too).
     if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "Preflight failed: Node.js 20+ is required for the quota preflight. No VM was resized." }
     $engine = Join-Path $PSScriptRoot '../../../../scripts/placement/provision.mjs'
-    $preflight = & node $engine check vm-size-retirement --resource-group $ResourceGroup --parts targets --no-region-fallback --record-target --json
+    $preflight = & node $engine check vm-size-retirement --resource-group $ResourceGroup --parts targets --no-region-fallback --record-target --claim-settle-seconds $(if ($env:SRE_TARGET_CLAIM_SETTLE_SECONDS) { $env:SRE_TARGET_CLAIM_SETTLE_SECONDS } else { '30' }) --json
     if ($LASTEXITCODE -ne 0) { throw "Preflight failed: the recorded remediation target lacks eligibility or quota for the whole retiring fleet. No VM was resized." }
     $report = ($preflight -join "`n") | ConvertFrom-Json
     if (-not $report.pinnedLocation -or -not $report.remediationTarget) { throw "Preflight failed: no recorded same-region remediation target was found for $ResourceGroup. No VM was resized." }
@@ -55,6 +55,10 @@ try {
 
     foreach ($name in $names) {
         $currentVm = $name
+        # Re-verify before every resize: the recorded target is unchanged and no
+        # VM was resized to another target by a concurrent run (fails closed).
+        & node $engine verify-target vm-size-retirement --resource-group $ResourceGroup --target $targetSize | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Remediation target verification failed before resizing '$name'; stopped." }
         Write-Host "Resizing $name -> $targetSize ..."
         & az vm resize --resource-group $ResourceGroup --name $name --size $targetSize --only-show-errors | Out-Null
         if ($LASTEXITCODE -ne 0) {

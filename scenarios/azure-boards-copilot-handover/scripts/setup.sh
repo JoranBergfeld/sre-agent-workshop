@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Provisions the Azure Boards Copilot Handover scenario end-to-end: deploys the
-# subscription-scope infrastructure into a pre-created designated group, deploys the current (intentionally
-# flawed, v1-only) checkout, seeds the deterministic v1 control events, and
-# prints the keyed workshop URLs a learner needs next.
+# Provisions the Azure Boards Copilot Handover scenario end-to-end: verifies the
+# pre-created designated group and the deployable package read-only, deploys the
+# subscription-scope infrastructure, deploys the (intentionally flawed, v1-only)
+# starting application, seeds the deterministic v1 control events, and prints
+# the keyed workshop URLs a learner needs next.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,13 +15,15 @@ WORKLOAD="srelabboardshandover"
 RESOURCE_GROUP=""
 RESOURCE_GROUP_SET=false
 LOCATION="eastus2"
+BUILD_MODE="artifact"
+ARTIFACT_REPO=""
 
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-10}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-15}"
 
 usage() {
   cat <<'EOF'
-Usage: setup.sh [-w|--workload <name>] [-g|--resource-group <name>] [-l|--location <region>] [-s|--subscription-id <id>] [-h|--help]
+Usage: setup.sh [-w|--workload <name>] [-g|--resource-group <name>] [-l|--location <region>] [-s|--subscription-id <id>] [--build-mode artifact|source] [--repo owner/name] [-h|--help]
 
 Provisions the Azure Boards Copilot Handover scenario: infrastructure,
 starting application, and the deterministic v1 control-event seed.
@@ -30,6 +33,10 @@ Options:
   -g, --resource-group   Resource group name (default: <workload>-rg)
   -l, --location         Azure region (default: eastus2)
   -s, --subscription-id  Azure subscription ID (default: AZURE_SUBSCRIPTION_ID or active subscription)
+      --build-mode       artifact (default): trusted exact-HEAD package built by the
+                         scenario's GitHub Actions workflow; source: local quality
+                         gates + remote Oryx build (needs Python tooling and zip)
+      --repo             Explicit artifact repository owner/name (default: Git origin)
   -h, --help             Show this help
 EOF
 }
@@ -68,6 +75,16 @@ while [ "$#" -gt 0 ]; do
       export AZURE_SUBSCRIPTION_ID="$2"
       shift 2
       ;;
+    --build-mode)
+      require_option_value "$1" "${2:-}"
+      BUILD_MODE="$2"
+      shift 2
+      ;;
+    --repo)
+      require_option_value "$1" "${2:-}"
+      ARTIFACT_REPO="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -79,6 +96,17 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [[ "$BUILD_MODE" != "artifact" && "$BUILD_MODE" != "source" ]]; then
+  echo "--build-mode must be artifact or source." >&2
+  exit 2
+fi
+if [[ "$BUILD_MODE" == "source" && -n "$ARTIFACT_REPO" ]]; then
+  echo "--repo applies only to artifact mode." >&2
+  exit 2
+fi
+DEPLOY_ARGS=(--build-mode "$BUILD_MODE")
+if [ -n "$ARTIFACT_REPO" ]; then DEPLOY_ARGS+=(--repo "$ARTIFACT_REPO"); fi
 
 echo "========================================"
 echo "  Azure Boards Copilot Handover — Setup"
@@ -100,6 +128,30 @@ active_subscription_name=$(az account show --query name --output tsv) || { echo 
 if [ -z "$active_subscription_id" ] || [ -z "$active_subscription_name" ]; then echo "Unable to read the active Azure subscription. Run 'az login' and try again." >&2; exit 1; fi
 if [ -n "$requested_subscription_id" ] && [ "$active_subscription_id" != "$requested_subscription_id" ]; then echo "Azure subscription mismatch: requested '$requested_subscription_id', but active subscription is '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; fi
 echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
+
+# Read-only preflight before anything is changed: the placement check verifies
+# the operator pre-created and designated the group (or that it holds a
+# verified earlier deployment) and that a supported region passes, and the
+# artifact resolver proves a trusted exact-HEAD package exists. Failing either
+# leaves Azure untouched.
+CHECK_ARGS=(check azure-boards-copilot-handover --location "$LOCATION" --workload "$WORKLOAD" --require-group)
+if [ "$RESOURCE_GROUP_SET" = true ]; then CHECK_ARGS+=(--resource-group "$RESOURCE_GROUP"); fi
+if ! (cd "$REPO_ROOT" && node scripts/placement/provision.mjs "${CHECK_ARGS[@]}"); then
+  echo "Placement/ownership preflight failed; nothing was changed." >&2
+  exit 1
+fi
+if [ "$BUILD_MODE" = "artifact" ]; then
+  command -v gh >/dev/null 2>&1 || { echo "Authenticated GitHub CLI (gh) is required for artifact deployment (or use --build-mode source)." >&2; exit 1; }
+  PREFLIGHT_DIR=$(mktemp -d)
+  RESOLVER_ARGS=(--scenario azure-boards-copilot-handover --variant application --output-dir "$PREFLIGHT_DIR")
+  if [ -n "$ARTIFACT_REPO" ]; then RESOLVER_ARGS+=(--repo "$ARTIFACT_REPO"); fi
+  if ! (cd "$REPO_ROOT" && node scripts/build-artifacts/resolve.mjs "${RESOLVER_ARGS[@]}" >/dev/null); then
+    rm -rf -- "$PREFLIGHT_DIR"
+    echo "No trusted exact-HEAD application package is available; nothing was changed. Dispatch the build shown above, or rerun with --build-mode source." >&2
+    exit 1
+  fi
+  rm -rf -- "$PREFLIGHT_DIR"
+fi
 
 # The shared placement engine deploys infra/bicep/main.bicep into the resource
 # group the operator pre-created and designated (it never creates or upserts a
@@ -131,12 +183,12 @@ RESOURCE_GROUP="$DISCOVERED_RESOURCE_GROUP"
 echo "Resource group: $RESOURCE_GROUP"
 echo "Function app:   $FUNCTION_APP"
 
-echo "Deploying the current (starting) checkout (bounded retry for Function startup/RBAC propagation)..."
+echo "Deploying the starting application ($BUILD_MODE mode) (bounded retry for Function startup/RBAC propagation)..."
 attempt=0
 deploy_succeeded=false
 while [ "$attempt" -lt "$RETRY_ATTEMPTS" ]; do
   attempt=$((attempt + 1))
-  if "$SCRIPT_DIR/deploy.sh" --resource-group "$RESOURCE_GROUP" --app-name "$FUNCTION_APP"; then
+  if "$SCRIPT_DIR/deploy.sh" --resource-group "$RESOURCE_GROUP" --app-name "$FUNCTION_APP" "${DEPLOY_ARGS[@]}"; then
     deploy_succeeded=true
     break
   fi

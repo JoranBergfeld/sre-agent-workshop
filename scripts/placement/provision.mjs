@@ -9,11 +9,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AzError,
-  DiscoveryError, PlacementError, TAGS, assertOwnership, missingGroupMessage, verifyExistingOwnership, recordPlacementTags, resumableRemediationTarget, createAzRunner, evaluateRegion, formatAttempts, inspectExisting, loadPolicy,
+  DiscoveryError, PlacementError, TAGS, assertOwnership, verifyRemediationTarget, missingGroupMessage, verifyExistingOwnership, recordPlacementTags, resumableRemediationTarget, createAzRunner, evaluateRegion, formatAttempts, inspectExisting, loadPolicy,
   orderedRegions, persistPlacement, preferredSkus, provision, reconcilePinnedRegion, repositoryRoot,
 } from './placement.mjs';
 
 const USAGE = `Usage: provision.mjs <deploy|check> <scenario> [options]
+       provision.mjs verify-target <scenario> --resource-group <name> --target <vm-size>
 
 Options:
   --location <region>        Preferred region (must be in the scenario policy); the
@@ -38,6 +39,16 @@ Options:
   --record-target            check only: for an existing deployment with
                              remediation targets, persist the verified target on
                              the group before any resize (reused afterwards)
+  --require-group            check only: also fail unless the resource group is
+                             ready for deploy (verified existing deployment, or
+                             an empty group designated for the scenario). Lets
+                             setup verify ownership before mutating anything.
+  --claim-settle-seconds <n> check --record-target only: wait this long after
+                             recording a new target before re-verifying it
+                             (default 30), so a concurrent claim is detected
+  --target <vm-size>         verify-target only: the target about to be applied;
+                             fails unless the group still records it and no VM
+                             was resized to another target (run before each resize)
   -h, --help                 Show this help`;
 
 export function parseArgs(argv) {
@@ -61,6 +72,14 @@ export function parseArgs(argv) {
       case '--no-region-fallback': options.noRegionFallback = true; break;
       case '--json': options.json = true; break;
       case '--record-target': options.recordTarget = true; break;
+      case '--require-group': options.requireGroup = true; break;
+      case '--target': options.target = value(flag, ++index); break;
+      case '--claim-settle-seconds': {
+        const seconds = Number(value(flag, ++index));
+        if (!Number.isFinite(seconds) || seconds < 0 || seconds > 600) throw new Error(`${flag} must be 0-600`);
+        options.claimSettleMs = seconds * 1000;
+        break;
+      }
       case '--parts':
         options.parts = Object.fromEntries(['services', 'compute', 'fleet', 'targets']
           .map(part => [part, value(flag, index + 1).split(',').includes(part)]));
@@ -157,7 +176,15 @@ export function resolveNames(policy, options) {
 
 // Persist the verified remediation target before the first resize, so an
 // interrupted migration resumes with the same target instead of re-selecting.
-async function recordRemediationTarget({ policy, az, resourceGroup, state, report, log }) {
+//
+// Azure's resource-group tag update is read-modify-write with no conditional
+// (If-Match / create-only) semantics we can rely on, so this claim is not
+// atomic. Mitigation: refuse to overwrite a target that appeared since the
+// check, wait a settle interval after writing, then re-verify the tag and the
+// fleet; migrate re-verifies again before every resize. A concurrent run whose
+// write lands later is detected before the next resize, and a mixed-family
+// fleet always fails closed for manual resolution.
+async function recordRemediationTarget({ policy, az, resourceGroup, state, report, log, options, sleep }) {
   if (!(policy.remediationTargets?.length)) throw new PlacementError(`${policy.scenario} has no remediation targets to record`);
   if (!state?.location || !report.ownership) {
     throw new PlacementError(`${resourceGroup} has no verified existing ${policy.scenario} deployment; no remediation target was recorded.`);
@@ -165,21 +192,36 @@ async function recordRemediationTarget({ policy, az, resourceGroup, state, repor
   // An ineligible check already fails with its reasons; record nothing.
   if (!report.eligible || report.remediationTargetRecorded) return;
   if (!report.remediationTarget) throw new PlacementError(`No eligible remediation target in ${report.pinnedLocation}; nothing was recorded or resized.`);
+  const reread = async () => (await az(['group', 'show', '--name', resourceGroup, '--output', 'json']).catch(error => {
+    throw new DiscoveryError(`re-reading ${resourceGroup}`, error);
+  }))?.tags?.[TAGS.remediationTarget];
+  const appeared = await reread();
+  if (appeared) {
+    throw new PlacementError(`Another run recorded remediation target ${appeared} on ${resourceGroup} after this check started; `
+      + `${report.remediationTarget} was not recorded and nothing was resized. Rerun to continue with the recorded target.`);
+  }
   const tags = { [TAGS.remediationTarget]: report.remediationTarget };
   if (report.ownership === 'legacy') tags[TAGS.scenario] = policy.scenario;
   await recordPlacementTags(az, resourceGroup, tags);
-  const group = await az(['group', 'show', '--name', resourceGroup, '--output', 'json']).catch(error => {
-    throw new DiscoveryError(`re-reading ${resourceGroup}`, error);
-  });
-  if (group?.tags?.[TAGS.remediationTarget] !== report.remediationTarget) {
+  const found = await reread();
+  if (found !== report.remediationTarget) {
     throw new PlacementError(`Recording remediation target ${report.remediationTarget} on ${resourceGroup} could not be confirmed `
-      + `(found ${group?.tags?.[TAGS.remediationTarget] ?? 'none'}); nothing was resized.`);
+      + `(found ${found ?? 'none'}); nothing was resized.`);
+  }
+  await sleep(options.claimSettleMs ?? 30_000);
+  try {
+    await verifyRemediationTarget({ policy, az, resourceGroup, target: report.remediationTarget });
+  } catch (error) {
+    if (error instanceof PlacementError) error.message = `${error.message} (claim lost during the settle interval; nothing was resized)`;
+    throw error;
   }
   report.remediationTargetRecorded = true;
   log(`Recorded remediation target ${report.remediationTarget} on ${resourceGroup}; later runs reuse it.`);
 }
 
-export async function runCheck({ policy, az, options, log = console.log }) {
+const delay = ms => new Promise(resolve => { setTimeout(resolve, ms); });
+
+export async function runCheck({ policy, az, options, log = console.log, sleep = delay }) {
   const { resourceGroup } = resolveNames(policy, options);
   const report = { scenario: policy.scenario, resourceGroup, regions: [] };
   const exists = await az(['group', 'exists', '--name', resourceGroup, '--output', 'json']).catch(error => {
@@ -194,6 +236,7 @@ export async function runCheck({ policy, az, options, log = console.log }) {
   if (state) assertOwnership(policy, resourceGroup, state.group);
   report.resourceGroupReady = Boolean(state && (state.location
     || (state.group?.tags?.[TAGS.scenario] === policy.scenario && !state.resourceCount)));
+  if (!state) report.resourceGroupMissing = true;
   if (!state) log(`NOTE ${missingGroupMessage(policy, resourceGroup, options.location)}`);
   else if (!report.resourceGroupReady) log(`NOTE ${resourceGroup} exists but is not an empty group designated with ${TAGS.scenario}=${policy.scenario}; deploy will refuse it.`);
   if (state?.location) {
@@ -241,7 +284,7 @@ export async function runCheck({ policy, az, options, log = console.log }) {
   if (report.remediationTarget && !report.remediationTargetRecorded) {
     log(`NOTE ${report.remediationTarget} is only proposed: no remediation target is recorded on ${resourceGroup} yet.`);
   }
-  if (options.recordTarget) await recordRemediationTarget({ policy, az, resourceGroup, state, report, log });
+  if (options.recordTarget) await recordRemediationTarget({ policy, az, resourceGroup, state, report, log, options, sleep });
   report.fleetUnavailableEverywhere = report.regions.length > 0 && report.regions.every(item => item.fleetUnavailable);
   return report;
 }
@@ -255,13 +298,19 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
     return 2;
   }
   if (options.help || !options.mode) { log(USAGE); return options.help ? 0 : 2; }
-  if (!['deploy', 'check'].includes(options.mode) || !/^[a-z0-9-]+$/.test(options.scenario ?? '')) {
+  if (!['deploy', 'check', 'verify-target'].includes(options.mode) || !/^[a-z0-9-]+$/.test(options.scenario ?? '')) {
     console.error(USAGE);
     return 2;
   }
   try {
     const policy = await loadPolicy(path.join(repositoryRoot, 'scenarios', options.scenario, 'infra', 'placement.json'));
     const az = azFactory({ subscription: options.subscription ?? env.AZURE_SUBSCRIPTION_ID, env });
+    if (options.mode === 'verify-target') {
+      if (!options.resourceGroup || !options.target) throw new Error('verify-target requires --resource-group and --target');
+      await verifyRemediationTarget({ policy, az, resourceGroup: options.resourceGroup, target: options.target });
+      log(`${options.resourceGroup} still records ${options.target} and no VM uses another target.`);
+      return 0;
+    }
     if (options.mode === 'check') {
       const report = await runCheck({ policy, az, options, log: options.json ? () => {} : log });
       if (options.json) log(JSON.stringify(report, null, 2));
@@ -275,6 +324,12 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
         console.error(report.fleetUnavailableEverywhere && policy.fleetUnavailableDiagnostic
           ? policy.fleetUnavailableDiagnostic
           : `No supported region currently passes the ${policy.scenario} preflight.`);
+        return 1;
+      }
+      if (options.requireGroup && !report.resourceGroupReady) {
+        console.error(`${report.resourceGroup} is not ready for deploy: it must exist and either hold a verified ${policy.scenario} `
+          + `deployment or be an empty group tagged ${TAGS.scenario}=${policy.scenario}. Nothing was changed.`
+          + (report.resourceGroupMissing ? `\n${missingGroupMessage(policy, report.resourceGroup, options.location)}` : ''));
         return 1;
       }
       return 0;

@@ -843,12 +843,24 @@ async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, lo
   const result = { mode: 'pinned', resourceGroup, location: region, sku: pinnedSku, context, outputs };
   // Persist what this rerun established: designation for a verified legacy
   // group, and a newly selected remediation target so it is never re-selected.
-  const newTarget = remediationTarget && !state.remediationTarget;
+  let newTarget = remediationTarget && !state.remediationTarget;
+  if (newTarget) {
+    // Never overwrite a target another run recorded meanwhile.
+    const current = await az(['group', 'show', '--name', resourceGroup, '--output', 'json']).catch(error => {
+      throw Object.assign(new DiscoveryError(`re-reading ${resourceGroup}`, error), { partial: result });
+    });
+    const concurrent = current?.tags?.[TAGS.remediationTarget];
+    if (concurrent && lower(concurrent) !== lower(remediationTarget)) {
+      throw Object.assign(new PlacementError(`The rerun of ${resourceGroup} succeeded and was kept, but another run recorded remediation target `
+        + `${concurrent} meanwhile; ${remediationTarget} was not recorded. Nothing was resized or deleted.`), { partial: result });
+    }
+    if (concurrent) newTarget = false;
+  }
   if (ownership === 'legacy' || newTarget) {
     try {
       await recordPlacementTags(az, resourceGroup, {
         ...(ownership === 'legacy' ? { [TAGS.scenario]: policy.scenario, [TAGS.location]: region, [TAGS.sku]: pinnedSku } : {}),
-        [TAGS.remediationTarget]: remediationTarget,
+        ...(newTarget ? { [TAGS.remediationTarget]: remediationTarget } : {}),
       });
     } catch (error) {
       throw Object.assign(new PlacementError(`The rerun of ${resourceGroup} succeeded and was kept, but recording its designation/target tags failed `
@@ -872,6 +884,30 @@ export function resumableRemediationTarget(policy, state, resourceGroup) {
       + `record the intended one with: az group update --name ${resourceGroup} --set tags.${TAGS.remediationTarget}=<size>. Nothing was resized.`);
   }
   return resized[0] ?? null;
+}
+
+/**
+ * Verify, immediately before a resize, that the group still records `target`
+ * and that no VM was resized to a different remediation target (for example by
+ * a concurrent run whose claim lost). Divergence fails closed.
+ */
+export async function verifyRemediationTarget({ policy, az, resourceGroup, target }) {
+  const state = await inspectExisting(policy, resourceGroup, az);
+  const recorded = state.remediationTarget;
+  if (!recorded || lower(recorded) !== lower(target)) {
+    throw new PlacementError(`${resourceGroup} now records remediation target ${recorded ?? 'none'}, not ${target}; another run may be `
+      + 'migrating concurrently. Stopped before resizing; rerun once only one migration is active.');
+  }
+  const baseline = Number(policy.compute?.count ?? 0);
+  const foreign = (policy.remediationTargets ?? []).filter(other => lower(other) !== lower(target)).filter(other => {
+    const count = state.existing?.[lower(other)] ?? 0;
+    return count - (state.sku && lower(state.sku) === lower(other) ? baseline : 0) > 0;
+  });
+  if (foreign.length) {
+    throw new PlacementError(`${resourceGroup} records ${target} but VMs were already resized to ${foreign.join(', ')}; refusing to mix target `
+      + `families. Resolve manually (choose one size, then: az group update --name ${resourceGroup} --set tags.${TAGS.remediationTarget}=<size>).`);
+  }
+  return state;
 }
 
 export async function recordPlacementTags(az, resourceGroup, tags) {
@@ -946,8 +982,17 @@ export async function provision({
       const context = { ...evaluation.context };
       if (candidate.remediationTarget) context.remediationTarget = candidate.remediationTarget;
       log(`Attempting ${region}${candidate.sku ? ` with ${candidate.sku}` : ''} (deployment ${attemptName}) ...`);
-      let snapshot;
-      snapshot = new Set((await discover(`listing resources in ${resourceGroup}`, () => listGroupResources(az, resourceGroup))).map(item => lower(item.id)));
+      const listed = await discover(`listing resources in ${resourceGroup}`, () => listGroupResources(az, resourceGroup));
+      // Re-check emptiness right before writing: another writer may have added
+      // resources during the (possibly long) preflight, and a deployment would
+      // upsert them. This narrows, but cannot close, the window: no ARM primitive
+      // makes "group still empty" and "start deployment" atomic.
+      if (listed.length) {
+        throw new PlacementError(`${resourceGroup} was empty when checked but now contains ${listed.length} resource(s) `
+          + `(${listed.slice(0, 5).map(item => item.id).join(', ')}${listed.length > 5 ? ', ...' : ''}); another writer appears to be using it. `
+          + 'Nothing was deployed or deleted. Make sure only one run uses this group, then rerun.', { attempts });
+      }
+      const snapshot = new Set();
       if (scope === 'subscription') context.resourceGroupLocation = groupLocation;
       let outputs;
       try {

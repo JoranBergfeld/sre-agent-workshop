@@ -60,7 +60,8 @@ preflight_failed() {
 }
 command -v node >/dev/null 2>&1 || preflight_failed "Node.js 20+ is required for the quota preflight."
 PREFLIGHT=$(node "$REPO_ROOT/scripts/placement/provision.mjs" check vm-size-retirement \
-  --resource-group "$RESOURCE_GROUP" --parts targets --no-region-fallback --record-target --json) \
+  --resource-group "$RESOURCE_GROUP" --parts targets --no-region-fallback --record-target \
+  --claim-settle-seconds "${SRE_TARGET_CLAIM_SETTLE_SECONDS:-30}" --json) \
   || preflight_failed "the recorded remediation target lacks eligibility or quota for the whole retiring fleet (see above)."
 TARGET_SIZE=$(printf '%s' "$PREFLIGHT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);if(!r.pinnedLocation||!r.remediationTarget)process.exit(1);process.stdout.write(r.remediationTarget)})') \
   || preflight_failed "no recorded same-region remediation target was found for $RESOURCE_GROUP."
@@ -69,6 +70,10 @@ echo "Preflight passed: resizing in ${RESOURCE_GROUP}'s region to $TARGET_SIZE."
 while IFS= read -r vm; do
   [ -z "$vm" ] && continue
   CURRENT_VM="$vm"
+  # Re-verify before every resize: the recorded target is unchanged and no VM
+  # was resized to another target by a concurrent run (fails closed).
+  node "$REPO_ROOT/scripts/placement/provision.mjs" verify-target vm-size-retirement \
+    --resource-group "$RESOURCE_GROUP" --target "$TARGET_SIZE" >/dev/null
   echo "Resizing $vm -> $TARGET_SIZE ..."
   az vm resize --resource-group "$RESOURCE_GROUP" --name "$vm" --size "$TARGET_SIZE" --only-show-errors >/dev/null
   COUNT=$((COUNT + 1))

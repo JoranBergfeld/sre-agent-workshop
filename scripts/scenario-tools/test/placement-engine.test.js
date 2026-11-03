@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import {
   AzError, DiscoveryError, PlacementError, TAGS, assessFailedAttempt, classifyFailure, createAzRunner, evaluateRegion,
   inspectExisting, loadPolicy, orderedRegions, persistPlacement, preferredSkus, provision, quotaShortfall,
-  reconcilePinnedRegion, skuIneligibility, validatePolicy,
+  reconcilePinnedRegion, skuIneligibility, validatePolicy, verifyRemediationTarget,
 } from '../../placement/placement.mjs';
 import { buildParameters, main, resolveNames, runCheck } from '../../placement/provision.mjs';
 
@@ -1023,7 +1023,7 @@ test('a retirement target is proposed read-only by check and persisted (and veri
   const baseline = [{ size: 'Standard_B2s', location: 'eastus2' }, { size: 'Standard_B2s', location: 'eastus2' }];
   const legacy = [{ size: 'Standard_DS1_v2', location: 'eastus2' }, { size: 'Standard_DS2_v2', location: 'eastus2' }, { size: 'Standard_DS1_v2', location: 'eastus2' }];
   const targetsOnly = { services: false, compute: false, fleet: false, targets: true };
-  const options = extra => ({ workload: 'test', resourceGroup: 'rg-test', parts: targetsOnly, noRegionFallback: true, ...extra });
+  const options = extra => ({ workload: 'test', resourceGroup: 'rg-test', parts: targetsOnly, noRegionFallback: true, claimSettleMs: 0, ...extra });
 
   const readOnly = fakeAzure({ groups: groups(), vms: { 'rg-test': [...baseline, ...legacy] }, scenario: policy.scenario });
   const proposed = await runCheck({ policy, az: readOnly.az, options: options(), log: silent });
@@ -1068,4 +1068,92 @@ test('a retirement target is proposed read-only by check and persisted (and veri
   const originalAz = lost.az;
   const dropUpdates = async args => (args[0] === 'group' && args[1] === 'update' ? {} : originalAz(args));
   await assert.rejects(runCheck({ policy, az: dropUpdates, options: options({ recordTarget: true }), log: silent }), /could not be confirmed/);
+});
+
+test('concurrent first target claims never both resize with different families', async () => {
+  const policy = await loadPolicy(policyFile('vm-size-retirement'));
+  const groups = () => ({ 'rg-test': { location: 'eastus2', tags: { [TAGS.scenario]: policy.scenario, [TAGS.location]: 'eastus2', [TAGS.sku]: 'Standard_B2s' } } });
+  const baseline = [{ size: 'Standard_B2s', location: 'eastus2' }, { size: 'Standard_B2s', location: 'eastus2' }];
+  const legacy = [{ size: 'Standard_DS1_v2', location: 'eastus2' }, { size: 'Standard_DS2_v2', location: 'eastus2' }, { size: 'Standard_DS1_v2', location: 'eastus2' }];
+  const options = { workload: 'test', resourceGroup: 'rg-test', parts: { services: false, compute: false, fleet: false, targets: true },
+    noRegionFallback: true, recordTarget: true, claimSettleMs: 5 };
+  const otherTag = state => { state.groups['rg-test'].tags[TAGS.remediationTarget] = 'Standard_D2as_v5'; };
+
+  // 1. B's claim lands between A's check and A's write: A refuses to overwrite it.
+  const early = fakeAzure({ groups: groups(), vms: { 'rg-test': [...baseline, ...legacy] }, scenario: policy.scenario });
+  let checks = 0;
+  const earlyAz = async args => {
+    if (args[0] === 'group' && args[1] === 'show' && ++checks === 2) otherTag(early.state);
+    return early.az(args);
+  };
+  await assert.rejects(runCheck({ policy, az: earlyAz, options, log: silent, sleep: async () => {} }), /Another run recorded remediation target Standard_D2as_v5/);
+  assert.equal(early.state.groups['rg-test'].tags[TAGS.remediationTarget], 'Standard_D2as_v5', 'the concurrent claim is never overwritten');
+
+  // 2. B overwrites A's claim during A's settle interval: A detects it before any resize.
+  const settle = fakeAzure({ groups: groups(), vms: { 'rg-test': [...baseline, ...legacy] }, scenario: policy.scenario });
+  let slept = 0;
+  await assert.rejects(runCheck({ policy, az: settle.az, options, log: silent, sleep: async ms => { slept = ms; otherTag(settle.state); } }),
+    /now records remediation target Standard_D2as_v5.*claim lost/);
+  assert.equal(slept, 5, 'the settle interval is honoured');
+  assert.ok(!settle.calls.some(args => args[0] === 'vm' && args[1] === 'resize'));
+
+  // 3. B's write lands only after A confirmed (residual window): per-resize
+  //    verification stops A before its next resize, and a fleet already holding
+  //    another target family fails closed even when the tag matches.
+  const late = fakeAzure({ groups: groups(), vms: { 'rg-test': [...baseline, ...legacy] }, scenario: policy.scenario });
+  const report = await runCheck({ policy, az: late.az, options, log: silent, sleep: async () => {} });
+  assert.equal(report.remediationTarget, 'Standard_D2s_v5');
+  await verifyRemediationTarget({ policy, az: late.az, resourceGroup: 'rg-test', target: 'Standard_D2s_v5' });
+  otherTag(late.state);
+  await assert.rejects(verifyRemediationTarget({ policy, az: late.az, resourceGroup: 'rg-test', target: 'Standard_D2s_v5' }), /now records remediation target Standard_D2as_v5/);
+  const mixed = fakeAzure({ groups: { 'rg-test': { ...groups()['rg-test'], tags: { ...groups()['rg-test'].tags, [TAGS.remediationTarget]: 'Standard_D2s_v5' } } },
+    vms: { 'rg-test': [...baseline, { size: 'Standard_D2as_v5', location: 'eastus2' }, ...legacy.slice(1)] }, scenario: policy.scenario });
+  await assert.rejects(verifyRemediationTarget({ policy, az: mixed.az, resourceGroup: 'rg-test', target: 'Standard_D2s_v5' }), /already resized to Standard_D2as_v5; refusing to mix/);
+
+  // A deploy rerun never overwrites a target another run recorded meanwhile.
+  const partial = [{ size: 'Standard_D2as_v5', location: 'eastus2' }, { size: 'Standard_DS2_v2', location: 'eastus2' }, { size: 'Standard_DS1_v2', location: 'eastus2' }];
+  const rerun = fakeAzure({ groups: groups(), vms: { 'rg-test': [...baseline, ...partial] }, scenario: policy.scenario,
+    onDeploy: state => { state.groups['rg-test'].tags[TAGS.remediationTarget] = 'Standard_D2s_v4'; } });
+  await assert.rejects(provision({ policy, az: rerun.az, deploy: rerun.deploy, resourceGroup: 'rg-test', log: silent }), /another run recorded remediation target Standard_D2s_v4/);
+  assert.equal(rerun.state.groups['rg-test'].tags[TAGS.remediationTarget], 'Standard_D2s_v4');
+});
+
+test('first placement aborts before deploying when the empty group gains resources during preflight', async () => {
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const fake = fakeAzure({});
+  let injected = false;
+  const az = async args => {
+    if (!injected && args[0] === 'vm' && args[1] === 'list-skus') {
+      injected = true;
+      fake.state.resources['rg-test'] = [{ id: rid('rg-test', 'Microsoft.Network/virtualNetworks', 'someone-elses'), type: 'Microsoft.Network/virtualNetworks', location: 'eastus2' }];
+    }
+    return fake.az(args);
+  };
+  await assert.rejects(provision({ policy, az, deploy: fake.deploy, resourceGroup: 'rg-test', log: silent }),
+    /was empty when checked but now contains 1 resource\(s\).*Nothing was deployed or deleted/s);
+  assert.equal(fake.deployments.length, 0, 'no deployment is started');
+  assert.ok(!fake.calls.some(args => args[0] === 'resource' && args[1] === 'delete'));
+  assert.equal(fake.state.resources['rg-test'].length, 1);
+});
+
+test('check --require-group fails without writing unless the group is ready for deploy', async () => {
+  const errors = [];
+  const originalError = console.error;
+  console.error = message => errors.push(message);
+  const writes = fake => fake.calls.filter(args => ['create', 'update', 'delete'].includes(args[1]) || ['create', 'delete'].includes(args[2]));
+  const args = ['check', 'cpu-runaway', '--workload', 'test', '--resource-group', 'rg-test', '--require-group'];
+  try {
+    const missing = fakeAzure({ groups: {} });
+    assert.equal(await main(args, { azFactory: () => missing.az, log: silent, env: {} }), 1);
+    assert.ok(errors.some(message => /not ready for deploy[\s\S]*az group create --name rg-test/.test(message)));
+    const undesignated = fakeAzure({ groups: { 'rg-test': { location: 'eastus2', tags: {} } } });
+    assert.equal(await main(args, { azFactory: () => undesignated.az, log: silent, env: {} }), 1);
+    const designated = fakeAzure({});
+    assert.equal(await main(args, { azFactory: () => designated.az, log: silent, env: {} }), 0);
+    for (const fake of [missing, undesignated, designated]) assert.deepEqual(writes(fake), []);
+    // Without --require-group a plain eligibility check still succeeds.
+    assert.equal(await main(args.slice(0, -1), { azFactory: () => fakeAzure({ groups: {} }).az, log: silent, env: {} }), 0);
+  } finally {
+    console.error = originalError;
+  }
 });

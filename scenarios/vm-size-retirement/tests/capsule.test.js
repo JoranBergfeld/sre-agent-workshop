@@ -250,7 +250,7 @@ test('Bash approval gate writes a terminal failure audit when remediation exits 
       'CHG-70707',
     ],
     {
-      env: { SRE_OUTPUT_DIR: outputDirectory },
+      env: { SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0' },
       input: 'APPROVE\n',
     },
   );
@@ -294,7 +294,7 @@ for (const [label, command, arguments_] of [
   test(`${label} approval gate denies a non-APPROVE response without auditing`, (t) => {
     const outputDirectory = createTemporaryAuditDirectory(t);
     const result = run(command, arguments_, {
-      env: { SRE_OUTPUT_DIR: outputDirectory },
+      env: { SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0' },
       input: 'DENY\n',
     });
 
@@ -337,7 +337,7 @@ test('approval gates migrate with mocked Azure CLI and write only temporary audi
     const result = run(command, arguments_, {
       env: {
         PATH: `${fixtureDirectory}:${process.env.PATH}`,
-        SRE_OUTPUT_DIR: outputDirectory,
+        SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0',
         AZ_SUCCESS_TRACE: tracePath,
       },
       input: 'APPROVE\n',
@@ -380,7 +380,7 @@ for (const [label, command, arguments_] of [
     const result = run(command, arguments_, {
       env: {
         PATH: `${capsulePath('tests/fixtures/az-success')}:${process.env.PATH}`,
-        SRE_OUTPUT_DIR: outputDirectory,
+        SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0',
         AZ_SUCCESS_TRACE: tracePath,
         AZ_SUCCESS_QUOTA_SHORT: '1',
       },
@@ -404,7 +404,7 @@ for (const [label, command, arguments_] of [
     const result = run(command, arguments_, {
       env: {
         PATH: `${capsulePath('tests/fixtures/az-success')}:${process.env.PATH}`,
-        SRE_OUTPUT_DIR: outputDirectory,
+        SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0',
         AZ_SUCCESS_TRACE: tracePath,
         AZ_SUCCESS_TAG_STATE: tagState,
         ...extra,
@@ -430,6 +430,15 @@ for (const [label, command, arguments_] of [
     assert.match(output, /resizing in .* region to Standard_D2as_v5/);
     assert.equal(readFileSync(tagState, 'utf8'), 'Standard_D2as_v5', 'never re-selects another family');
     assert.ok(readFileSync(tracePath, 'utf8').trim().split('\n').every((line) => line.includes('--size Standard_D2as_v5')));
+  });
+
+  test(`${label} migration stops before the next resize when a concurrent run changes the recorded target`, (t) => {
+    const { result, output, tracePath, tagState } = runMigration(t, { AZ_SUCCESS_CONCURRENT_TARGET: 'Standard_D2as_v5' });
+    assert.notEqual(result.status, 0, output);
+    assert.match(output, /now records remediation target Standard_D2as_v5/);
+    const resizes = readFileSync(tracePath, 'utf8').trim().split('\n');
+    assert.equal(resizes.length, 1, 'only the resize that preceded the concurrent claim ran');
+    assert.equal(readFileSync(tagState, 'utf8'), 'Standard_D2as_v5', 'the other run\'s claim is not overwritten');
   });
 
   test(`${label} migration resizes nothing when recording the target cannot be confirmed`, (t) => {
@@ -458,7 +467,7 @@ test('PowerShell approval gate audits an approved no-op migration', (t) => {
     {
       env: {
         PATH: `${fixtureDirectory}:${process.env.PATH}`,
-        SRE_OUTPUT_DIR: outputDirectory,
+        SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0',
         AZ_SUCCESS_EMPTY: '1',
       },
       input: 'APPROVE\n',
@@ -509,7 +518,7 @@ for (const [label, command, arguments_] of [
     const result = run(command, arguments_, {
       env: {
         PATH: `${fixtureDirectory}:${process.env.PATH}`,
-        SRE_OUTPUT_DIR: outputDirectory,
+        SRE_OUTPUT_DIR: outputDirectory, SRE_TARGET_CLAIM_SETTLE_SECONDS: '0',
         AZ_SUCCESS_TRACE: tracePath,
         AZ_SUCCESS_FAIL_VM: 'srelabretirement-legacy-02',
       },
