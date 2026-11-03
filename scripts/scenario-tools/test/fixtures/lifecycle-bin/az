@@ -72,6 +72,8 @@ JSON
   *" functionapp config appsettings list "*)
     printf '%s\n' "${LIFECYCLE_AZ_SCM_BUILD_SETTING:-}"
     ;;
+  *" functionapp config appsettings delete "*)
+    ;;
   *" functionapp config appsettings set "*)
     if [ "${LIFECYCLE_AZ_FAIL_APPSETTINGS_SET:-}" = "1" ]; then
       echo 'simulated app settings write failure' >&2

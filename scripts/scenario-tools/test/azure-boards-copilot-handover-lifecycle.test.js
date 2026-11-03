@@ -29,7 +29,7 @@ function runBash(script, args = [], env = {}) {
   return spawnSync('bash', [resolve(scriptsDirectory, script), ...args], {
     cwd: repositoryRoot,
     encoding: 'utf8',
-    env: { ...process.env, PATH: mockedLifecyclePath, ...env },
+    env: { ...process.env, PATH: mockedLifecyclePath, REAL_NODE: process.execPath, ...env },
   });
 }
 
@@ -40,7 +40,7 @@ function runPowerShell(script, args = [], env = {}) {
     {
       cwd: repositoryRoot,
       encoding: 'utf8',
-      env: { ...process.env, PATH: mockedLifecyclePath, ...env },
+      env: { ...process.env, PATH: mockedLifecyclePath, REAL_NODE: process.execPath, ...env },
     }
   );
 }
@@ -60,6 +60,7 @@ function healthyStatusBody(overrides = {}) {
     incidentBatchId: 'v2-incident-orders',
     incidentBatchInjected: true,
     deployedCommitSha: localHeadSha,
+    packageCommitSha: localHeadSha,
     deployedAtUtc: '2026-08-17T13:52:55Z',
     normalizedReceiptCount: 23,
     v1ReceiptCount: 3,
@@ -228,12 +229,12 @@ test('Deploy stamps the current git HEAD SHA and a UTC timestamp as Function app
       shell === 'Bash'
         ? runBash(
             'deploy.sh',
-            ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+            ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
             { LIFECYCLE_AZ_LOG_PATH: logPath, LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody() }
           )
         : runPowerShell(
             'deploy.ps1',
-            ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'],
+            ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func', '-BuildMode', 'source'],
             { LIFECYCLE_AZ_LOG_PATH: logPath, LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody() }
           );
     assert.equal(result.status, 0, `${shell}: ${result.stderr}\n${result.stdout}`);
@@ -251,39 +252,24 @@ test('Deploy stamps the current git HEAD SHA and a UTC timestamp as Function app
   }
 });
 
-test('Deploy sets remote build only when it is not already enabled', () => {
-  const alreadyEnabledLog = resolve(scratchDir(), 'az.log');
-  const notEnabledLog = resolve(scratchDir(), 'az.log');
-
-  const alreadyEnabled = runBash(
-    'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
-    {
-      LIFECYCLE_AZ_LOG_PATH: alreadyEnabledLog,
-      LIFECYCLE_AZ_SCM_BUILD_SETTING: 'true',
-      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
-    }
-  );
-  assert.equal(alreadyEnabled.status, 0, alreadyEnabled.stderr);
-  assert.doesNotMatch(
-    readFileSync(alreadyEnabledLog, 'utf8'),
-    /appsettings set[^\n]*SCM_DO_BUILD_DURING_DEPLOYMENT/
-  );
-
-  const notEnabled = runBash(
-    'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
-    {
-      LIFECYCLE_AZ_LOG_PATH: notEnabledLog,
-      LIFECYCLE_AZ_SCM_BUILD_SETTING: '',
-      LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
-    }
-  );
-  assert.equal(notEnabled.status, 0, notEnabled.stderr);
-  assert.match(
-    readFileSync(notEnabledLog, 'utf8'),
-    /functionapp config appsettings set.*SCM_DO_BUILD_DURING_DEPLOYMENT=true/
-  );
+test('Source-mode deploy always resets both remote-build switches, even when already enabled', () => {
+  for (const setting of ['true', '']) {
+    const logPath = resolve(scratchDir(), 'az.log');
+    const result = runBash(
+      'deploy.sh',
+      ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
+      {
+        LIFECYCLE_AZ_LOG_PATH: logPath,
+        LIFECYCLE_AZ_SCM_BUILD_SETTING: setting,
+        LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
+      }
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const log = readFileSync(logPath, 'utf8');
+    assert.match(log, /functionapp config appsettings set[^\n]*SCM_DO_BUILD_DURING_DEPLOYMENT=true/, setting);
+    assert.match(log, /functionapp config appsettings set[^\n]*ENABLE_ORYX_BUILD=true/, setting);
+    assert.match(log, /functionapp config appsettings delete[^\n]*WEBSITE_RUN_FROM_PACKAGE/, setting);
+  }
 });
 
 test('Deploy runs the app baseline quality gates from the current checkout', () => {
@@ -298,13 +284,13 @@ test('Deploy runs the app baseline quality gates from the current checkout', () 
   }
 });
 
-test('Deploy refuses a checkout with tracked changes before resolving HEAD', () => {
+test('Deploy refuses a checkout with tracked or untracked application changes before resolving HEAD', () => {
   const bash = readScript('deploy.sh');
   const powershell = readScript('deploy.ps1');
 
   for (const source of [bash, powershell]) {
-    assert.match(source, /git status --porcelain --untracked-files=no/);
-    assert.match(source, /Refusing to deploy from a checkout with tracked changes/);
+    assert.match(source, /git status --porcelain --untracked-files=all/);
+    assert.match(source, /Refusing to deploy from a checkout with tracked or untracked application changes/);
   }
 });
 
@@ -321,6 +307,8 @@ test('Deploy zips only runtime files (excludes venv and tests) and cleans temp f
       'srelabboardshandover-rg',
       '--app-name',
       'test-func',
+      '--build-mode',
+      'source',
       '--keep-temp',
     ],
     {
@@ -348,7 +336,7 @@ test('Deploy zips only runtime files (excludes venv and tests) and cleans temp f
 
   const cleanupResult = runBash(
     'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
     { LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody() }
   );
   assert.equal(cleanupResult.status, 0, cleanupResult.stderr);
@@ -360,7 +348,7 @@ test('Deploy waits (bounded) for the keyed status endpoint to report the deploye
 
   const eventuallySucceeds = runBash(
     'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
     {
       LIFECYCLE_CURL_STATUS_COUNTER_FILE: counterFile,
       LIFECYCLE_CURL_STATUS_PENDING_ATTEMPTS: '2',
@@ -376,7 +364,7 @@ test('Deploy waits (bounded) for the keyed status endpoint to report the deploye
 
   const neverSucceeds = runBash(
     'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
     {
       LIFECYCLE_CURL_STATUS_COUNTER_FILE: counterFile,
       LIFECYCLE_CURL_STATUS_PENDING_ATTEMPTS: '999',
@@ -392,8 +380,8 @@ test('Deploy waits (bounded) for the keyed status endpoint to report the deploye
 
 test('Deploy stamps DEPLOYED_COMMIT_SHA and deploys before proving go-live, and only stamps DEPLOYED_AT_UTC after the new SHA is confirmed live (cutover ordering, Bash/PowerShell parity)', () => {
   const cases = [
-    ['Bash', 'deploy.sh', ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'], runBash],
-    ['PowerShell', 'deploy.ps1', ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func'], runPowerShell],
+    ['Bash', 'deploy.sh', ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'], runBash],
+    ['PowerShell', 'deploy.ps1', ['-ResourceGroup', 'srelabboardshandover-rg', '-AppName', 'test-func', '-BuildMode', 'source'], runPowerShell],
   ];
 
   for (const [shell, script, args, run] of cases) {
@@ -439,7 +427,7 @@ test('Deploy re-confirms (bounded) that the app is coherent after stamping DEPLO
 
   const eventuallyCoherent = runBash(
     'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
     {
       LIFECYCLE_AZ_ATUTC_MARKER_FILE: markerFile,
       LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE: cutoverCounterFile,
@@ -459,7 +447,7 @@ test('Deploy re-confirms (bounded) that the app is coherent after stamping DEPLO
 
   const neverCoherent = runBash(
     'deploy.sh',
-    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func'],
+    ['--resource-group', 'srelabboardshandover-rg', '--app-name', 'test-func', '--build-mode', 'source'],
     {
       LIFECYCLE_AZ_ATUTC_MARKER_FILE: markerFile,
       LIFECYCLE_CURL_STATUS_CUTOVER_COUNTER_FILE: cutoverCounterFile,
@@ -479,22 +467,43 @@ test('Deploy re-confirms (bounded) that the app is coherent after stamping DEPLO
   assert.equal(readFileSync(cutoverCounterFile, 'utf8').trim(), '2');
 });
 
-test('Setup provisions the subscription-scope Bicep template and captures its outputs', () => {
-  const bash = readScript('setup.sh');
-  const powershell = readScript('setup.ps1');
+test('Setup provisions the subscription-scope Bicep template through the placement engine and captures its outputs', () => {
+  for (const source of [readScript('setup.sh'), readScript('setup.ps1')]) {
+    assert.match(source, /scripts\/placement\/provision\.mjs/);
+    assert.match(source, /'?check'?/);
+    assert.match(source, /--require-group/);
+    assert.match(source, /--outputs-file/);
+    assert.match(source, /infra\/bicep\/main\.bicep/);
+    assert.doesNotMatch(source, /az deployment sub create/);
+  }
+});
 
-  assert.match(bash, /az deployment sub create/);
-  assert.match(bash, /infra\/bicep\/main\.bicep/);
-  assert.match(bash, /properties\.outputs/);
-  assert.match(powershell, /az deployment sub create/);
-  assert.match(powershell, /infra\/bicep\/main\.bicep/);
+test('Setup changes nothing when the ownership check or the default artifact is unavailable', () => {
+  for (const [label, env, args] of [
+    ['ownership', { LIFECYCLE_PLACEMENT_CHECK_FAIL: '1' }, ['source', 'source']],
+    ['artifact', {}, ['artifact', 'artifact']],
+  ]) {
+    for (const [shell, result, logPath] of [['Bash', 'sh'], ['PowerShell', 'ps1']].map(([name, ext]) => {
+      const log = resolve(scratchDir(), 'az.log');
+      const run = ext === 'sh'
+        ? runBash('setup.sh', ['--workload', 'srelabboardshandover', '--build-mode', args[0]], { ...env, LIFECYCLE_AZ_LOG_PATH: log, RETRY_DELAY_SECONDS: '0' })
+        : runPowerShell('setup.ps1', ['-Workload', 'srelabboardshandover', '-BuildMode', args[1]], { ...env, LIFECYCLE_AZ_LOG_PATH: log, RETRY_DELAY_SECONDS: '0' });
+      return [name, run, log];
+    })) {
+      assert.notEqual(result.status, 0, `${label} ${shell}`);
+      const calls = existsSync(logPath) ? readFileSync(logPath, 'utf8') : '';
+      assert.match(calls, /provision\.mjs check/, `${label} ${shell}`);
+      assert.doesNotMatch(calls, /provision\.mjs deploy|provider register|appsettings set|config-zip|deployment sub/, `${label} ${shell}: ${calls}`);
+      if (label === 'artifact') assert.match(`${result.stdout}${result.stderr}`, /gh workflow run validate-azure-boards-copilot-handover-app\.yml/, shell);
+    }
+  }
 });
 
 test('Setup deploys the current checkout, seeds v1 controls exactly once, and prints keyed URLs without the seed URL', () => {
   for (const [shell, result] of bothShells(
     'setup.sh',
-    ['--workload', 'srelabboardshandover'],
-    ['-Workload', 'srelabboardshandover'],
+    ['--workload', 'srelabboardshandover', '--build-mode', 'source'],
+    ['-Workload', 'srelabboardshandover', '-BuildMode', 'source'],
     {
       LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
       RETRY_DELAY_SECONDS: '0',
@@ -511,7 +520,7 @@ test('Setup deploys the current checkout, seeds v1 controls exactly once, and pr
 test('Setup retries seeding v1 controls with bounded attempts for Function startup/RBAC propagation', () => {
   const succeeds = runBash(
     'setup.sh',
-    ['--workload', 'srelabboardshandover'],
+    ['--workload', 'srelabboardshandover', '--build-mode', 'source'],
     {
       LIFECYCLE_AZ_KEYS_FAIL_ATTEMPTS: '2',
       LIFECYCLE_AZ_KEYS_COUNTER_FILE: resolve(
@@ -527,7 +536,7 @@ test('Setup retries seeding v1 controls with bounded attempts for Function start
 
   const timesOut = runBash(
     'setup.sh',
-    ['--workload', 'srelabboardshandover'],
+    ['--workload', 'srelabboardshandover', '--build-mode', 'source'],
     {
       LIFECYCLE_AZ_KEYS_FAIL_ATTEMPTS: '999',
       LIFECYCLE_AZ_KEYS_COUNTER_FILE: resolve(
@@ -547,7 +556,7 @@ test('PowerShell setup retries a transient deploy.ps1 throw instead of aborting 
   const statusCounterFile = resolve(scratchDir(), 'status-counter');
   const result = runPowerShell(
     'setup.ps1',
-    ['-Workload', 'srelabboardshandover'],
+    ['-Workload', 'srelabboardshandover', '-BuildMode', 'source'],
     {
       LIFECYCLE_AZ_LOG_PATH: azLogPath,
       LIFECYCLE_CURL_STATUS_BODY: healthyStatusBody(),
@@ -562,7 +571,7 @@ test('PowerShell setup retries a transient deploy.ps1 throw instead of aborting 
 
   assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
   assert.match(result.stdout, /Deploy attempt 1 failed; retrying in 0s\./);
-  assert.match(result.stdout, /Timed out after 2 attempts: status endpoint did not report DEPLOYED_COMMIT_SHA=/);
+  assert.match(result.stdout, /Timed out after 2 attempts: status endpoint did not report matching deployment and embedded package SHA=/);
   assert.equal(
     readFileSync(azLogPath, 'utf8').match(/functionapp deployment source config-zip /g)?.length,
     2,
@@ -574,7 +583,7 @@ test('Setup seeding v1 controls is idempotent: a repeat call reports already-inj
   const logPath = resolve(scratchDir(), 'curl.log');
   const result = runBash(
     'setup.sh',
-    ['--workload', 'srelabboardshandover'],
+    ['--workload', 'srelabboardshandover', '--build-mode', 'source'],
     {
       LIFECYCLE_CURL_SEED_CODE: '200',
       LIFECYCLE_CURL_SEED_BODY: '{"controlBatchAlreadyInjected":true,"eventsEnqueued":0}',

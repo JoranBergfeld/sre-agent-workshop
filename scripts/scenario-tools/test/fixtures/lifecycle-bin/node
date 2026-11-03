@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Intercepts only the placement engine and artifact resolver; everything else
+# runs on the real Node.js (REAL_NODE).
+set -euo pipefail
+case "${1:-}" in
+  scripts/placement/provision.mjs)
+    if [ -n "${LIFECYCLE_AZ_LOG_PATH:-}" ]; then printf 'placement %s\n' "$*" >> "$LIFECYCLE_AZ_LOG_PATH"; fi
+    if [ "$2" = check ]; then
+      if [ "${LIFECYCLE_PLACEMENT_CHECK_FAIL:-}" = "1" ]; then echo 'Resource group is not ready for this scenario.' >&2; exit 1; fi
+      exit 0
+    fi
+    outputs_file=""
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = --outputs-file ]; then outputs_file="$2"; fi
+      shift
+    done
+    "$(dirname -- "$0")/az" deployment sub create > "$outputs_file"
+    ;;
+  scripts/build-artifacts/resolve.mjs)
+    if [ -n "${LIFECYCLE_AZ_LOG_PATH:-}" ]; then printf 'resolve %s\n' "$*" >> "$LIFECYCLE_AZ_LOG_PATH"; fi
+    echo 'Artifact resolution failed: no successful build for this commit. Run: gh workflow run validate-azure-boards-copilot-handover-app.yml --ref HEAD' >&2
+    exit 1
+    ;;
+  *)
+    exec "${REAL_NODE:?REAL_NODE must be set}" "$@"
+    ;;
+esac

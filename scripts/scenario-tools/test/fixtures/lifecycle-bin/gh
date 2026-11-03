@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Lifecycle fake: present on PATH so artifact-mode prerequisites pass; the
+# resolver itself is faked by the sibling node shim. Any real gh call fails.
+[[ -n "${LIFECYCLE_AZ_LOG_PATH:-}" ]] && printf "gh %s\n" "$*" >> "$LIFECYCLE_AZ_LOG_PATH"
+echo "fake gh: unsupported command: $*" >&2
+exit 1
