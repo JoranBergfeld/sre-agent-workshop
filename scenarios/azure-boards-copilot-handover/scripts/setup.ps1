@@ -67,7 +67,7 @@ Write-Host "========================================"
 Write-Host "Workload: $Workload"
 Write-Host "Location: $Location"
 
-foreach ($requiredCommand in @('az', 'curl', 'jq')) {
+foreach ($requiredCommand in @('az', 'curl', 'jq', 'node')) {
     if (-not (Get-Command $requiredCommand -ErrorAction SilentlyContinue)) {
         throw "Required command not found: $requiredCommand"
     }
@@ -81,21 +81,31 @@ $activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = 
 if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', but active subscription is '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }
 Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 
-Write-Host "Provisioning subscription-scope infrastructure (infra/bicep/main.bicep)..."
-$deploymentOutputs = az deployment sub create `
-    --location $Location `
-    --template-file (Join-Path $ScenarioDir 'infra/bicep/main.bicep') `
-    --parameters "location=$Location" "workloadName=$Workload" `
-    --query properties.outputs `
-    --output json
-if ($LASTEXITCODE -ne 0) { throw "Subscription-scope infrastructure deployment failed." }
+# The shared placement engine deploys infra/bicep/main.bicep into the resource
+# group the operator pre-created and designated (it never creates or upserts a
+# group), choosing the first eligible region and retrying only proven
+# non-mutating capacity/SKU/quota rejections. An existing deployment is never
+# relocated. Options: scripts/placement/provision.mjs --help
+Write-Host "Provisioning subscription-scope infrastructure (infra/bicep/main.bicep) via scripts/placement..."
+$placementArguments = @('scripts/placement/provision.mjs', 'deploy', 'azure-boards-copilot-handover', '--location', $Location, '--workload', $Workload)
+if ($ResourceGroupSet) { $placementArguments += @('--resource-group', $ResourceGroup) }
+$outputsFile = [System.IO.Path]::GetTempFileName()
+try {
+    Push-Location $RepoRoot
+    try { & node @placementArguments --outputs-file $outputsFile } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "Infrastructure provisioning failed; see the placement output above." }
+    $deploymentOutputs = Get-Content -Raw $outputsFile
+}
+finally {
+    Remove-Item -LiteralPath $outputsFile -Force -ErrorAction SilentlyContinue
+}
 
 $discoveredResourceGroup = [string]($deploymentOutputs | jq -er '.resourceGroupName.value').Trim()
 $functionApp = [string]($deploymentOutputs | jq -er '.functionAppName.value').Trim()
 $functionHostname = [string]($deploymentOutputs | jq -er '.functionAppHostName.value').Trim()
 
 if ($ResourceGroupSet -and $ResourceGroup -ne $discoveredResourceGroup) {
-    Write-Warning "Requested resource group '$ResourceGroup' differs from the provisioned resource group '$discoveredResourceGroup'; using the provisioned one."
+    throw "Requested resource group '$ResourceGroup' differs from the provisioned resource group '$discoveredResourceGroup'."
 }
 $ResourceGroup = $discoveredResourceGroup
 

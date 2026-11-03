@@ -49,6 +49,15 @@
     "scenario": "iis-app-pool",
     "environment": "demo"
   },
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "iis-app-pool"
+    },
+    "resourceTags": {
+      "scenario": "iis-app-pool"
+    }
+  },
   "deployment": {
     "scope": "group",
     "template": "infra/bicep/main.bicep",

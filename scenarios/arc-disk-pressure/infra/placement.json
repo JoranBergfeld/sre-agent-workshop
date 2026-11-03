@@ -53,6 +53,15 @@
     "scenario": "arc-disk-pressure",
     "environment": "demo"
   },
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "arc-disk-pressure"
+    },
+    "resourceTags": {
+      "scenario": "arc-disk-pressure"
+    }
+  },
   "deployment": {
     "scope": "group",
     "template": "infra/bicep/main.bicep",

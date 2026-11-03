@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Provisions the Azure Boards Copilot Handover scenario end-to-end: creates the
-# subscription-scope infrastructure, deploys the current (intentionally
+# Provisions the Azure Boards Copilot Handover scenario end-to-end: deploys the
+# subscription-scope infrastructure into a pre-created designated group, deploys the current (intentionally
 # flawed, v1-only) checkout, seeds the deterministic v1 control events, and
 # prints the keyed workshop URLs a learner needs next.
 set -euo pipefail
@@ -86,7 +86,7 @@ echo "========================================"
 echo "Workload: $WORKLOAD"
 echo "Location: $LOCATION"
 
-for required_command in az curl jq; do
+for required_command in az curl jq node; do
   if ! command -v "$required_command" >/dev/null 2>&1; then
     echo "Required command not found: $required_command" >&2
     exit 1
@@ -101,20 +101,30 @@ if [ -z "$active_subscription_id" ] || [ -z "$active_subscription_name" ]; then 
 if [ -n "$requested_subscription_id" ] && [ "$active_subscription_id" != "$requested_subscription_id" ]; then echo "Azure subscription mismatch: requested '$requested_subscription_id', but active subscription is '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; fi
 echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 
-echo "Provisioning subscription-scope infrastructure (infra/bicep/main.bicep)..."
-DEPLOYMENT_OUTPUTS=$(az deployment sub create \
-  --location "$LOCATION" \
-  --template-file "$SCENARIO_DIR/infra/bicep/main.bicep" \
-  --parameters location="$LOCATION" workloadName="$WORKLOAD" \
-  --query properties.outputs \
-  --output json)
+# The shared placement engine deploys infra/bicep/main.bicep into the resource
+# group the operator pre-created and designated (it never creates or upserts a
+# group), choosing the first eligible region and retrying only proven
+# non-mutating capacity/SKU/quota rejections. An existing deployment is never
+# relocated. Options: scripts/placement/provision.mjs --help
+echo "Provisioning subscription-scope infrastructure (infra/bicep/main.bicep) via scripts/placement..."
+PLACEMENT_ARGS=(deploy azure-boards-copilot-handover --location "$LOCATION" --workload "$WORKLOAD")
+if [ "$RESOURCE_GROUP_SET" = true ]; then PLACEMENT_ARGS+=(--resource-group "$RESOURCE_GROUP"); fi
+OUTPUTS_FILE=$(mktemp)
+if ! (cd "$REPO_ROOT" && node scripts/placement/provision.mjs "${PLACEMENT_ARGS[@]}" --outputs-file "$OUTPUTS_FILE"); then
+  rm -f -- "$OUTPUTS_FILE"
+  echo "Infrastructure provisioning failed; see the placement output above." >&2
+  exit 1
+fi
+DEPLOYMENT_OUTPUTS=$(cat "$OUTPUTS_FILE")
+rm -f -- "$OUTPUTS_FILE"
 
 DISCOVERED_RESOURCE_GROUP=$(jq -er '.resourceGroupName.value' <<<"$DEPLOYMENT_OUTPUTS")
 FUNCTION_APP=$(jq -er '.functionAppName.value' <<<"$DEPLOYMENT_OUTPUTS")
 FUNCTION_HOSTNAME=$(jq -er '.functionAppHostName.value' <<<"$DEPLOYMENT_OUTPUTS")
 
 if [ "$RESOURCE_GROUP_SET" = true ] && [ "$RESOURCE_GROUP" != "$DISCOVERED_RESOURCE_GROUP" ]; then
-  echo "Warning: requested resource group '$RESOURCE_GROUP' differs from the provisioned resource group '$DISCOVERED_RESOURCE_GROUP'; using the provisioned one." >&2
+  echo "Requested resource group '$RESOURCE_GROUP' differs from the provisioned resource group '$DISCOVERED_RESOURCE_GROUP'." >&2
+  exit 1
 fi
 RESOURCE_GROUP="$DISCOVERED_RESOURCE_GROUP"
 

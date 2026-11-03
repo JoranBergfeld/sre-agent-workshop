@@ -18,6 +18,12 @@
       "sku": "B1"
     },
     {
+      "type": "runtimeStack",
+      "host": "webapp",
+      "stack": "dotnet",
+      "runtimeVersion": "DOTNETCORE|10.0"
+    },
+    {
       "type": "provider",
       "namespace": "Microsoft.Web",
       "resourceType": "sites"
@@ -33,6 +39,26 @@
       "resourceType": "workspaces"
     }
   ],
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "workshop": "sre-agent",
+      "environment": "demo"
+    },
+    "resourceTags": {
+      "workshop": "sre-agent"
+    },
+    "deployments": [
+      {
+        "name": "main",
+        "outputs": [
+          "webAppName",
+          "webAppHostName",
+          "logAnalyticsId"
+        ]
+      }
+    ]
+  },
   "deployment": {
     "scope": "group",
     "template": "infra/bicep/main.bicep",

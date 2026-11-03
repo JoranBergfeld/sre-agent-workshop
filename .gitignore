@@ -28,3 +28,6 @@ scenarios/azure-boards-copilot-handover/app/uv.lock
 
 # Azure Boards Copilot Handover lifecycle test scratch space
 scripts/scenario-tools/test/.tmp-lifecycle-scratch/
+
+# Local placement records written by scripts/placement (actual region/SKU per scenario)
+.sre-workshop/

@@ -1,7 +1,7 @@
 {
   "$schema": "../../../schemas/placement.schema.json",
   "scenario": "azure-boards-copilot-handover",
-  "description": "Python 3.12 Linux Functions on Consumption (Y1), Service Bus, Storage and monitoring in a template-created resource group.",
+  "description": "Python 3.12 Linux Functions on Consumption (Y1), Service Bus, Storage and monitoring, deployed at subscription scope into an operator-created {workload}-rg group.",
   "regions": [
     "eastus2",
     "swedencentral",
@@ -17,6 +17,13 @@
   "regionChecks": [
     {
       "type": "functionsConsumption"
+    },
+    {
+      "type": "runtimeStack",
+      "host": "functionapp",
+      "stack": "python",
+      "runtimeVersion": "Python|3.12",
+      "functionsExtensionVersion": "~4"
     },
     {
       "type": "provider",
@@ -44,6 +51,15 @@
       "resourceType": "workspaces"
     }
   ],
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "azure-boards-copilot-handover"
+    },
+    "resourceTags": {
+      "scenario": "azure-boards-copilot-handover"
+    }
+  },
   "deployment": {
     "scope": "subscription",
     "template": "infra/bicep/main.bicep",

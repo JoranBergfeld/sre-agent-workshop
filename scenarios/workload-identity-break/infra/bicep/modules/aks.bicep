@@ -13,11 +13,11 @@ param logAnalyticsWorkspaceId string
 @description('Container Insights data collection rule resource ID')
 param containerInsightsDcrId string
 
-@description('Kubernetes major.minor version. Selected by scripts/placement from versions generally available in the chosen region.')
-param kubernetesVersion string = '1.34'
+@description('Kubernetes major.minor version selected by scripts/placement from the region\'s standard-support versions; empty uses the AKS regional default.')
+param kubernetesVersion string = ''
 
 @description('System node pool VM size. Selected by scripts/placement from the scenario policy (infra/placement.json).')
-param systemNodeVmSize string = 'Standard_D2ads_v6'
+param systemNodeVmSize string = 'Standard_D4ads_v6'
 
 // ──────────────────────────────────────────────
 // AKS Cluster
@@ -31,7 +31,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-01-01' = {
   }
   properties: {
     dnsPrefix: '${workloadName}-aks'
-    kubernetesVersion: kubernetesVersion
+    kubernetesVersion: empty(kubernetesVersion) ? null : kubernetesVersion
 
     // Workload Identity support
     oidcIssuerProfile: {

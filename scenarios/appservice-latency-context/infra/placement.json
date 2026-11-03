@@ -16,6 +16,12 @@
       "sku": "B1"
     },
     {
+      "type": "runtimeStack",
+      "host": "webapp",
+      "stack": "php",
+      "runtimeVersion": "PHP|8.3"
+    },
+    {
       "type": "provider",
       "namespace": "Microsoft.Web",
       "resourceType": "sites"

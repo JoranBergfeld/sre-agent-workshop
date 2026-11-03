@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RESOURCE_GROUP="rg-srelabretirement"
-TARGET_SIZE="Standard_D2s_v5"
+TARGET_SIZE=""
 RESULT_FILE="${SRE_REMEDIATION_RESULT_FILE:-}"
 COUNT=0
 CURRENT_VM=""
@@ -47,6 +47,24 @@ if [ -z "$(printf '%s' "$AFFECTED" | tr -d '[:space:]')" ]; then
   echo "No VMs on a retiring size in $RESOURCE_GROUP. Nothing to migrate."
   exit 0
 fi
+
+# Preflight before the first resize: the recorded same-region target must still
+# be eligible, with target-family and regional quota for every pending legacy
+# VM (deallocated VMs count too), so the action cannot stop half way for quota.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+preflight_failed() {
+  trap - ERR
+  write_result "failed" "0" ""
+  echo "Preflight failed: $1 No VM was resized." >&2
+  exit 1
+}
+command -v node >/dev/null 2>&1 || preflight_failed "Node.js 20+ is required for the quota preflight."
+PREFLIGHT=$(node "$REPO_ROOT/scripts/placement/provision.mjs" check vm-size-retirement \
+  --resource-group "$RESOURCE_GROUP" --parts targets --no-region-fallback --record-target --json) \
+  || preflight_failed "the recorded remediation target lacks eligibility or quota for the whole retiring fleet (see above)."
+TARGET_SIZE=$(printf '%s' "$PREFLIGHT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);if(!r.pinnedLocation||!r.remediationTarget)process.exit(1);process.stdout.write(r.remediationTarget)})') \
+  || preflight_failed "no recorded same-region remediation target was found for $RESOURCE_GROUP."
+echo "Preflight passed: resizing in ${RESOURCE_GROUP}'s region to $TARGET_SIZE."
 
 while IFS= read -r vm; do
   [ -z "$vm" ] && continue

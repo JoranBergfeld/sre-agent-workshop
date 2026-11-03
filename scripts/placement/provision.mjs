@@ -8,19 +8,25 @@ import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import {
-  DiscoveryError, PlacementError, assertOwnership, createAzRunner, evaluateRegion, formatAttempts, inspectExisting, loadPolicy,
-  normalizeRegion, orderedRegions, persistPlacement, provision, repositoryRoot,
+import { AzError,
+  DiscoveryError, PlacementError, TAGS, assertOwnership, missingGroupMessage, verifyExistingOwnership, recordPlacementTags, resumableRemediationTarget, createAzRunner, evaluateRegion, formatAttempts, inspectExisting, loadPolicy,
+  orderedRegions, persistPlacement, preferredSkus, provision, reconcilePinnedRegion, repositoryRoot,
 } from './placement.mjs';
 
 const USAGE = `Usage: provision.mjs <deploy|check> <scenario> [options]
 
 Options:
-  --location <region>        Preferred region (must be in the scenario policy)
-  --no-region-fallback       Only try the preferred region
-  --sku <vm-size>            Preferred compute SKU (must be in the policy)
+  --location <region>        Preferred region (must be in the scenario policy); the
+                             rest of the policy order follows. An existing
+                             deployment keeps its actual region.
+  --no-region-fallback       Strict: only the given region; an existing deployment
+                             elsewhere is an error instead of being reused
+  --sku <vm-size>            Preferred compute SKU (must be in the policy); the
+                             rest of the policy order follows. An existing
+                             deployment keeps its SKU.
   --workload <name>          Workload name (scenario default otherwise)
-  --resource-group <name>    Resource group (derived from the workload otherwise)
+  --resource-group <name>    Resource group (derived from the workload otherwise;
+                             subscription-scope scenarios must use the derived name)
   --subscription <id>        Azure subscription
   --param <name=value>       Extra template parameter (repeatable)
   --secure-param-env <name=ENV_VAR>
@@ -29,6 +35,9 @@ Options:
   --outputs-file <path>      Write deployment outputs JSON to this file
   --parts <list>             check only: services,compute,fleet,targets
   --json                     check only: print a JSON report
+  --record-target            check only: for an existing deployment with
+                             remediation targets, persist the verified target on
+                             the group before any resize (reused afterwards)
   -h, --help                 Show this help`;
 
 export function parseArgs(argv) {
@@ -51,6 +60,7 @@ export function parseArgs(argv) {
       case '--outputs-file': options.outputsFile = value(flag, ++index); break;
       case '--no-region-fallback': options.noRegionFallback = true; break;
       case '--json': options.json = true; break;
+      case '--record-target': options.recordTarget = true; break;
       case '--parts':
         options.parts = Object.fromEntries(['services', 'compute', 'fleet', 'targets']
           .map(part => [part, value(flag, index + 1).split(',').includes(part)]));
@@ -81,7 +91,7 @@ export function buildParameters(policy, { location, sku, context = {}, tags = {}
   const parameters = {};
   const managed = new Set();
   for (const [name, template] of Object.entries(policy.deployment.parameters ?? {})) {
-    if (typeof template === 'string' && /\{\w+\}/.test(template)) managed.add(name);
+    if ((typeof template === 'string' && /\{\w+\}/.test(template)) || typeof template === 'boolean') managed.add(name);
     if (template === '{groupTags}') parameters[name] = { ...(policy.groupTags ?? {}), ...tags };
     else if (typeof template === 'string') parameters[name] = expand(template, values);
     else parameters[name] = template;
@@ -110,11 +120,22 @@ async function runDeployment({ az, policy, resourceGroup, deploymentName, parame
     await writeFile(file, JSON.stringify(document), { mode: 0o600 });
     await chmod(file, 0o600).catch(() => {});
     const template = path.join(policy.capsule, policy.deployment.template);
-    const scopeArgs = (policy.deployment.scope ?? 'group') === 'subscription'
-      ? ['deployment', 'sub', 'create', '--location', parameters.location]
-      : ['deployment', 'group', 'create', '--resource-group', resourceGroup];
-    return await az([...scopeArgs, '--name', deploymentName, '--template-file', template,
-      '--parameters', `@${file}`, '--query', 'properties.outputs', '--output', 'json']);
+    const scopeArgs = verb => ((policy.deployment.scope ?? 'group') === 'subscription'
+      ? ['deployment', 'sub', verb, '--location', parameters.location]
+      : ['deployment', 'group', verb, '--resource-group', resourceGroup]);
+    const common = ['--name', deploymentName, '--template-file', template, '--parameters', `@${file}`];
+    // ARM's validate API never creates a deployment or any resource, so a
+    // rejection here is provably non-mutating and the engine may fall back.
+    let validation;
+    try {
+      validation = await az([...scopeArgs('validate'), ...common, '--output', 'json']);
+    } catch (error) {
+      throw Object.assign(error, { validationOnly: true });
+    }
+    if (validation?.error) {
+      throw Object.assign(new AzError(['deployment', 'validate'], 1, JSON.stringify(validation.error)), { validationOnly: true });
+    }
+    return await az([...scopeArgs('create'), ...common, '--query', 'properties.outputs', '--output', 'json']);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -123,8 +144,39 @@ async function runDeployment({ az, policy, resourceGroup, deploymentName, parame
 export function resolveNames(policy, options) {
   const workload = options.workload ?? policy.defaultWorkload;
   if (!workload) throw new Error(`${policy.scenario}: a workload name is required`);
-  const resourceGroup = options.resourceGroup ?? expand(policy.resourceGroup ?? 'rg-{workload}', { workload });
+  const derived = expand(policy.resourceGroup ?? 'rg-{workload}', { workload });
+  // Subscription-scope templates create their own group from the workload
+  // name, so a different --resource-group would check and clean the wrong one.
+  if ((policy.deployment.scope ?? 'group') === 'subscription' && options.resourceGroup && options.resourceGroup !== derived) {
+    throw new Error(`${policy.scenario} deploys into ${derived} (derived from the workload name by its template); `
+      + `--resource-group ${options.resourceGroup} does not match. Use --workload to choose the group instead.`);
+  }
+  const resourceGroup = options.resourceGroup ?? derived;
   return { workload, resourceGroup, deploymentName: expand(policy.deployment.name ?? `${policy.scenario}`, { workload }) };
+}
+
+// Persist the verified remediation target before the first resize, so an
+// interrupted migration resumes with the same target instead of re-selecting.
+async function recordRemediationTarget({ policy, az, resourceGroup, state, report, log }) {
+  if (!(policy.remediationTargets?.length)) throw new PlacementError(`${policy.scenario} has no remediation targets to record`);
+  if (!state?.location || !report.ownership) {
+    throw new PlacementError(`${resourceGroup} has no verified existing ${policy.scenario} deployment; no remediation target was recorded.`);
+  }
+  // An ineligible check already fails with its reasons; record nothing.
+  if (!report.eligible || report.remediationTargetRecorded) return;
+  if (!report.remediationTarget) throw new PlacementError(`No eligible remediation target in ${report.pinnedLocation}; nothing was recorded or resized.`);
+  const tags = { [TAGS.remediationTarget]: report.remediationTarget };
+  if (report.ownership === 'legacy') tags[TAGS.scenario] = policy.scenario;
+  await recordPlacementTags(az, resourceGroup, tags);
+  const group = await az(['group', 'show', '--name', resourceGroup, '--output', 'json']).catch(error => {
+    throw new DiscoveryError(`re-reading ${resourceGroup}`, error);
+  });
+  if (group?.tags?.[TAGS.remediationTarget] !== report.remediationTarget) {
+    throw new PlacementError(`Recording remediation target ${report.remediationTarget} on ${resourceGroup} could not be confirmed `
+      + `(found ${group?.tags?.[TAGS.remediationTarget] ?? 'none'}); nothing was resized.`);
+  }
+  report.remediationTargetRecorded = true;
+  log(`Recorded remediation target ${report.remediationTarget} on ${resourceGroup}; later runs reuse it.`);
 }
 
 export async function runCheck({ policy, az, options, log = console.log }) {
@@ -135,14 +187,33 @@ export async function runCheck({ policy, az, options, log = console.log }) {
   });
   let regions;
   let existing = {};
-  if (exists) {
-    const state = await inspectExisting(policy, resourceGroup, az);
-    assertOwnership(policy, resourceGroup, state.group);
-    report.pinnedLocation = state.location;
-    if (options.location && normalizeRegion(options.location) !== state.location) {
-      throw new PlacementError(`${resourceGroup} is already placed in ${state.location}; existing deployments are never relocated.`);
-    }
+  let remediationTargets;
+  let skus = preferredSkus(policy, options.sku);
+  let existingSku;
+  const state = exists ? await inspectExisting(policy, resourceGroup, az) : null;
+  if (state) assertOwnership(policy, resourceGroup, state.group);
+  report.resourceGroupReady = Boolean(state && (state.location
+    || (state.group?.tags?.[TAGS.scenario] === policy.scenario && !state.resourceCount)));
+  if (!state) log(`NOTE ${missingGroupMessage(policy, resourceGroup, options.location)}`);
+  else if (!report.resourceGroupReady) log(`NOTE ${resourceGroup} exists but is not an empty group designated with ${TAGS.scenario}=${policy.scenario}; deploy will refuse it.`);
+  if (state?.location) {
+    report.ownership = await verifyExistingOwnership(policy, resourceGroup, state, az);
+    report.pinnedLocation = reconcilePinnedRegion({
+      resourceGroup, pinned: state.location, location: options.location, strict: options.noRegionFallback, log,
+    });
     existing = state.existing;
+    if (state.sku) {
+      existingSku = state.sku;
+      skus = undefined;
+    }
+    if (state.remediationTarget) remediationTargets = [state.remediationTarget];
+    else {
+      const resumed = resumableRemediationTarget(policy, state, resourceGroup);
+      if (resumed) {
+        remediationTargets = [resumed];
+        log(`NOTE ${resourceGroup} has VMs already resized to ${resumed}; the interrupted migration resumes with that target.`);
+      }
+    }
     regions = [report.pinnedLocation];
     log(`${resourceGroup} exists in ${report.pinnedLocation}; reruns stay pinned there.`);
   } else {
@@ -151,20 +222,31 @@ export async function runCheck({ policy, az, options, log = console.log }) {
   const cache = new Map();
   for (const region of regions) {
     const evaluation = await evaluateRegion(policy, region, az, {
-      cache, skus: options.sku ? [options.sku] : undefined, parts: options.parts ?? {}, existing,
+      cache, skus, existingSku, parts: options.parts ?? {}, existing, remediationTargets,
+      // `--parts targets` without fleet is the remediation preflight: only
+      // retiring VMs that exist now are resized.
+      remediationScope: options.parts && !options.parts.fleet ? 'present' : 'exercise',
     });
     report.regions.push(evaluation);
     const usable = !evaluation.issues.length && evaluation.candidates.length > 0;
     log(`${usable ? 'OK  ' : 'SKIP'} ${region}${usable && evaluation.candidates[0].sku ? `: ${evaluation.candidates.map(item => item.sku).join(', ')}` : ''}`);
     for (const issue of evaluation.issues) log(`       ${issue}`);
     for (const item of evaluation.rejected) log(`       ${item.sku}: ${item.reason}`);
+    for (const note of evaluation.notes ?? []) log(`NOTE ${note}`);
   }
-  report.eligible = report.regions.some(item => !item.issues.length && item.candidates.length > 0);
+  const usable = report.regions.find(item => !item.issues.length && item.candidates.length > 0);
+  report.eligible = Boolean(usable);
+  if (usable?.candidates[0].remediationTarget) report.remediationTarget = usable.candidates[0].remediationTarget;
+  report.remediationTargetRecorded = Boolean(state?.remediationTarget);
+  if (report.remediationTarget && !report.remediationTargetRecorded) {
+    log(`NOTE ${report.remediationTarget} is only proposed: no remediation target is recorded on ${resourceGroup} yet.`);
+  }
+  if (options.recordTarget) await recordRemediationTarget({ policy, az, resourceGroup, state, report, log });
   report.fleetUnavailableEverywhere = report.regions.length > 0 && report.regions.every(item => item.fleetUnavailable);
   return report;
 }
 
-export async function main(argv = process.argv.slice(2), { env = process.env, azFactory = createAzRunner, log = console.log } = {}) {
+export async function main(argv = process.argv.slice(2), { env = process.env, azFactory = createAzRunner, log = console.log, stateDir } = {}) {
   let options;
   try {
     options = parseArgs(argv);
@@ -184,6 +266,12 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
       const report = await runCheck({ policy, az, options, log: options.json ? () => {} : log });
       if (options.json) log(JSON.stringify(report, null, 2));
       if (!report.eligible) {
+        if (options.json) {
+          for (const region of report.regions) {
+            for (const issue of region.issues) console.error(`${region.region}: ${issue}`);
+            for (const item of region.rejected) console.error(`${region.region}${item.sku ? ` / ${item.sku}` : ''}: ${item.reason}`);
+          }
+        }
         console.error(report.fleetUnavailableEverywhere && policy.fleetUnavailableDiagnostic
           ? policy.fleetUnavailableDiagnostic
           : `No supported region currently passes the ${policy.scenario} preflight.`);
@@ -194,13 +282,13 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
     const { workload, resourceGroup, deploymentName } = resolveNames(policy, options);
     const result = await provision({
       policy, az, resourceGroup, location: options.location, sku: options.sku,
-      noRegionFallback: options.noRegionFallback, log,
-      deploy: async ({ location, sku, context, tags }) => runDeployment({
-        az, policy, resourceGroup, deploymentName, env, secureParams: options.secureParams,
+      noRegionFallback: options.noRegionFallback, deploymentName, log,
+      deploy: async ({ location, sku, context, tags, deploymentName: attemptName }) => runDeployment({
+        az, policy, resourceGroup, deploymentName: attemptName, env, secureParams: options.secureParams,
         parameters: buildParameters(policy, { location, sku, context, tags, workload, params: options.params }),
       }),
     });
-    const file = await persistPlacement(result, policy, { githubOutput: env.GITHUB_OUTPUT });
+    const file = await persistPlacement(result, policy, { githubOutput: env.GITHUB_OUTPUT, ...(stateDir ? { directory: stateDir } : {}) });
     if (options.outputsFile) await writeFile(options.outputsFile, `${JSON.stringify(result.outputs ?? {}, null, 2)}\n`);
     log(`Placement recorded in ${path.relative(repositoryRoot, file)}: ${result.location}${result.sku ? ` / ${result.sku}` : ''}`);
     return 0;

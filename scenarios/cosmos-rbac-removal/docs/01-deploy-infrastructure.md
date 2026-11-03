@@ -23,12 +23,12 @@ The workflow deploys the following Azure resources to your subscription. All res
 | Alert Rule | `{workloadName}-http-500-errors` | Monitors HTTP 500 errors in container logs; triggers incident response in Module 4 |
 
 **Cluster Configuration:**
-- **Nodes:** 2× Standard_D2ads_v6 VMs (Linux system node pool)
-- **Kubernetes version:** 1.34
+- **Nodes:** 2× 4-vCPU VMs in the Linux system node pool (AKS requires at least two system nodes with 4 vCPUs and 4 GiB each). The first eligible size in `Standard_D4ads_v6`, `Standard_D4ads_v5`, `Standard_D4s_v5`, `Standard_D4as_v5` is selected.
+- **Kubernetes version:** the region's default (or newest) generally available, standard-support version at deployment time (minimum 1.33); existing clusters keep the version they run.
 - **OIDC Issuer:** Enabled (required for workload identity)
 - **Workload Identity:** Enabled (secure pod auth without storing secrets)
 
-> **⚠️ VM Size Note:** The default VM size (`Standard_D2ads_v6`) may not be available in every subscription or region. If the deployment fails with a "VM size not allowed" error, check the error message for a list of available sizes and update `scenarios/cosmos-rbac-removal/infra/bicep/modules/aks.bicep` (the `vmSize` property) accordingly. Any 2-vCPU general-purpose VM from the allowed list will work.
+> **ℹ️ Region and VM size selection:** `scripts/placement/provision.sh deploy cosmos-rbac-removal` (used by the deploy workflow) checks subscription SKU restrictions, regional vCPU quota (including one surge node, 12 vCPUs in total), Kubernetes versions, Cosmos DB and monitoring availability. It tries the sizes above in East US 2, then Sweden Central, then Australia East, and records the actual placement. Reruns stay in the recorded region and never relocate a cluster. Run `scripts/placement/provision.sh check cosmos-rbac-removal` to preview. 4-vCPU nodes roughly double the node cost of the earlier 2-vCPU sizing; delete the resource group after the workshop.
 
 ## Prerequisites: Register Azure Resource Providers
 
@@ -313,8 +313,8 @@ kubectl get nodes
 Expected output:
 ```
 NAME                             STATUS   ROLES    AGE    VERSION
-aks-system-########-vmss000000   Ready    <none>   10m    v1.34.x
-aks-system-########-vmss000001   Ready    <none>   10m    v1.34.x
+aks-system-########-vmss000000   Ready    <none>   10m    v1.3x.x
+aks-system-########-vmss000001   Ready    <none>   10m    v1.3x.x
 ```
 
 Both nodes should be in `Ready` state. If nodes show `NotReady` or `NotSchedulable`, wait a moment and try again — node initialization can take a few minutes.
@@ -453,7 +453,7 @@ These regions are tested and supported by the workshop. Retry the workflow with 
 
 **Cause:** Your subscription has hit a resource quota (e.g., vCPU limit, compute quota).
 
-**Context:** The AKS cluster requires 4 vCPUs (2 nodes × 2 vCPU each for Standard_D2ads_v6 VMs).
+**Context:** The AKS cluster needs 12 vCPUs of quota in one D-series family and in total regional vCPUs: 2 system nodes × 4 vCPUs plus 1 surge node during upgrades. The placement step tries other 4-vCPU families and regions automatically and reports why each was rejected.
 
 **Solution:**
 1. Check your current vCPU usage: Go to Azure portal → **Subscriptions** → **Usage + quotas**

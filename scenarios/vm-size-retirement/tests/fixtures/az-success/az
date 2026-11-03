@@ -14,6 +14,48 @@ if [ "${1:-} ${2:-}" = "account show" ]; then
   exit 0
 fi
 
+# Discovery calls made by the shared placement engine's quota preflight.
+if [[ " $* " == *" --output json "* ]]; then
+  case "${1:-} ${2:-}" in
+    "group exists") echo true ;;
+    "group show")
+      # AZ_SUCCESS_TAG_STATE simulates a group without a recorded remediation
+      # target; the file holds whatever `group update` has recorded since.
+      target="Standard_D2s_v5"
+      if [ -n "${AZ_SUCCESS_TAG_STATE:-}" ]; then target=$(cat "$AZ_SUCCESS_TAG_STATE" 2>/dev/null || true); fi
+      if [ -n "$target" ]; then target_tag=$(printf ',"sre-workshop-remediation-target":"%s"' "$target"); else target_tag=""; fi
+      printf '{"location":"eastus2","tags":{"sre-workshop-scenario":"vm-size-retirement","sre-workshop-location":"eastus2","sre-workshop-sku":"Standard_B2s"%s}}\n' "$target_tag" ;;
+    "group update")
+      [ -n "${AZ_SUCCESS_TAG_STATE:-}" ] || { echo "Unexpected group update" >&2; exit 64; }
+      for argument in "$@"; do
+        case "$argument" in
+          tags.sre-workshop-remediation-target=*)
+            [ "${AZ_SUCCESS_TAG_UPDATE_LOST:-}" = "1" ] || printf '%s' "${argument#*=}" > "$AZ_SUCCESS_TAG_STATE" ;;
+        esac
+      done
+      echo '{}' ;;
+    "resource list") echo '[]' ;;
+    "vm list")
+      if [ "${AZ_SUCCESS_PARTIAL:-}" = "1" ]; then
+        # Interrupted migration: one legacy VM was already resized to D2as_v5.
+        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_D2as_v5","location":"eastus2"},{"size":"Standard_DS2_v2","location":"eastus2"}]'
+      elif [ "${AZ_SUCCESS_EMPTY:-}" = "1" ]; then
+        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"}]'
+      else
+        echo '[{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_B2s","location":"eastus2"},{"size":"Standard_DS1_v2","location":"eastus2"},{"size":"Standard_DS2_v2","location":"eastus2"}]'
+      fi ;;
+    "vm list-skus")
+      cap() { printf '[{"name":"vCPUs","value":"%s"},{"name":"MemoryGB","value":"8"},{"name":"CpuArchitectureType","value":"x64"},{"name":"PremiumIO","value":"True"},{"name":"HyperVGenerations","value":"V1,V2"},{"name":"DiskControllerTypes","value":"SCSI"}]' "$1"; }
+      printf '[{"name":"Standard_D2s_v5","family":"standardDSv5Family","capabilities":%s,"restrictions":[]},{"name":"Standard_D2as_v5","family":"standardDASv5Family","capabilities":%s,"restrictions":[]},{"name":"Standard_DS1_v2","family":"standardDSv2Family","capabilities":%s,"restrictions":[]},{"name":"Standard_DS2_v2","family":"standardDSv2Family","capabilities":%s,"restrictions":[]}]\n' "$(cap 2)" "$(cap 2)" "$(cap 1)" "$(cap 2)" ;;
+    "vm list-usage")
+      # AZ_SUCCESS_QUOTA_SHORT leaves 2 Dsv5 vCPUs: enough for one resize, not the fleet.
+      used=$([ "${AZ_SUCCESS_QUOTA_SHORT:-}" = "1" ] && echo 18 || echo 0)
+      printf '[{"name":{"value":"cores"},"currentValue":7,"limit":100},{"name":{"value":"standardDSv5Family"},"currentValue":%s,"limit":20},{"name":{"value":"standardDASv5Family"},"currentValue":2,"limit":20}]\n' "$used" ;;
+    *) echo "Unexpected Azure CLI fixture call: $*" >&2; exit 64 ;;
+  esac
+  exit 0
+fi
+
 if [ "${1:-}" = "vm" ] && [ "${2:-}" = "list" ]; then
   if [ "${AZ_SUCCESS_EMPTY:-}" != "1" ]; then
     printf '%s\n' "srelabretirement-legacy-01" "srelabretirement-legacy-02"
@@ -22,6 +64,10 @@ if [ "${1:-}" = "vm" ] && [ "${2:-}" = "list" ]; then
 fi
 
 if [ "${1:-}" = "vm" ] && [ "${2:-}" = "resize" ]; then
+  if [ -n "${AZ_SUCCESS_TAG_STATE:-}" ] && [ ! -s "$AZ_SUCCESS_TAG_STATE" ]; then
+    echo "fixture: resize attempted before a remediation target was recorded" >&2
+    exit 65
+  fi
   printf '%s\n' "$*" >> "${AZ_SUCCESS_TRACE:?AZ_SUCCESS_TRACE must be set}"
   if [[ " $* " == *" --name ${AZ_SUCCESS_FAIL_VM:-__none__} "* ]]; then
     echo "simulated resize failure" >&2

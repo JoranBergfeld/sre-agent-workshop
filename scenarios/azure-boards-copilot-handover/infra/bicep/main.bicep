@@ -3,6 +3,7 @@ targetScope = 'subscription'
 @description('Azure region for the scenario resource group and all resources')
 param location string = 'eastus2'
 
+
 @description('Distinct base name: 6-24 lowercase letters, numbers, or hyphens; starts with a letter and ends with a letter or number')
 @minLength(6)
 @maxLength(24)
@@ -28,10 +29,11 @@ var queueName = 'order-events'
 var receiptTableName = 'NormalizedReceipts'
 var scenarioStateTableName = 'ScenarioState'
 
-resource scenarioResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
+// The template never creates or updates the resource group: Azure's group PUT is
+// create-or-update, so it could silently take over a group another writer
+// creates. The operator pre-creates and designates it (see the scenario README).
+resource scenarioResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' existing = {
   name: resourceGroupName
-  location: location
-  tags: tags
 }
 
 module monitoring 'modules/monitoring.bicep' = {

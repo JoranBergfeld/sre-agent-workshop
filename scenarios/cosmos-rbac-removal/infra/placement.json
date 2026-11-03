@@ -1,7 +1,7 @@
 {
   "$schema": "../../../schemas/placement.schema.json",
   "scenario": "cosmos-rbac-removal",
-  "description": "AKS system pool, regional Kubernetes version, Container Insights, workload identity and serverless Cosmos DB.",
+  "description": "AKS system pool (2x 4-vCPU nodes plus 1 surge node), a regional standard-support Kubernetes version, Container Insights, workload identity and serverless Cosmos DB.",
   "regions": [
     "eastus2",
     "swedencentral",
@@ -32,10 +32,7 @@
     },
     {
       "type": "aksVersion",
-      "versions": [
-        "1.34",
-        "1.33"
-      ]
+      "minVersion": "1.33"
     },
     {
       "type": "cosmos"
@@ -46,13 +43,14 @@
     "count": 2,
     "surge": 1,
     "skus": [
-      "Standard_D2ads_v6",
-      "Standard_D2ads_v5",
-      "Standard_D2s_v5",
-      "Standard_D2as_v5"
+      "Standard_D4ads_v6",
+      "Standard_D4ads_v5",
+      "Standard_D4s_v5",
+      "Standard_D4as_v5"
     ],
     "requires": {
-      "vCPUs": 2,
+      "minVCPUs": 4,
+      "maxVCPUs": 4,
       "minMemoryGB": 4,
       "architecture": "x64"
     }
@@ -61,6 +59,16 @@
     "workshop": "sre-agent",
     "scenario": "cosmos-rbac-removal",
     "environment": "demo"
+  },
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "cosmos-rbac-removal",
+      "environment": "demo"
+    },
+    "resourceTags": {
+      "scenario": "cosmos-rbac-removal"
+    }
   },
   "deployment": {
     "scope": "group",

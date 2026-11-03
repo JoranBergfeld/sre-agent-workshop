@@ -38,11 +38,12 @@ export class DiscoveryError extends Error {
 }
 
 export class PlacementError extends Error {
-  constructor(message, { attempts = [], diagnostic } = {}) {
+  constructor(message, { attempts = [], diagnostic, partial } = {}) {
     super(message);
     this.name = 'PlacementError';
     this.attempts = attempts;
     this.diagnostic = diagnostic;
+    this.partial = partial;
   }
 }
 
@@ -106,9 +107,38 @@ export function validatePolicy(policy, label = 'policy') {
     if (!policy.deployment?.parameters || !Object.values(policy.deployment.parameters).includes('{sku}')) {
       fail('deployment.parameters must pass {sku} to the template');
     }
+    if (kind === 'aks') {
+      // AKS system pools need >= 2 nodes with >= 4 vCPUs and 4 GiB each.
+      const requires = policy.compute.requires ?? {};
+      if (count < 2) fail('AKS system pools need at least two nodes');
+      if (!(requires.minVCPUs >= 4) && !(requires.vCPUs >= 4)) fail('AKS system-node SKUs must require at least 4 vCPUs');
+      if (!(requires.minMemoryGB >= 4)) fail('AKS system-node SKUs must require at least 4 GiB memory');
+    }
+  }
+  for (const check of policy.regionChecks ?? []) {
+    if (check.type === 'runtimeStack') {
+      if (!['webapp', 'functionapp'].includes(check.host) || !check.stack || !check.runtimeVersion) {
+        fail('runtimeStack checks need host (webapp|functionapp), stack and runtimeVersion');
+      }
+      if (check.host === 'functionapp' && !check.functionsExtensionVersion) fail('functionapp runtimeStack checks need functionsExtensionVersion');
+    }
+    if (check.type !== 'aksVersion') continue;
+    if (check.versions) fail('aksVersion must not hard-code a version allowlist; use minVersion/maxVersion');
+    for (const key of ['minVersion', 'maxVersion']) {
+      if (check[key] !== undefined && !/^\d+\.\d+$/.test(check[key])) fail(`aksVersion.${key} must look like 1.35`);
+    }
   }
   for (const entry of policy.fixedFleet ?? []) {
     if (!entry.sku || !Number.isInteger(entry.count)) fail('fixedFleet entries need sku and count');
+  }
+  if (policy.legacyOwnership) {
+    const { groupTags, resourceTags, deployments } = policy.legacyOwnership;
+    if (!groupTags || Object.keys(groupTags).length === 0) fail('legacyOwnership needs groupTags');
+    if (!Object.keys(resourceTags ?? {}).length && !(deployments ?? []).length) fail('legacyOwnership needs resourceTags or deployment evidence');
+    const scenarioSpecific = Object.values(groupTags).includes(policy.scenario) || Object.values(resourceTags ?? {}).includes(policy.scenario);
+    if (!scenarioSpecific && !(deployments ?? []).some(item => item.outputs?.length)) {
+      fail('generic legacyOwnership tags need a deployment with expected outputs as evidence');
+    }
   }
   if (!policy.deployment?.template) fail('deployment.template is required');
   if (!['group', 'subscription'].includes(policy.deployment.scope ?? 'group')) fail('deployment.scope must be group or subscription');
@@ -129,18 +159,26 @@ export function skuIneligibility(sku, region, requires = {}) {
   const restriction = (sku.restrictions ?? []).find(item => item.type === 'Location'
     && (item.values ?? item.restrictionInfo?.locations ?? []).map(normalizeRegion).includes(normalizeRegion(region)));
   if (restriction) return `restricted for this subscription (${restriction.reasonCode ?? 'Location'})`;
+  // Missing or malformed capability data rejects the SKU explicitly; it is never assumed to qualify.
   const vcpus = skuVcpus(sku);
+  if (!(Number.isFinite(vcpus) && vcpus > 0)) return 'reports no valid vCPUs capability';
   if (requires.vCPUs && vcpus !== requires.vCPUs) return `has ${vcpus} vCPUs, ${requires.vCPUs} required`;
-  if (requires.minMemoryGB && Number(capability(sku, 'MemoryGB')) < requires.minMemoryGB) {
-    return `has less than ${requires.minMemoryGB} GB memory`;
+  if (requires.minVCPUs && !(vcpus >= requires.minVCPUs)) return `has ${vcpus} vCPUs, at least ${requires.minVCPUs} required`;
+  if (requires.maxVCPUs && !(vcpus <= requires.maxVCPUs)) return `has ${vcpus} vCPUs, at most ${requires.maxVCPUs} allowed`;
+  if (requires.minMemoryGB) {
+    const memory = Number(capability(sku, 'MemoryGB') ?? NaN);
+    if (!Number.isFinite(memory)) return 'reports no valid MemoryGB capability';
+    if (memory < requires.minMemoryGB) return `has ${memory} GB memory, at least ${requires.minMemoryGB} GB required`;
   }
   const architecture = capability(sku, 'CpuArchitectureType');
-  if (requires.architecture && architecture && architecture !== requires.architecture) {
+  if (requires.architecture && !architecture) return 'reports no CpuArchitectureType capability';
+  if (requires.architecture && architecture !== requires.architecture) {
     return `CPU architecture ${architecture}, ${requires.architecture} required`;
   }
   if (requires.premiumIO && capability(sku, 'PremiumIO') !== 'True') return 'does not support Premium SSD';
   const generations = capability(sku, 'HyperVGenerations');
-  if (requires.hyperVGeneration && generations && !generations.split(',').includes(requires.hyperVGeneration)) {
+  if (requires.hyperVGeneration && !generations) return 'reports no HyperVGenerations capability';
+  if (requires.hyperVGeneration && !generations.split(',').includes(requires.hyperVGeneration)) {
     return `does not support Hyper-V generation ${requires.hyperVGeneration}`;
   }
   const controllers = capability(sku, 'DiskControllerTypes');
@@ -161,6 +199,32 @@ async function discover(what, call) {
 function locationsInclude(list, region) {
   const wanted = normalizeRegion(region);
   return (list ?? []).some(item => normalizeRegion(typeof item === 'string' ? item : item?.name ?? item?.displayName) === wanted);
+}
+
+export function compareVersions(left, right) {
+  const a = String(left).split('.').map(Number);
+  const b = String(right).split('.').map(Number);
+  for (let index = 0; index < 2; index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) - (b[index] ?? 0);
+  }
+  return 0;
+}
+
+const majorMinor = version => String(version).split('.').slice(0, 2).join('.');
+export const RUNTIME_STACKS_API = '2024-04-01';
+
+// GET an ARM list through `az rest`, following nextLink (bounded).
+async function listPages(az, firstUrl) {
+  const items = [];
+  let url = firstUrl;
+  for (let page = 0; url; page += 1) {
+    if (page >= 20) throw new Error('too many result pages');
+    const body = await az(['rest', '--method', 'get', '--url', url, '--output', 'json']);
+    if (!Array.isArray(body?.value)) throw new Error('response has no value list');
+    items.push(...body.value);
+    url = body.nextLink || null;
+  }
+  return items;
 }
 
 function cached(cache, key, what, call) {
@@ -186,10 +250,20 @@ const regionChecks = {
   async aksVersion(check, region, az, cache) {
     const result = await cached(cache, `aks:${region}`, `listing AKS versions in ${region}`,
       () => az(['aks', 'get-versions', '--location', region, '--output', 'json']));
-    const offered = (result?.values ?? []).filter(item => !item.isPreview).map(item => item.version);
-    const version = check.versions.find(candidate => offered.includes(candidate));
-    if (!version) return { issue: `none of AKS versions ${check.versions.join(', ')} is generally available in ${region}` };
-    return { context: { kubernetesVersion: version } };
+    const values = result?.values;
+    if (!Array.isArray(values)) throw new DiscoveryError(`listing AKS versions in ${region}`, 'no version list was returned');
+    // Standard-support, non-preview versions from the live regional response,
+    // within the policy's compatible range. No hard-coded version allowlist.
+    const eligible = values.filter(item => /^\d+\.\d+/.test(String(item.version ?? '')) && item.isPreview !== true
+      && (!item.capabilities?.supportPlan || item.capabilities.supportPlan.includes('KubernetesOfficial'))
+      && (!check.minVersion || compareVersions(item.version, check.minVersion) >= 0)
+      && (!check.maxVersion || compareVersions(item.version, check.maxVersion) <= 0));
+    if (!eligible.length) {
+      const range = [check.minVersion && `>= ${check.minVersion}`, check.maxVersion && `<= ${check.maxVersion}`].filter(Boolean).join(' and ');
+      return { issue: `no generally available, standard-support AKS version${range ? ` ${range}` : ''} is offered in ${region}` };
+    }
+    const chosen = eligible.find(item => item.isDefault) ?? [...eligible].sort((a, b) => compareVersions(b.version, a.version))[0];
+    return { context: { kubernetesVersion: majorMinor(chosen.version) } };
   },
   async appServiceLinux(check, region, az, cache) {
     const list = await cached(cache, `appservice:${check.sku}`, `listing Linux App Service ${check.sku} regions`,
@@ -197,10 +271,42 @@ const regionChecks = {
     if (!locationsInclude(list, region)) return { issue: `Linux App Service ${check.sku} is not offered in ${region}` };
     return {};
   },
+  // `az functionapp list-consumption-locations` lists Dynamic (Y1) regions
+  // without asking for Linux workers, so query geoRegions with
+  // linuxDynamicWorkersEnabled directly. az rest expands {subscriptionId}.
   async functionsConsumption(check, region, az, cache) {
-    const list = await cached(cache, 'functions', 'listing Functions Consumption regions',
-      () => az(['functionapp', 'list-consumption-locations', '--output', 'json']));
-    if (!locationsInclude(list, region)) return { issue: `Functions Consumption is not offered in ${region}` };
+    const list = await cached(cache, 'functions-linux-consumption', 'listing Linux Functions Consumption regions', () => listPages(az,
+      `/subscriptions/{subscriptionId}/providers/Microsoft.Web/geoRegions?api-version=${RUNTIME_STACKS_API}&sku=Dynamic&linuxDynamicWorkersEnabled=true`));
+    const names = list.map(item => item?.properties?.displayName ?? item?.properties?.name ?? item?.name);
+    if (names.some(name => typeof name !== 'string')) throw new DiscoveryError('listing Linux Functions Consumption regions', 'a region entry has no name');
+    if (!names.some(name => normalizeRegion(name) === region)) return { issue: `Linux Functions Consumption (Y1) is not offered in ${region}` };
+    return {};
+  },
+  // The Linux runtime (and Functions host version) the template configures
+  // must be offered, GA and not end-of-life in the region.
+  async runtimeStack(check, region, az, cache) {
+    const resource = check.host === 'functionapp' ? 'functionAppStacks' : 'webAppStacks';
+    const what = `listing ${check.host === 'functionapp' ? 'Function App' : 'Web App'} Linux stacks in ${region}`;
+    const stacks = await cached(cache, `${resource}:${region}`, what, () => listPages(az,
+      `/providers/Microsoft.Web/locations/${region}/${resource}?api-version=${RUNTIME_STACKS_API}&stackOsType=Linux`));
+    const settings = [];
+    for (const stack of stacks) {
+      if (lower(stack?.name ?? stack?.properties?.value) !== lower(check.stack)) continue;
+      for (const major of stack?.properties?.majorVersions ?? []) {
+        for (const minor of major?.minorVersions ?? []) {
+          const linux = minor?.stackSettings?.linuxRuntimeSettings;
+          if (linux && lower(linux.runtimeVersion) === lower(check.runtimeVersion)) settings.push(linux);
+        }
+      }
+    }
+    const label = `${check.runtimeVersion}${check.functionsExtensionVersion ? ` (Functions ${check.functionsExtensionVersion})` : ''}`;
+    if (!settings.length) return { issue: `Linux runtime ${label} is not offered in ${region}` };
+    const now = Date.now();
+    const usable = settings.filter(item => item.isPreview !== true && item.isDeprecated !== true && item.isHidden !== true
+      && item.isEarlyAccess !== true && !(item.endOfLifeDate && Date.parse(item.endOfLifeDate) < now)
+      && (!check.functionsExtensionVersion
+        || (Array.isArray(item.supportedFunctionsExtensionVersions) && item.supportedFunctionsExtensionVersions.includes(check.functionsExtensionVersion))));
+    if (!usable.length) return { issue: `Linux runtime ${label} is preview, deprecated, end-of-life or unsupported by the required host in ${region}` };
     return {};
   },
   async cosmos(check, region, az, cache) {
@@ -216,18 +322,28 @@ const regionChecks = {
   },
 };
 
-// Each demand is { family, vcpus }. Returns the first quota shortfall or null.
+// Each demand is { family, vcpus, cores? }; `cores` (default vcpus) is the
+// regional total contribution when it differs from the family demand.
+// Returns the first quota shortfall or null.
 export function quotaShortfall(usage, demands) {
   const totals = new Map();
   for (const demand of demands) {
-    totals.set(demand.family, (totals.get(demand.family) ?? 0) + demand.vcpus);
-    totals.set('cores', (totals.get('cores') ?? 0) + demand.vcpus);
+    if (!(Number.isFinite(demand.vcpus) && demand.vcpus >= 0)) return `vCPU demand for ${demand.family} is not a valid number`;
+    const cores = demand.cores ?? demand.vcpus;
+    if (!(Number.isFinite(cores) && cores >= 0)) return `regional vCPU demand for ${demand.family} is not a valid number`;
+    if (demand.vcpus > 0) totals.set(demand.family, (totals.get(demand.family) ?? 0) + demand.vcpus);
+    if (cores > 0) totals.set('cores', (totals.get('cores') ?? 0) + cores);
   }
   for (const [family, needed] of totals) {
     const entry = (usage ?? []).find(item => (item.name?.value ?? item.name) === family);
     if (!entry) return `no vCPU quota is visible for ${family}`;
-    const free = Number(entry.limit) - Number(entry.currentValue);
-    if (free < needed) {
+    const limit = typeof entry.limit === 'string' && entry.limit.trim() === '' ? NaN : Number(entry.limit ?? NaN);
+    const current = typeof entry.currentValue === 'string' && entry.currentValue.trim() === '' ? NaN : Number(entry.currentValue ?? NaN);
+    if (!Number.isFinite(limit) || !Number.isFinite(current)) {
+      return `${family} quota data is missing or malformed (limit ${JSON.stringify(entry.limit)}, current ${JSON.stringify(entry.currentValue)})`;
+    }
+    const free = limit - current;
+    if (!(free >= needed)) {
       return `${family === 'cores' ? 'total regional' : family} vCPU quota has ${free} free, ${needed} required`;
     }
   }
@@ -239,13 +355,61 @@ function findSku(skus, name) {
 }
 
 /**
+ * Quota needed to resize every still-pending legacy fleet VM to the target.
+ * Deallocated VMs keep counting against quota, so the target family needs
+ * target vCPUs for each pending VM, and the regional total needs the net
+ * change (target minus legacy vCPUs) plus one in-flight resize where the old
+ * size is not yet released.
+ *
+ * scope 'exercise' (setup/deploy): the whole planned fleet, existing or still
+ * to be injected, less VMs already migrated to the target. scope 'present'
+ * (remediation): only retiring VMs that actually exist now.
+ */
+export function remediationDemands(policy, catalog, targetSku, baselineSku, already = () => 0, { scope = 'exercise' } = {}) {
+  const fleet = policy.fixedFleet ?? [];
+  const target = skuVcpus(targetSku);
+  const baselineOnTarget = baselineSku && lower(baselineSku) === lower(targetSku.name) ? policy.compute?.count ?? 0 : 0;
+  const migrated = Math.max(0, already(targetSku.name) - baselineOnTarget);
+  const entries = fleet.map(entry => {
+    const sku = findSku(catalog, entry.sku);
+    return { sku, old: sku ? skuVcpus(sku) : NaN, count: scope === 'present' ? already(entry.sku) : Math.max(entry.count, already(entry.sku)) };
+  });
+  if (scope !== 'present') {
+    // Attribute migrated VMs to the entries with the smallest net change, so
+    // the remaining regional demand stays conservative.
+    let left = migrated;
+    for (const entry of [...entries].sort((a, b) => (target - a.old) - (target - b.old))) {
+      const take = Math.min(left, entry.count);
+      entry.count -= take;
+      left -= take;
+    }
+  }
+  let pending = 0;
+  let net = 0;
+  let overlap = 0;
+  const legacyFamilies = new Set();
+  for (const { sku, old, count } of entries) {
+    if (sku) legacyFamilies.add(sku.family);
+    if (!count) continue;
+    pending += count;
+    net += count * (target - old);
+    overlap = Math.max(overlap, old);
+  }
+  if (!pending) return [];
+  const cores = Math.max(0, net) + overlap;
+  // A target in the legacy family only needs the net change there too.
+  const family = legacyFamilies.has(targetSku.family) ? cores : target * pending;
+  return [{ family: targetSku.family, vcpus: family, cores }];
+}
+
+/**
  * Evaluate one region against the policy. Discovery failures throw.
  * parts selects demand groups: services, compute, fleet, targets.
  */
-export async function evaluateRegion(policy, region, az, { cache = new Map(), skus: skuOverride, parts = {}, existing = {} } = {}) {
+export async function evaluateRegion(policy, region, az, { cache = new Map(), skus: skuOverride, existingSku, parts = {}, existing = {}, remediationTargets, remediationScope = 'exercise' } = {}) {
   const already = name => Number(existing[String(name).toLowerCase()] ?? 0);
   const include = { services: true, compute: true, fleet: true, targets: true, ...parts };
-  const result = { region, issues: [], candidates: [], rejected: [], context: {} };
+  const result = { region, issues: [], candidates: [], rejected: [], notes: [], context: {} };
   if (include.services) {
     for (const check of policy.regionChecks ?? []) {
       const handler = regionChecks[check.type];
@@ -283,10 +447,29 @@ export async function evaluateRegion(policy, region, az, { cache = new Map(), sk
       return result;
     }
   }
-  const computeSkus = useCompute ? (skuOverride ?? policy.compute.skus) : [null];
+  const computeSkus = useCompute ? (existingSku ? [existingSku] : (skuOverride ?? policy.compute.skus)) : [null];
   for (const name of computeSkus) {
     const demands = [...fixedDemands];
-    if (name) {
+    if (name && existingSku) {
+      // An existing deployment keeps its compute SKU; reruns never resize it,
+      // so it is not re-judged against today's policy. Only nodes/VMs that
+      // are missing (no surge: nothing is upgraded) need quota.
+      const sku = findSku(catalog, name);
+      const reason = skuIneligibility(sku, region, policy.compute.requires ?? {});
+      if (reason) {
+        result.notes.push(`existing ${name} ${reason} under the current policy; it is kept unchanged (no resize). `
+          + 'Clean up and redeploy the scenario to adopt the current policy.');
+      }
+      const missing = Math.max(0, policy.compute.count - already(name));
+      if (missing) {
+        const vcpus = skuVcpus(sku);
+        if (!(Number.isFinite(vcpus) && vcpus > 0)) {
+          result.rejected.push({ sku: name, reason: `${missing} missing ${name} node(s)/VM(s) cannot be re-created: the SKU reports no valid vCPUs in ${region}` });
+          continue;
+        }
+        demands.push({ family: sku.family, vcpus: vcpus * missing });
+      }
+    } else if (name) {
       const sku = findSku(catalog, name);
       const reason = skuIneligibility(sku, region, policy.compute.requires ?? {});
       if (reason) { result.rejected.push({ sku: name, reason }); continue; }
@@ -299,10 +482,11 @@ export async function evaluateRegion(policy, region, az, { cache = new Map(), sk
     let remediationTarget;
     if (useTargets) {
       const reasons = [];
-      for (const targetName of policy.remediationTargets) {
+      // A recorded target is never re-selected; only its eligibility is rechecked.
+      for (const targetName of remediationTargets ?? policy.remediationTargets) {
         const targetSku = findSku(catalog, targetName);
         const reason = skuIneligibility(targetSku, region, policy.remediationRequires ?? {})
-          ?? quotaShortfall(usage, [...demands, { family: targetSku.family, vcpus: skuVcpus(targetSku) }]);
+          ?? quotaShortfall(usage, [...demands, ...remediationDemands(policy, catalog, targetSku, name ?? skuOverride?.[0], already, { scope: remediationScope })]);
         if (!reason) { remediationTarget = targetName; break; }
         reasons.push(`${targetName}: ${reason}`);
       }
@@ -326,25 +510,58 @@ export function orderedRegions(policy, requested, { noFallback = false } = {}) {
   return noFallback ? [wanted] : [wanted, ...regions.filter(region => region !== wanted)];
 }
 
+// A --sku is a preference: it is tried first, followed by the rest of the
+// policy order. It must be one of the policy's SKUs.
+export function preferredSkus(policy, sku) {
+  if (!sku) return undefined;
+  const skus = policy.compute?.skus ?? [];
+  const match = skus.find(item => item.toLowerCase() === String(sku).toLowerCase());
+  if (!match) {
+    throw new PlacementError(`SKU ${sku} is not in the ${policy.scenario} policy${skus.length ? `: ${skus.join(', ')}` : ''}`);
+  }
+  return [match, ...skus.filter(item => item !== match)];
+}
+
+const lower = value => String(value ?? '').toLowerCase();
+
+async function listGroupResources(az, resourceGroup) {
+  const resources = await az(['resource', 'list', '--resource-group', resourceGroup,
+    '--query', '[].{id:id, type:type, location:location, tags:tags}', '--output', 'json']);
+  if (!Array.isArray(resources)) throw new Error(`resources in ${resourceGroup} were not returned as a list`);
+  return resources;
+}
+
+/**
+ * Establish the actual placement of an existing deployment from its regional
+ * resources (not resource-group metadata). location is null when the group has
+ * no regional workload resources and no recorded placement.
+ */
 export async function inspectExisting(policy, resourceGroup, az) {
   const group = await discover(`reading resource group ${resourceGroup}`,
     () => az(['group', 'show', '--name', resourceGroup, '--output', 'json']));
+  const resources = await discover(`listing resources in ${resourceGroup}`, () => listGroupResources(az, resourceGroup));
   const kind = policy.compute?.kind ?? 'none';
+  const ignored = new Set((policy.placementIgnoreTypes ?? []).map(lower));
   const existing = {};
   const workloadLocations = new Set();
   let sku = null;
   const context = {};
+  for (const resource of resources) {
+    const region = normalizeRegion(resource.location);
+    if (!region || region === 'global' || ignored.has(lower(resource.type))) continue;
+    workloadLocations.add(region);
+  }
   const vms = await discover(`listing VMs in ${resourceGroup}`, () => az(['vm', 'list', '--resource-group', resourceGroup,
     '--query', '[].{size:hardwareProfile.vmSize, location:location}', '--output', 'json'])) ?? [];
   for (const vm of vms) {
-    const size = String(vm.size).toLowerCase();
+    const size = lower(vm.size);
     existing[size] = (existing[size] ?? 0) + 1;
     workloadLocations.add(normalizeRegion(vm.location));
   }
   if (kind === 'vm') {
-    const fixed = new Set((policy.fixedFleet ?? []).map(entry => entry.sku.toLowerCase()));
-    sku = vms.map(vm => vm.size).find(size => policy.compute.skus.some(item => item.toLowerCase() === String(size).toLowerCase()))
-      ?? vms.map(vm => vm.size).find(size => !fixed.has(String(size).toLowerCase())) ?? null;
+    const fixed = new Set((policy.fixedFleet ?? []).map(entry => lower(entry.sku)));
+    sku = vms.map(vm => vm.size).find(size => policy.compute.skus.some(item => lower(item) === lower(size)))
+      ?? vms.map(vm => vm.size).find(size => !fixed.has(lower(size))) ?? null;
   }
   if (kind === 'aks') {
     const clusters = await discover(`listing AKS clusters in ${resourceGroup}`,
@@ -352,15 +569,17 @@ export async function inspectExisting(policy, resourceGroup, az) {
     for (const cluster of clusters) {
       workloadLocations.add(normalizeRegion(cluster.location));
       for (const pool of cluster.agentPoolProfiles ?? []) {
-        const size = String(pool.vmSize).toLowerCase();
+        const size = lower(pool.vmSize);
         existing[size] = (existing[size] ?? 0) + Number(pool.count ?? 0);
       }
       const system = (cluster.agentPoolProfiles ?? []).find(pool => pool.mode === 'System') ?? cluster.agentPoolProfiles?.[0];
       sku = sku ?? system?.vmSize ?? null;
-      const version = String(cluster.currentKubernetesVersion ?? cluster.kubernetesVersion ?? '').split('.').slice(0, 2).join('.');
-      if (version && !context.kubernetesVersion) context.kubernetesVersion = version;
+      // Keep the cluster on the version it already runs; never re-select.
+      const version = majorMinor(cluster.kubernetesVersion || cluster.currentKubernetesVersion || '');
+      if (/^\d+\.\d+$/.test(version) && !context.kubernetesVersion) context.kubernetesVersion = version;
     }
   }
+  workloadLocations.delete('');
   const recorded = group?.tags?.[TAGS.location] ? normalizeRegion(group.tags[TAGS.location]) : null;
   if (workloadLocations.size > 1) {
     throw new PlacementError(`${resourceGroup} contains workload resources in several regions (${[...workloadLocations].join(', ')}); refusing to guess its placement.`);
@@ -370,35 +589,108 @@ export async function inspectExisting(policy, resourceGroup, az) {
     throw new PlacementError(`${resourceGroup} records placement ${recorded} but its workload runs in ${actual}; resolve this before rerunning.`);
   }
   return {
-    group, existing, context, sku: sku ?? group?.tags?.[TAGS.sku] ?? null,
-    location: actual ?? recorded ?? normalizeRegion(group.location),
+    group, existing, context, resources, resourceCount: resources.length,
+    sku: sku ?? group?.tags?.[TAGS.sku] ?? null,
+    location: actual ?? recorded ?? null,
     remediationTarget: group?.tags?.[TAGS.remediationTarget],
   };
 }
 
-// Delete only a resource group this attempt provably created: it must carry
-// this attempt's tag, and every resource inside must have been created after
-// the attempt started. Anything else stops without deleting.
-export async function cleanupAttempt({ az, resourceGroup, attemptId, startedAt, log = console.log }) {
-  const exists = await az(['group', 'exists', '--name', resourceGroup, '--output', 'json']);
-  if (!exists) return 'absent';
-  const stop = reason => new PlacementError(`Cleanup stopped: ${reason}. Nothing was deleted; inspect ${resourceGroup} manually.`);
-  const group = await az(['group', 'show', '--name', resourceGroup, '--output', 'json']);
-  if (group?.tags?.[TAGS.attempt] !== attemptId) throw stop(`${resourceGroup} is not verifiably owned by attempt ${attemptId}`);
-  const resources = await az(['resource', 'list', '--resource-group', resourceGroup,
-    '--query', '[].{id:id, createdTime:createdTime}', '--output', 'json']);
-  if (!Array.isArray(resources)) throw stop(`resources in ${resourceGroup} could not be enumerated`);
-  const started = Date.parse(startedAt);
-  const unproven = resources.filter(item => !item.createdTime || !(Date.parse(item.createdTime) >= started));
-  if (unproven.length) {
-    throw stop(`${unproven.length} resource(s) in ${resourceGroup} cannot be proven to belong to this attempt (${unproven.slice(0, 3).map(item => item.id).join(', ')})`);
+const TERMINAL_FAILED = new Set(['failed', 'canceled']);
+const TERMINAL = new Set(['succeeded', 'failed', 'canceled']);
+const NON_MUTATING_OPERATIONS = new Set(['read', 'evaluatedeploymentoutput']);
+const DEPLOYMENT_NOT_FOUND = /DeploymentNotFound|ResourceNotFound|could not be found/i;
+const DEPLOYMENT_ID = /^\/subscriptions\/[^/]+(?:\/resourceGroups\/([^/]+))?\/providers\/Microsoft\.Resources\/deployments\/([^/]+)$/i;
+
+/**
+ * Decide whether a failed attempt may be retried elsewhere. Azure cannot prove
+ * that a resource was created exclusively by this attempt, and a resource
+ * listing is only a snapshot (parallel ARM/provider operations can still be in
+ * flight or become visible later), so nothing is ever deleted and an empty
+ * listing is never treated as proof. A retry is allowed only when the attempt
+ * is proven terminal and non-mutating:
+ *  - ARM's validate API rejected it (validate never writes) and no deployment
+ *    record exists; or
+ *  - the deployment (and every nested deployment) is terminally Failed or
+ *    Canceled, and every recorded operation is terminal and read-only.
+ * As an extra guard, no resource absent before the attempt may be present.
+ * Otherwise placement stops without retry and reports the retained state.
+ */
+export async function assessFailedAttempt({ az, resourceGroup, deploymentName, snapshot = new Set(), scope = 'group', error }) {
+  const manual = reason => new PlacementError(`Stopped after the failed attempt without retrying: ${reason}. Nothing was deleted, because the `
+    + `attempt cannot be proven to have made no changes. Inspect ${resourceGroup} and deployment ${deploymentName} (including nested deployments `
+    + 'and operations still running), wait until they are terminal, remove anything you are sure this attempt created (or delete the whole group '
+    + 'if it holds nothing else), and rerun.');
+  const show = (group, name) => az(group
+    ? ['deployment', 'group', 'show', '--resource-group', group, '--name', name, '--output', 'json']
+    : ['deployment', 'sub', 'show', '--name', name, '--output', 'json']);
+  const operations = (group, name) => az(group
+    ? ['deployment', 'operation', 'group', 'list', '--resource-group', group, '--name', name, '--output', 'json']
+    : ['deployment', 'operation', 'sub', 'list', '--name', name, '--output', 'json']);
+  const topGroup = scope === 'subscription' ? null : resourceGroup;
+
+  let record;
+  try {
+    record = await show(topGroup, deploymentName);
+  } catch (lookup) {
+    if (!DEPLOYMENT_NOT_FOUND.test(String(lookup?.stderr ?? lookup?.message))) {
+      throw manual(`deployment ${deploymentName} could not be read (${summarize(lookup)})`);
+    }
+    record = null;
   }
-  log(`  Deleting attempt-owned resource group ${resourceGroup} (${resources.length} attempt-created resources) ...`);
-  await az(['group', 'delete', '--name', resourceGroup, '--yes', '--output', 'json']);
-  if (await az(['group', 'exists', '--name', resourceGroup, '--output', 'json'])) {
-    throw new PlacementError(`Cleanup could not be verified: ${resourceGroup} still exists. Stopping without further attempts.`);
+  if (!record) {
+    // An absent record right after a failed create can be propagation or
+    // lookup lag, and an error code alone does not prove nothing was accepted.
+    // Only a rejection from ARM's validate API (which never writes) counts.
+    if (!error?.validationOnly) {
+      throw manual(`deployment ${deploymentName} has no record and the failure was not a validation-only rejection, so it may still be starting or have written`);
+    }
+  } else {
+    let walked = 0;
+    const walk = async (group, name, depth) => {
+      const state = lower((depth === 0 ? record : await show(group, name))?.properties?.provisioningState);
+      if (!(depth === 0 ? TERMINAL_FAILED : TERMINAL).has(state)) {
+        throw manual(`deployment ${name} is ${state || 'in an unknown state'}, not terminal`);
+      }
+      const list = await operations(group, name);
+      if (!Array.isArray(list)) throw manual(`operations of deployment ${name} could not be read`);
+      for (const item of list) {
+        if ((walked += 1) > 500 || depth > 8) throw manual('the deployment tree is too large to verify');
+        const props = item?.properties ?? {};
+        const opState = lower(props.provisioningState);
+        const target = props.targetResource ?? {};
+        if (!TERMINAL.has(opState)) throw manual(`operation on ${target.id ?? 'an unknown target'} in ${name} is ${opState || 'unknown'}`);
+        const nested = DEPLOYMENT_ID.exec(target.id ?? '');
+        if (nested || lower(target.resourceType) === 'microsoft.resources/deployments') {
+          if (!nested) throw manual(`nested deployment in ${name} has no resolvable id`);
+          await walk(nested[1] ?? null, nested[2], depth + 1);
+          continue;
+        }
+        if (!NON_MUTATING_OPERATIONS.has(lower(props.provisioningOperation))) {
+          throw manual(`deployment ${name} recorded a ${props.provisioningOperation ?? 'unknown'} operation on ${target.id ?? 'an unknown target'}, which may have written to Azure`);
+        }
+      }
+    };
+    try {
+      await walk(topGroup, deploymentName, 0);
+    } catch (failure) {
+      if (failure instanceof PlacementError) throw failure;
+      throw manual(`deployment ${deploymentName} could not be fully verified (${summarize(failure)})`);
+    }
   }
-  return 'deleted';
+
+  let present;
+  try {
+    present = await az(['group', 'exists', '--name', resourceGroup, '--output', 'json'])
+      ? await listGroupResources(az, resourceGroup) : [];
+  } catch (failure) {
+    throw manual(`${resourceGroup} could not be listed (${summarize(failure)})`);
+  }
+  const added = present.filter(item => !snapshot.has(lower(item.id))).map(item => item.id);
+  if (added.length) {
+    throw manual(`${added.length} resource(s) appeared in ${resourceGroup} during the attempt (${added.slice(0, 5).join(', ')}${added.length > 5 ? ', ...' : ''})`);
+  }
+  return { added };
 }
 
 export function formatAttempts(attempts) {
@@ -419,32 +711,119 @@ export function assertOwnership(policy, resourceGroup, group) {
   }
 }
 
-async function pinnedPlacement({ policy, az, resourceGroup, location, sku, deploy, log }) {
-  const state = await inspectExisting(policy, resourceGroup, az);
+const parentNic = id => /^(.*\/networkInterfaces\/[^/]+)\//i.exec(id ?? '')?.[1] ?? id;
+const ATTACHMENTS = {
+  'microsoft.compute/disks': detail => [detail?.managedBy],
+  'microsoft.network/networkinterfaces': detail => [detail?.properties?.virtualMachine?.id],
+  'microsoft.network/publicipaddresses': detail => [parentNic(detail?.properties?.ipConfiguration?.id)],
+  'microsoft.network/networksecuritygroups': detail => (detail?.properties?.networkInterfaces ?? []).map(item => item?.id),
+};
+
+/**
+ * An existing group with workload resources is only reused when it is
+ * designated for this scenario, or when the scenario's explicit
+ * legacyOwnership rule proves it is an earlier workshop deployment: the
+ * group carries the legacy group tags, every resource carries the legacy
+ * resource tags, and any required legacy deployment succeeded with the
+ * expected outputs. Anything else is refused, never silently adopted.
+ */
+export async function verifyExistingOwnership(policy, resourceGroup, state, az) {
+  const tags = state.group?.tags ?? {};
+  if (tags[TAGS.scenario] === policy.scenario) return 'designated';
+  const refuse = reason => new PlacementError(`${resourceGroup} already holds ${state.resourceCount} resource(s) but is not designated for `
+    + `${policy.scenario} (${reason}); refusing to adopt it. If you have verified that it is this scenario's earlier workshop deployment, `
+    + `designate it yourself and rerun:\n  az group update --name ${resourceGroup} --set tags.${TAGS.scenario}=${policy.scenario}`);
+  const legacy = policy.legacyOwnership;
+  if (!legacy) throw refuse('this scenario has no legacy ownership rule');
+  for (const [key, value] of Object.entries(legacy.groupTags ?? {})) {
+    if (tags[key] !== value) throw refuse(`group tag ${key}=${value} is missing`);
+  }
+  const required = Object.entries(legacy.resourceTags ?? {});
+  if (required.length) {
+    const tagged = item => required.every(([key, value]) => item?.tags?.[key] === value);
+    const accepted = new Set((state.resources ?? []).filter(tagged).map(item => lower(item.id)));
+    let pending = (state.resources ?? []).filter(item => !tagged(item));
+    // Untagged dependents (a NIC or OS disk created outside the template) are
+    // accepted only when Azure itself reports them attached exclusively to
+    // already-accepted resources; anything else stays unknown and is refused.
+    const attachments = new Map();
+    for (const item of pending) {
+      const extract = ATTACHMENTS[lower(item.type)];
+      if (!extract) continue;
+      const detail = await discover(`reading ${item.id}`, () => az(['resource', 'show', '--ids', item.id, '--output', 'json']));
+      attachments.set(lower(item.id), extract(detail).filter(Boolean).map(lower));
+    }
+    for (let changed = true; changed;) {
+      changed = false;
+      pending = pending.filter(item => {
+        const links = attachments.get(lower(item.id));
+        if (!links?.length || !links.every(link => accepted.has(link))) return true;
+        accepted.add(lower(item.id));
+        changed = true;
+        return false;
+      });
+    }
+    if (pending.length) {
+      const tagText = required.map(([key, value]) => `${key}=${value}`).join(', ');
+      throw refuse(`${pending.length} resource(s) lack tag ${tagText} and are not attached only to tagged workshop resources, e.g. ${pending[0].id}`);
+    }
+  }
+  for (const evidence of legacy.deployments ?? []) {
+    let deployment;
+    try {
+      deployment = await az(['deployment', 'group', 'show', '--resource-group', resourceGroup, '--name', evidence.name, '--output', 'json']);
+    } catch (error) {
+      if (/DeploymentNotFound|ResourceNotFound|could not be found/i.test(String(error?.stderr ?? error?.message))) {
+        throw refuse(`no legacy deployment named ${evidence.name}`);
+      }
+      throw new DiscoveryError(`reading deployment ${evidence.name} in ${resourceGroup}`, error);
+    }
+    if (deployment?.properties?.provisioningState !== 'Succeeded') throw refuse(`legacy deployment ${evidence.name} did not succeed`);
+    const missing = (evidence.outputs ?? []).filter(name => !(name in (deployment.properties.outputs ?? {})));
+    if (missing.length) throw refuse(`legacy deployment ${evidence.name} lacks output(s) ${missing.join(', ')}`);
+  }
+  return 'legacy';
+}
+
+// Resolve a requested region against an existing placement. A requested
+// region is a preference unless the selection is strict (no fallback).
+export function reconcilePinnedRegion({ resourceGroup, pinned, location, strict, log = console.log }) {
+  if (!location || normalizeRegion(location) === pinned) return pinned;
+  if (strict) {
+    throw new PlacementError(`${resourceGroup} is already placed in ${pinned}, but ${normalizeRegion(location)} was required (no region fallback). `
+      + 'Existing deployments are never relocated; rerun without the strict region, or clean up the scenario before choosing another region.');
+  }
+  log(`Preferred region ${normalizeRegion(location)} ignored: ${resourceGroup} is already placed in ${pinned}, and existing deployments are never relocated.`);
+  return pinned;
+}
+
+const subscriptionScope = policy => (policy.deployment?.scope ?? 'group') === 'subscription';
+
+async function pinnedPlacement({ policy, az, state, ownership, resourceGroup, location, sku, noRegionFallback, deploymentName, deploy, log }) {
   const { group } = state;
-  assertOwnership(policy, resourceGroup, group);
-  const region = state.location;
-  if (location && normalizeRegion(location) !== region) {
-    throw new PlacementError(`${resourceGroup} is already placed in ${region}. Existing deployments are never relocated; `
-      + 'omit the location, or clean up the scenario before choosing another region.');
+  const region = reconcilePinnedRegion({ resourceGroup, pinned: state.location, location, strict: noRegionFallback, log });
+  if (sku && state.sku && lower(sku) !== lower(state.sku)) {
+    log(`Preferred SKU ${sku} ignored: ${resourceGroup} already uses ${state.sku}, and reruns never change it.`);
   }
-  if (sku && state.sku && sku.toLowerCase() !== state.sku.toLowerCase()) {
-    throw new PlacementError(`${resourceGroup} already uses ${state.sku}; rerunning provisioning cannot change the SKU.`);
-  }
-  let pinnedSku = sku || state.sku;
+  let pinnedSku = state.sku || null;
   const context = { ...state.context };
-  let { remediationTarget } = state;
+  if (subscriptionScope(policy)) context.resourceGroupLocation = normalizeRegion(group.location);
+  let remediationTarget = state.remediationTarget || resumableRemediationTarget(policy, state, resourceGroup);
+  if (remediationTarget && !state.remediationTarget) log(`NOTE ${resourceGroup} has VMs already resized to ${remediationTarget}; resuming with that target.`);
   const kind = policy.compute?.kind ?? 'none';
   const needsSku = kind !== 'none' && !pinnedSku;
   const needsVersion = (policy.regionChecks ?? []).some(check => check.type === 'aksVersion') && !context.kubernetesVersion;
   const needsTarget = (policy.remediationTargets?.length ?? 0) > 0 && !remediationTarget;
   if (needsSku || needsVersion || needsTarget) {
     const evaluation = await evaluateRegion(policy, region, az, {
-      skus: pinnedSku ? [pinnedSku] : undefined,
+      skus: pinnedSku ? undefined : preferredSkus(policy, sku),
+      existingSku: pinnedSku || undefined,
       parts: { fleet: false },
       existing: state.existing,
+      remediationTargets: remediationTarget ? [remediationTarget] : undefined,
     });
     if (evaluation.issues.length) throw new PlacementError(`Pinned region ${region} is not eligible: ${evaluation.issues.join('; ')}`);
+    for (const note of evaluation.notes) log(`NOTE ${note}`);
     const candidate = evaluation.candidates[0];
     if (!candidate && (needsSku || needsTarget)) {
       throw new PlacementError(`No eligible compute in pinned region ${region}:\n${formatAttempts(evaluation.rejected.map(item => ({ region, ...item })))}`);
@@ -456,33 +835,105 @@ async function pinnedPlacement({ policy, az, resourceGroup, location, sku, deplo
   if (remediationTarget) context.remediationTarget = remediationTarget;
   log(`Existing deployment: ${resourceGroup} is pinned to ${region}${pinnedSku ? ` / ${pinnedSku}` : ''} (single attempt, no relocation, no cleanup).`);
   const ownershipTags = Object.fromEntries(Object.entries(group?.tags ?? {}).filter(([key]) => key.startsWith('sre-workshop-')));
-  const outputs = await deploy({ location: region, sku: pinnedSku, context, tags: ownershipTags });
-  return { mode: 'pinned', resourceGroup, location: region, sku: pinnedSku, context, outputs };
+  if (ownership === 'legacy') {
+    log(`${resourceGroup} is a verified earlier ${policy.scenario} workshop deployment; it will be designated after this rerun.`);
+    ownershipTags[TAGS.scenario] = policy.scenario;
+  }
+  const outputs = await deploy({ location: region, sku: pinnedSku, context, tags: ownershipTags, deploymentName });
+  const result = { mode: 'pinned', resourceGroup, location: region, sku: pinnedSku, context, outputs };
+  // Persist what this rerun established: designation for a verified legacy
+  // group, and a newly selected remediation target so it is never re-selected.
+  const newTarget = remediationTarget && !state.remediationTarget;
+  if (ownership === 'legacy' || newTarget) {
+    try {
+      await recordPlacementTags(az, resourceGroup, {
+        ...(ownership === 'legacy' ? { [TAGS.scenario]: policy.scenario, [TAGS.location]: region, [TAGS.sku]: pinnedSku } : {}),
+        [TAGS.remediationTarget]: remediationTarget,
+      });
+    } catch (error) {
+      throw Object.assign(new PlacementError(`The rerun of ${resourceGroup} succeeded and was kept, but recording its designation/target tags failed `
+        + `(${summarize(error)}). Rerun to retry designation; nothing was deleted.`), { partial: result });
+    }
+  }
+  return result;
 }
+
+// With no recorded target, an interrupted migration is resumed with the size
+// already applied to retiring VMs, never re-selected; ambiguity fails closed.
+export function resumableRemediationTarget(policy, state, resourceGroup) {
+  if (!(policy.remediationTargets?.length) || state.remediationTarget) return state.remediationTarget || null;
+  const baseline = Number(policy.compute?.count ?? 0);
+  const resized = policy.remediationTargets.filter(target => {
+    const count = state.existing?.[lower(target)] ?? 0;
+    return count - (state.sku && lower(state.sku) === lower(target) ? baseline : 0) > 0;
+  });
+  if (resized.length > 1) {
+    throw new PlacementError(`${resourceGroup} has no recorded remediation target but VMs were already resized to ${resized.join(' and ')}; `
+      + `record the intended one with: az group update --name ${resourceGroup} --set tags.${TAGS.remediationTarget}=<size>. Nothing was resized.`);
+  }
+  return resized[0] ?? null;
+}
+
+export async function recordPlacementTags(az, resourceGroup, tags) {
+  const pairs = Object.entries(tags).filter(([, value]) => value).map(([key, value]) => `tags.${key}=${value}`);
+  if (pairs.length) await az(['group', 'update', '--name', resourceGroup, '--set', ...pairs, '--output', 'json']);
+}
+
+export function missingGroupMessage(policy, resourceGroup, location) {
+  const region = orderedRegions(policy, location)[0];
+  return `Resource group ${resourceGroup} does not exist. This tooling never creates resource groups: Azure's create is a `
+    + 'create-or-update that could silently take over a group someone else creates at the same moment. Choose a name nobody else uses, '
+    + `confirm \`az group exists --name ${resourceGroup}\` prints false, then create and designate it yourself and rerun:\n`
+    + `  az group create --name ${resourceGroup} --location ${region} --tags ${TAGS.scenario}=${policy.scenario}\n`
+    + '(The group\'s own region is only metadata; workload resources may still fall back to another supported region.)';
+}
+
 /**
- * Place and deploy a scenario. `deploy({ location, sku, context, tags })`
- * performs exactly one deployment attempt and returns its outputs.
+ * Place and deploy a scenario. `deploy({ location, sku, context, tags,
+ * deploymentName })` performs exactly one deployment attempt under the given
+ * (attempt-unique) deployment name and returns its outputs.
  */
 export async function provision({
   policy, az, resourceGroup, location, sku, noRegionFallback = false, deploy,
-  log = console.log, attemptId = randomUUID(),
+  deploymentName = policy.scenario, log = console.log, attemptId = randomUUID(),
 }) {
   const kind = policy.compute?.kind ?? 'none';
   const hasSkuFallback = kind !== 'none';
-  const groupScope = (policy.deployment?.scope ?? 'group') === 'group';
-  if (sku && (!hasSkuFallback || !policy.compute.skus.some(item => item.toLowerCase() === sku.toLowerCase()))) {
-    throw new PlacementError(`SKU ${sku} is not in the ${policy.scenario} policy${hasSkuFallback ? `: ${policy.compute.skus.join(', ')}` : ''}`);
-  }
+  const scope = subscriptionScope(policy) ? 'subscription' : 'group';
+  if (sku && !hasSkuFallback) throw new PlacementError(`${policy.scenario} has no compute SKU to select`);
+  const skuOrder = preferredSkus(policy, sku);
+  // Resource groups are never created here. Azure's group create (and a
+  // template's resource-group resource) is a create-or-update, so it could
+  // silently take over a group another writer creates at the same moment, and
+  // no read-back can tell afterwards. The operator creates and tags the group.
   const exists = await discover(`checking resource group ${resourceGroup}`,
     () => az(['group', 'exists', '--name', resourceGroup, '--output', 'json']));
-  if (exists) return pinnedPlacement({ policy, az, resourceGroup, location, sku, deploy, log });
+  if (!exists) throw new PlacementError(missingGroupMessage(policy, resourceGroup, location));
+  const state = await inspectExisting(policy, resourceGroup, az);
+  assertOwnership(policy, resourceGroup, state.group);
+  if (state.location) {
+    const ownership = await verifyExistingOwnership(policy, resourceGroup, state, az);
+    return pinnedPlacement({ policy, az, state, ownership, resourceGroup, location, sku, noRegionFallback, deploymentName, deploy, log });
+  }
+  if (state.group?.tags?.[TAGS.scenario] !== policy.scenario) {
+    throw new PlacementError(`${resourceGroup} exists but is not designated for ${policy.scenario} (tag ${TAGS.scenario}=${policy.scenario} is missing) `
+      + 'and has no workload placement; refusing to deploy into it. Use a group you created for this exercise and tag it, or choose another name.');
+  }
+  if (state.resourceCount) {
+    throw new PlacementError(`${resourceGroup} is designated for ${policy.scenario} but already contains ${state.resourceCount} resource(s) without a `
+      + 'regional workload placement; refusing to guess their ownership. Inspect the group, remove what you are sure is leftover, and rerun.');
+  }
+  const groupLocation = normalizeRegion(state.group.location);
+  log(`${resourceGroup} is designated for ${policy.scenario} and empty; placing ${policy.scenario} into it.`);
 
+  const ownershipTags = { ...(policy.groupTags ?? {}), [TAGS.scenario]: policy.scenario, [TAGS.attempt]: attemptId };
   const attempts = [];
   let fleetUnavailableEverywhere = (policy.fixedFleet?.length ?? 0) > 0;
   const cache = new Map();
+  let tryNumber = 0;
   for (const region of orderedRegions(policy, location, { noFallback: noRegionFallback })) {
     log(`Checking ${region} ...`);
-    const evaluation = await evaluateRegion(policy, region, az, { cache, skus: sku ? [sku] : undefined });
+    const evaluation = await evaluateRegion(policy, region, az, { cache, skus: skuOrder });
     if (!evaluation.fleetUnavailable) fleetUnavailableEverywhere = false;
     if (evaluation.issues.length) {
       attempts.push({ region, reason: `preflight: ${evaluation.issues.join('; ')}` });
@@ -490,43 +941,47 @@ export async function provision({
     }
     for (const rejected of evaluation.rejected) attempts.push({ region, sku: rejected.sku, reason: `preflight: ${rejected.reason}` });
     for (const candidate of evaluation.candidates) {
+      tryNumber += 1;
+      const attemptName = `${deploymentName.slice(0, 52)}-${attemptId.slice(0, 8)}-${tryNumber}`;
       const context = { ...evaluation.context };
       if (candidate.remediationTarget) context.remediationTarget = candidate.remediationTarget;
-      const tags = {
-        ...(policy.groupTags ?? {}),
-        [TAGS.scenario]: policy.scenario,
-        [TAGS.attempt]: attemptId,
-        [TAGS.location]: region,
-        ...(candidate.sku ? { [TAGS.sku]: candidate.sku } : {}),
-        ...(context.remediationTarget ? { [TAGS.remediationTarget]: context.remediationTarget } : {}),
-      };
-      log(`Attempting ${region}${candidate.sku ? ` with ${candidate.sku}` : ''} (attempt ${attemptId}) ...`);
-      // Re-check immediately before creating so a group that appeared
-      // concurrently is never retagged (and later deleted) as attempt-owned.
-      if (await discover(`re-checking resource group ${resourceGroup}`,
-        () => az(['group', 'exists', '--name', resourceGroup, '--output', 'json']))) {
-        throw new PlacementError(`${resourceGroup} appeared while placing ${policy.scenario}; stopping without changes. Rerun to use the existing deployment.`, { attempts });
-      }
-      const startedAt = new Date(Date.now() - 1000).toISOString();
-      if (groupScope) {
-        await az(['group', 'create', '--name', resourceGroup, '--location', region, '--tags',
-          ...Object.entries(tags).map(([key, value]) => `${key}=${value}`), '--output', 'json']);
-      }
+      log(`Attempting ${region}${candidate.sku ? ` with ${candidate.sku}` : ''} (deployment ${attemptName}) ...`);
+      let snapshot;
+      snapshot = new Set((await discover(`listing resources in ${resourceGroup}`, () => listGroupResources(az, resourceGroup))).map(item => lower(item.id)));
+      if (scope === 'subscription') context.resourceGroupLocation = groupLocation;
+      let outputs;
       try {
-        const outputs = await deploy({ location: region, sku: candidate.sku, context, tags });
-        log(`Placed ${policy.scenario} in ${region}${candidate.sku ? ` with ${candidate.sku}` : ''}.`);
-        return { mode: 'new', resourceGroup, location: region, sku: candidate.sku, context, outputs, attemptId, attempts };
+        outputs = await deploy({ location: region, sku: candidate.sku, context, tags: ownershipTags, deploymentName: attemptName });
       } catch (error) {
+        if (error instanceof PlacementError) throw error;
         const classification = classifyFailure(error?.stderr ?? error?.message, { hasSkuFallback });
         const summary = summarize(error);
         attempts.push({ region, sku: candidate.sku, reason: `${classification === 'fatal' ? 'non-retryable failure' : `${classification}-level availability failure`}: ${summary}` });
         log(`  Attempt failed (${classification}): ${summary}`);
-        await cleanupAttempt({ az, resourceGroup, attemptId, startedAt, log });
+        try {
+          await assessFailedAttempt({ az, resourceGroup, deploymentName: attemptName, snapshot, scope, error });
+        } catch (stop) {
+          if (stop instanceof PlacementError) stop.attempts = attempts;
+          throw stop;
+        }
         if (classification === 'fatal') {
-          throw new PlacementError(`Deployment failed with a non-retryable error; only this attempt's resource group was cleaned up.\n${formatAttempts(attempts)}`, { attempts });
+          throw new PlacementError(`Deployment failed with a non-retryable error; the attempt was verified to have made no changes and nothing was deleted.\n${formatAttempts(attempts)}`, { attempts });
         }
         if (classification === 'region') break;
+        continue;
       }
+      // The deployment succeeded: it is never treated as failed or disposable work.
+      try {
+        await recordPlacementTags(az, resourceGroup, {
+          [TAGS.location]: region, [TAGS.sku]: candidate.sku, [TAGS.remediationTarget]: context.remediationTarget, [TAGS.attempt]: attemptId,
+        });
+      } catch (error) {
+        throw new PlacementError(`${policy.scenario} deployed successfully in ${region}${candidate.sku ? ` with ${candidate.sku}` : ''} (deployment ${attemptName}), `
+          + `but recording its placement tags on ${resourceGroup} failed (${summarize(error)}). The deployment was kept. Rerun the same command: `
+          + 'reruns detect the actual workload placement and pin to it.', { attempts, partial: { resourceGroup, location: region, sku: candidate.sku, context, outputs } });
+      }
+      log(`Placed ${policy.scenario} in ${region}${candidate.sku ? ` with ${candidate.sku}` : ''}.`);
+      return { mode: 'new', resourceGroup, location: region, sku: candidate.sku, context, outputs, attemptId, attempts };
     }
   }
   throw new PlacementError(`No supported placement succeeded for ${policy.scenario}. Tried, in order:\n${formatAttempts(attempts)}`, {

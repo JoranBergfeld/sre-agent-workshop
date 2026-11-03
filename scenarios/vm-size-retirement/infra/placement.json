@@ -79,6 +79,15 @@
     "environment": "demo",
     "track": "vm"
   },
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "vm-size-retirement"
+    },
+    "resourceTags": {
+      "scenario": "vm-size-retirement"
+    }
+  },
   "deployment": {
     "scope": "group",
     "template": "infra/bicep/main.bicep",

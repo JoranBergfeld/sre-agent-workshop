@@ -49,6 +49,15 @@
     "scenario": "cpu-runaway",
     "environment": "demo"
   },
+  "legacyOwnership": {
+    "description": "Verifiable tags/evidence written by earlier workshop versions; used only to re-adopt this scenario's own previous deployment.",
+    "groupTags": {
+      "scenario": "cpu-runaway"
+    },
+    "resourceTags": {
+      "scenario": "cpu-runaway"
+    }
+  },
   "deployment": {
     "scope": "group",
     "template": "infra/bicep/main.bicep",

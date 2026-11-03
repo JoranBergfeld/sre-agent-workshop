@@ -370,6 +370,77 @@ test('approval gates migrate with mocked Azure CLI and write only temporary audi
   assert.equal(readFileSync(tracePath, 'utf8').trim().split('\n').length, 4);
 });
 
+for (const [label, command, arguments_] of [
+  ['Bash', 'bash', [capsulePath('scripts/tools/invoke-approved-remediation.sh'), '--action', 'migrate-vm-size', '--change-ticket', 'CHG-11223']],
+  ['PowerShell', 'pwsh', ['-NoProfile', '-File', capsulePath('scripts/tools/Invoke-ApprovedRemediation.ps1'), '-Action', 'migrate-vm-size', '-ChangeTicket', 'INC-33221']],
+]) {
+  test(`${label} migration preflights target quota for the whole fleet and resizes nothing when short`, (t) => {
+    const outputDirectory = createTemporaryAuditDirectory(t);
+    const tracePath = resolve(outputDirectory, 'az-quota.log');
+    const result = run(command, arguments_, {
+      env: {
+        PATH: `${capsulePath('tests/fixtures/az-success')}:${process.env.PATH}`,
+        SRE_OUTPUT_DIR: outputDirectory,
+        AZ_SUCCESS_TRACE: tracePath,
+        AZ_SUCCESS_QUOTA_SHORT: '1',
+      },
+      input: 'APPROVE\n',
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`.replace(/\x1B\[[0-9;]*m/g, ""), /standardDSv5Family vCPU quota has 2 free, 4 required/);
+    assert.match(`${result.stdout}${result.stderr}`, /No VM was resized/);
+    assert.equal(existsSync(tracePath), false, 'no resize may start after a failed preflight');
+  });
+}
+
+for (const [label, command, arguments_] of [
+  ['Bash', 'bash', [capsulePath('scripts/tools/invoke-approved-remediation.sh'), '--action', 'migrate-vm-size', '--change-ticket', 'CHG-44556']],
+  ['PowerShell', 'pwsh', ['-NoProfile', '-File', capsulePath('scripts/tools/Invoke-ApprovedRemediation.ps1'), '-Action', 'migrate-vm-size', '-ChangeTicket', 'INC-65544']],
+]) {
+  const runMigration = (t, extra) => {
+    const outputDirectory = createTemporaryAuditDirectory(t);
+    const tracePath = resolve(outputDirectory, 'az-target.log');
+    const tagState = resolve(outputDirectory, 'target-tag');
+    const result = run(command, arguments_, {
+      env: {
+        PATH: `${capsulePath('tests/fixtures/az-success')}:${process.env.PATH}`,
+        SRE_OUTPUT_DIR: outputDirectory,
+        AZ_SUCCESS_TRACE: tracePath,
+        AZ_SUCCESS_TAG_STATE: tagState,
+        ...extra,
+      },
+      input: 'APPROVE\n',
+    });
+    const output = `${result.stdout}${result.stderr}`.replace(/\x1B\[[0-9;]*m/g, '');
+    return { result, output, tracePath, tagState };
+  };
+
+  test(`${label} migration records a verified target on a group missing the tag before the first resize`, (t) => {
+    const { result, output, tracePath, tagState } = runMigration(t, {});
+    assert.equal(result.status, 0, output);
+    assert.equal(readFileSync(tagState, 'utf8'), 'Standard_D2s_v5');
+    const resizes = readFileSync(tracePath, 'utf8').trim().split('\n');
+    assert.equal(resizes.length, 2);
+    assert.ok(resizes.every((line) => line.includes('--size Standard_D2s_v5')), resizes.join('\n'));
+  });
+
+  test(`${label} interrupted migration without a tag resumes with the size already applied`, (t) => {
+    const { result, output, tracePath, tagState } = runMigration(t, { AZ_SUCCESS_PARTIAL: '1' });
+    assert.equal(result.status, 0, output);
+    assert.match(output, /resizing in .* region to Standard_D2as_v5/);
+    assert.equal(readFileSync(tagState, 'utf8'), 'Standard_D2as_v5', 'never re-selects another family');
+    assert.ok(readFileSync(tracePath, 'utf8').trim().split('\n').every((line) => line.includes('--size Standard_D2as_v5')));
+  });
+
+  test(`${label} migration resizes nothing when recording the target cannot be confirmed`, (t) => {
+    const { result, output, tracePath } = runMigration(t, { AZ_SUCCESS_TAG_UPDATE_LOST: '1' });
+    assert.notEqual(result.status, 0);
+    assert.match(output, /could not be confirmed/);
+    assert.match(output, /No VM was resized/);
+    assert.equal(existsSync(tracePath), false);
+  });
+}
+
 test('PowerShell approval gate audits an approved no-op migration', (t) => {
   const outputDirectory = createTemporaryAuditDirectory(t);
   const fixtureDirectory = capsulePath('tests/fixtures/az-success');
