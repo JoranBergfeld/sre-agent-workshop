@@ -1,0 +1,51 @@
+id: appservice-latency-context
+title: App Service Latency Context
+platform: Azure App Service
+incidentType: Elevated application latency
+summary: Investigate a repeatable PHP latency incident, shape SRE and coding context, and compare evidence and native consumption.
+severity: 2
+estimatedMinutes: 120
+difficulty: advanced
+costProfile: medium
+guide: README.md
+pages:
+  - stage: prerequisites
+    path: docs/00-prerequisites.md
+  - optional: true
+    path: docs/local-reproduction.md
+  - stage: deploy-infrastructure
+    path: docs/01-deploy-infrastructure.md
+  - stage: onboard-sre-agent
+    path: docs/02-onboard-sre-agent.md
+  - stage: configure-incident-response
+    path: docs/03-configure-incident-response.md
+  - stage: run-observe-scenario
+    path: docs/04-baseline.md
+  - optional: true
+    path: docs/05-sre-context.md
+  - optional: true
+    path: docs/06-handover-context.md
+  - optional: true
+    path: docs/07-review-security.md
+  - optional: true
+    path: docs/08-repeat-compare.md
+  - stage: cleanup
+    path: docs/99-cleanup.md
+learningObjectives:
+  - Distinguish application evidence, context customization and behavior-preserving repair.
+  - Compare repeat investigations through fix PRs in each product's native consumption units.
+  - Preserve evidence and keep handover, deployment and cleanup learner-controlled.
+setup:
+  bash: scripts/setup.sh
+  powershell: scripts/setup.ps1
+inject:
+  bash: scripts/inject.sh
+  powershell: scripts/inject.ps1
+validate:
+  bash: scripts/validate.sh
+  powershell: scripts/validate.ps1
+cleanup:
+  bash: scripts/cleanup.sh
+  powershell: scripts/cleanup.ps1
+source: src
+tests: tests

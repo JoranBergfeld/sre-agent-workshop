@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+import { readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import path from 'node:path';
+const directory = process.env.FIXTURE_DIR;
+if (!directory) throw new Error('Controlled fixture requires FIXTURE_DIR');
+const args = process.argv.slice(2);
+const command = args.filter(value => !value.startsWith('--')).join(' ');
+const value = key => args[args.indexOf(key) + 1];
+const file = path.join(directory, 'remote.json');
+let remote;
+try { remote = JSON.parse(readFileSync(file, 'utf8')); } catch { remote = {}; }
+if (process.env.FAIL_AZ && command.startsWith(process.env.FAIL_AZ)) process.exit(19);
+let result;
+if (command.startsWith('group exists')) result = Boolean(remote.group);
+else if (command.startsWith('group show')) result = remote.group;
+else if (command.startsWith('group create')) {
+  const tags = Object.fromEntries(args.slice(args.indexOf('--tags') + 1, args.indexOf('--subscription'))
+    .map(tag => tag.split('=')));
+  remote.group = { name: value('--name'), tags };
+  result = remote.group;
+} else if (command.startsWith('deployment group create')) {
+  remote.resources = [{ name: 'alctx-app', tags: remote.group.tags }];
+  result = { properties: { outputs: Object.fromEntries(Object.entries({
+    appName: 'alctx-app', url: 'https://alctx-app.azurewebsites.net',
+    workspaceId: '00000000-1111-2222-3333-444444444444',
+  }).map(([key, entry]) => [key, { value: entry }])) } };
+} else if (command.startsWith('webapp deploy')) {
+  copyFileSync(value('--src-path'), path.join(directory, 'uploaded.zip'));
+  const zip = readFileSync(value('--src-path'));
+  remote.revision = zip.includes(Buffer.from('candidate-v2')) ? 'faulty' : 'healthy';
+  remote.deployments = (remote.deployments || 0) + 1;
+  result = { status: 4, complete: true };
+} else if (command.startsWith('resource list')) result = remote.resources || [];
+else if (command.startsWith('monitor activity-log list')) result = [{ operationName: { value: 'Deploy' } }];
+else if (command.startsWith('monitor log-analytics query')) result = [{ evidence: 'preserved' }];
+else if (command.startsWith('group delete')) { delete remote.group; delete remote.resources; result = null; }
+else throw new Error(`Uncontrolled Azure invocation: ${args.join(' ')}`);
+writeFileSync(file, JSON.stringify(remote));
+console.log(JSON.stringify(result));

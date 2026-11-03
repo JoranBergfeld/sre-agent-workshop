@@ -15,7 +15,7 @@ function scriptsUnder(directory) {
   });
 }
 
-test('Azure-touching scenario scripts select and verify their subscription directly', () => {
+test('Azure-touching scenario scripts verify subscription context or pass explicit subscription scope', () => {
   const failures = [];
 
   for (const path of scriptsUnder(scenariosRoot)) {
@@ -23,7 +23,9 @@ test('Azure-touching scenario scripts select and verify their subscription direc
     assert.doesNotMatch(source, /azure-subscription\.(?:sh|ps1)|Select-AzureSubscription|select_azure_subscription/);
 
     const invokesAzure = /(?:^|[;&|]\s*|[=(]\s*|\$\()&?\s*az\s+(?!account\s+(?:set|show)\b)/m.test(source);
-    if (invokesAzure && (!/az account set --subscription/.test(source) || !/az account show/.test(source))) {
+    const directCommands = source.match(/(?:^|[;&|]\s*|[=(]\s*|\$\()&?\s*az\s+(?!account\s+(?:set|show)\b)[^\r\n]*/gm) || [];
+    const passesExplicitScope = directCommands.length > 0 && directCommands.every(command => /--subscription\s+/.test(command));
+    if (invokesAzure && !passesExplicitScope && (!/az account set --subscription/.test(source) || !/az account show/.test(source))) {
       failures.push(path.replace(`${repositoryRoot}/`, ''));
     }
   }

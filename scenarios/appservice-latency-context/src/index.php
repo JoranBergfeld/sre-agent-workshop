@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/timing.php';
+require __DIR__ . '/telemetry.php';
 
 $started = hrtime(true);
 $requestId = bin2hex(random_bytes(16));
@@ -13,14 +14,17 @@ $deployment = is_file(__DIR__ . '/deployment.json')
 function recordEvent(string $event, array $fields = []): void
 {
     global $requestId, $path, $deployment;
-    error_log(json_encode(array_merge([
+    $entry = array_merge([
         'timestamp' => gmdate('c'),
         'event' => $event,
         'request_id' => $requestId,
         'route' => $path,
+        'method' => $_SERVER['REQUEST_METHOD'],
         'revision' => $deployment['revision'],
         'prepared_at' => $deployment['prepared_at'],
-    ], $fields), JSON_UNESCAPED_SLASHES));
+    ], $fields);
+    error_log(json_encode($entry, JSON_UNESCAPED_SLASHES));
+    queueTelemetry($entry);
 }
 
 header('Content-Type: application/json');

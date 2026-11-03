@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+if (process.env.FAIL_HTTP) process.exit(22);
+const remote = JSON.parse(readFileSync(path.join(process.env.FIXTURE_DIR, 'remote.json')));
+const route = process.argv.at(-1);
+const health = route.endsWith('/health');
+console.log('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nX-Request-ID: fixture-request\r\n\r');
+console.log(JSON.stringify(health ? { status: 'healthy' } : {
+  orderId: 'DEMO-1001', status: 'processing', estimatedDelivery: '2026-12-10',
+}));
+console.log(health || remote.revision === 'healthy' ? '0.025' : '20.025');
