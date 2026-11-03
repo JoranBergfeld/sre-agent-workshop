@@ -31,7 +31,13 @@ Confirm the pull request contains Azure Boards traceability, including the
 linked work item or its `AB#<id>` reference. Review the diff and required
 checks.
 
-Before merging, check out the pull-request branch and run every repair gate:
+Before merging, require the workflow's baseline, repair acceptance, type/lint,
+and normalizer coverage gates to pass. The workflow accepts only the three
+intentional unsupported-v2 failures for the initial baseline; a repair must
+instead make the acceptance tests green. Review those results explicitly.
+
+For an optional local review, check out the pull-request branch and run every
+repair gate (requires the optional Python tools from prerequisites):
 
 ```bash
 cd scenarios/azure-boards-copilot-handover/app
@@ -85,10 +91,31 @@ Deploy exactly that checkout.
 ./scenarios/azure-boards-copilot-handover/scripts/deploy.ps1
 ```
 
-The helper reruns the baseline application gates, publishes the current
-checkout, and stamps its Git commit SHA and deployment cutover time. The
-repair acceptance and coverage gates were required separately before merge.
-The helper does not fetch or change branches.
+The helper verifies clean source and downloads only the exact-commit
+`azure-boards-copilot-handover-application-<SHA>` artifact from a successful
+same-repository push or manually dispatched build. It validates workflow/run
+identity, variant/runtime, checksums, and the embedded revision, then publishes
+the private blob package with managed-identity access and synchronizes triggers.
+It never uses a PR artifact, another SHA, or an automatic local-build fallback.
+If the build is missing, push the commit and dispatch
+`validate-azure-boards-copilot-handover-app.yml` on its branch/tag as instructed;
+`gh workflow run --ref` does not accept a raw SHA. Use `--repo owner/name` when
+the repository cannot be discovered from Git origin.
+
+The keyed status response retains `deployedCommitSha` and adds
+`packageCommitSha`, loaded once from `build-revision.json` with the worker's
+code rather than from an application setting. Both must match the requested
+commit with HTTP 200 before the helper advances the deployment cutover time,
+and again in the bounded post-cutover check. An old worker receiving a new
+`DEPLOYED_COMMIT_SHA` setting cannot pass by reporting that setting alone.
+
+The explicit `--build-mode source` alternative runs the local baseline gates
+and submits a clean source ZIP for remote Oryx building. It embeds the same
+revision marker and performs the same readiness checks. It removes any previous
+run-from-package URL/identity selector and enables both build switches;
+artifact mode resets the switches to false when switching back. The repair
+acceptance and coverage gates remain required before merge. Neither route
+fetches or changes branches.
 
 ## Deterministic recovery validation
 

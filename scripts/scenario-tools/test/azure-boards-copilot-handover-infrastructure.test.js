@@ -112,15 +112,15 @@ test('Azure Boards handover provisions managed-identity Function hosting and dat
   assert.match(functionApp, /kind:\s*'functionapp,linux'/);
   assert.match(functionApp, /type:\s*'SystemAssigned'/);
   assert.match(functionApp, /linuxFxVersion:\s*'Python\|3\.12'/);
-  assert.match(functionApp, /FUNCTIONS_WORKER_RUNTIME[\s\S]*value:\s*'python'/);
-  assert.match(functionApp, /FUNCTIONS_EXTENSION_VERSION[\s\S]*value:\s*'~4'/);
-  assert.match(functionApp, /AzureFunctionsJobHost__extensions__serviceBus__prefetchCount[\s\S]*value:\s*'0'/);
-  assert.match(functionApp, /AzureFunctionsJobHost__extensions__serviceBus__maxConcurrentCalls[\s\S]*value:\s*'1'/);
-  assert.match(functionApp, /WEBSITE_MAX_DYNAMIC_APPLICATION_SCALE_OUT[\s\S]*value:\s*'1'/);
+  assert.match(functionApp, /FUNCTIONS_WORKER_RUNTIME:\s*'python'/);
+  assert.match(functionApp, /FUNCTIONS_EXTENSION_VERSION:\s*'~4'/);
+  assert.match(functionApp, /AzureFunctionsJobHost__extensions__serviceBus__prefetchCount:\s*'0'/);
+  assert.match(functionApp, /AzureFunctionsJobHost__extensions__serviceBus__maxConcurrentCalls:\s*'1'/);
+  assert.match(functionApp, /WEBSITE_MAX_DYNAMIC_APPLICATION_SCALE_OUT:\s*'1'/);
   assert.match(functionApp, /ServiceBusConnection__fullyQualifiedNamespace/);
   assert.match(functionApp, /TABLE_SERVICE_ENDPOINT/);
-  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_DELAY_SECONDS[\s\S]*value:\s*'5'/);
-  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_MAX_DELAY_SECONDS[\s\S]*value:\s*'30'/);
+  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_DELAY_SECONDS:\s*'5'/);
+  assert.match(functionApp, /UNSUPPORTED_EVENT_RETRY_MAX_DELAY_SECONDS:\s*'30'/);
 
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces@/);
   assert.match(messaging, /Microsoft\.ServiceBus\/namespaces\/queues@/);

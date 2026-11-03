@@ -263,10 +263,14 @@ export async function resolveArtifact(options, { run = execute, cwd = process.cw
       const required = scenario === 'cloud-agent-handover'
         ? ['HandoverApp.dll', 'HandoverApp.deps.json', 'HandoverApp.runtimeconfig.json']
         : scenario === 'azure-boards-copilot-handover'
-          ? ['host.json', 'function_app.py', 'requirements.txt', 'order_events/__init__.py',
+          ? ['host.json', 'function_app.py', 'requirements.txt', 'build-revision.json', 'order_events/__init__.py',
             '.python_packages/lib/site-packages/azure/functions/__init__.py']
           : ['index.php', 'timing.php', 'telemetry.php', 'nginx.conf', 'deployment.json'];
       requireValue(required.every(name => deployment.has(name)), 'Invalid deployment ZIP root layout');
+      if (scenario === 'azure-boards-copilot-handover') {
+        requireValue(parseJson(deployment.get('build-revision.json'), 'package revision')?.sourceSha === sha,
+          'Functions embedded package revision mismatch');
+      }
       if (scenario === 'appservice-latency-context') {
         requireValue(deployment.size === required.length, 'Unexpected latency ZIP entries');
         const revision = parseJson(deployment.get('deployment.json'), 'latency deployment').revision;

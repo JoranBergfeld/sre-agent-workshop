@@ -1,6 +1,8 @@
 import json
 import os
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import cast
 
 import azure.functions as func
@@ -19,6 +21,21 @@ from order_events.adapters.storage import (
     ScenarioStateTableStore,
 )
 from order_events.workshop import get_workshop_status, submit_control_batch, submit_incident_batch
+
+
+def _read_package_commit_sha(revision_path: Path) -> str | None:
+    try:
+        revision = json.loads(revision_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None  # Local development and pre-artifact deployments have no package revision.
+    source_sha = revision.get("sourceSha") if isinstance(revision, dict) else None
+    if not isinstance(source_sha, str) or re.fullmatch(r"[0-9a-f]{40}", source_sha) is None:
+        raise ValueError("Invalid embedded package revision")
+    return source_sha
+
+
+# Capture once with this worker's code, not from mutable settings or a later package mount.
+PACKAGE_COMMIT_SHA = _read_package_commit_sha(Path(__file__).with_name("build-revision.json"))
 
 app = func.FunctionApp()
 
@@ -100,6 +117,7 @@ def workshop_status(req: func.HttpRequest) -> func.HttpResponse:
             "incidentBatchId": status.incident_batch_id,
             "incidentBatchInjected": status.incident_batch_injected,
             "deployedCommitSha": status.deployed_commit_sha,
+            "packageCommitSha": PACKAGE_COMMIT_SHA,
             "deployedAtUtc": status.deployed_at_utc,
             "normalizedReceiptCount": status.normalized_receipt_count,
             "v1ReceiptCount": status.v1_receipt_count,

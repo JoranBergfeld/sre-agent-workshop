@@ -1,6 +1,7 @@
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
 import azure.functions as func
 import pytest
@@ -127,6 +128,7 @@ def test_workshop_status_reports_injection_state(monkeypatch: pytest.MonkeyPatch
         "incidentBatchId": INCIDENT_BATCH_ID,
         "incidentBatchInjected": True,
         "deployedCommitSha": None,
+        "packageCommitSha": None,
         "deployedAtUtc": None,
         "normalizedReceiptCount": 0,
         "v1ReceiptCount": 0,
@@ -177,11 +179,41 @@ def test_workshop_status_reports_deployment_provenance_and_receipt_counts(
         "incidentBatchId": INCIDENT_BATCH_ID,
         "incidentBatchInjected": True,
         "deployedCommitSha": "a26ce2cd82b704ebd201f5990f12ce47b53b3948",
+        "packageCommitSha": None,
         "deployedAtUtc": "2026-08-17T13:52:55Z",
         "normalizedReceiptCount": 23,
         "v1ReceiptCount": 3,
         "v2ReceiptCount": 20,
     }
+
+
+def test_status_distinguishes_old_package_from_new_deployment_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(function_app, "_scenario_state_store", lambda: FakeScenarioStateStore())
+    monkeypatch.setattr(function_app, "_receipt_store", lambda: FakeReceiptStore())
+    monkeypatch.setenv("DEPLOYED_COMMIT_SHA", "a" * 40)
+    monkeypatch.setattr(function_app, "PACKAGE_COMMIT_SHA", "b" * 40)
+    response = function_app.workshop_status(_http_request(method="GET", route="status"))
+    body = json.loads(response.get_body())
+    assert response.status_code == 200
+    assert body["deployedCommitSha"] == "a" * 40
+    assert body["packageCommitSha"] == "b" * 40
+
+
+def test_embedded_package_revision_is_read_independently_of_settings(tmp_path: Path) -> None:
+    revision = tmp_path / "build-revision.json"
+    assert function_app._read_package_commit_sha(revision) is None
+    revision.write_text(json.dumps({"sourceSha": "a" * 40}), encoding="utf-8")
+    assert function_app._read_package_commit_sha(revision) == "a" * 40
+
+
+@pytest.mark.parametrize("value", ['{"sourceSha":"main"}', "[]", "{}", "{"])
+def test_invalid_embedded_package_revision_fails_explicitly(tmp_path: Path, value: str) -> None:
+    revision = tmp_path / "build-revision.json"
+    revision.write_text(value, encoding="utf-8")
+    with pytest.raises(ValueError):
+        function_app._read_package_commit_sha(revision)
 
 
 def test_submit_v2_orders_enqueues_the_incident_batch_once(
@@ -291,6 +323,7 @@ def test_submit_v2_orders_recovers_a_pending_batch_after_a_failed_completion_wri
         "incidentBatchId": INCIDENT_BATCH_ID,
         "incidentBatchInjected": False,
         "deployedCommitSha": None,
+        "packageCommitSha": None,
         "deployedAtUtc": None,
         "normalizedReceiptCount": 0,
         "v1ReceiptCount": 0,

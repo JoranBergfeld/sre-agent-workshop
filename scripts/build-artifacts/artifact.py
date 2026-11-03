@@ -47,7 +47,9 @@ def write_zip(output, entries):
             entry.compress_type = zipfile.ZIP_DEFLATED
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
-            archive.writestr(entry, file.read_bytes())
+            archive.writestr(
+                entry, file if isinstance(file, bytes) else file.read_bytes()
+            )
 
 
 def package_dotnet(source, output):
@@ -63,7 +65,9 @@ def package_dotnet(source, output):
     write_zip(output, entries)
 
 
-def package_functions(source, dependencies, output):
+def package_functions(source, dependencies, output, source_sha):
+    if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
+        raise ValueError("Functions package requires a full source SHA")
     source = Path(source)
     entries = []
     for name in ("function_app.py", "host.json", "requirements.txt"):
@@ -88,6 +92,9 @@ def package_functions(source, dependencies, output):
     entries.extend(
         (f".python_packages/lib/site-packages/{name}", file)
         for name, file in dependency_files
+    )
+    entries.append(
+        ("build-revision.json", json.dumps({"sourceSha": source_sha}).encode("utf-8"))
     )
     write_zip(output, entries)
 
@@ -156,6 +163,7 @@ def main():
         command.add_argument("--output", required=True)
         if kind == "functions":
             command.add_argument("--dependencies", required=True)
+            command.add_argument("--source-sha", required=True)
     metadata = commands.add_parser("metadata")
     metadata.add_argument("--scenario", required=True, choices=CONTRACTS)
     metadata.add_argument("--variant", required=True)
@@ -167,7 +175,7 @@ def main():
     if args.command == "dotnet":
         package_dotnet(args.source, args.output)
     elif args.command == "functions":
-        package_functions(args.source, args.dependencies, args.output)
+        package_functions(args.source, args.dependencies, args.output, args.source_sha)
     else:
         if os.environ["GITHUB_EVENT_NAME"] not in ("push", "workflow_dispatch"):
             raise ValueError(

@@ -99,6 +99,7 @@ jobs:
           python scripts/build-artifacts/artifact.py functions \
             --source scenarios/azure-boards-copilot-handover/app \
             --dependencies "$RUNNER_TEMP/functions-dependencies" \
+            --source-sha "$GITHUB_SHA" \
             --output dist/boards/application/deployment.zip
           python scripts/build-artifacts/artifact.py metadata \
             --scenario azure-boards-copilot-handover --variant application \
@@ -111,7 +112,7 @@ jobs:
           python -m zipfile -e dist/boards/application/deployment.zip "$RUNNER_TEMP/functions-smoke"
           cd "$RUNNER_TEMP/functions-smoke"
           PYTHONPATH="$PWD/.python_packages/lib/site-packages" python -c \
-            'import function_app; assert len(function_app.app.get_functions()) == 4'
+            'import os, function_app; assert len(function_app.app.get_functions()) == 4; assert function_app.PACKAGE_COMMIT_SHA == os.environ["GITHUB_SHA"]'
 
       - name: Upload exact-source deployment artifact
         if: github.event_name != 'pull_request'

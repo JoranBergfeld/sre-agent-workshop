@@ -76,6 +76,7 @@ async function fixture(t, scenario = 'cloud-agent-handover', variant = 'applicat
         '.python_packages/lib/site-packages/azure/functions/__init__.py']
       : ['index.php', 'timing.php', 'telemetry.php', 'nginx.conf'];
   const entries = deploymentEntries.map(name => [name, `fixture ${name}`]);
+  if (scenario === 'azure-boards-copilot-handover') entries.push(['build-revision.json', JSON.stringify({ sourceSha: sha })]);
   if (scenario === 'appservice-latency-context') entries.push(['deployment.json', JSON.stringify({
     revision: { healthy: 'baseline-v1', faulty: 'candidate-v2', 'reviewed-source': 'reviewed-source' }[variant],
   })]);
@@ -355,6 +356,15 @@ test('latency inner variant must match outer variant binding', async t => {
   f.metadata.files[0].sha256 = createHash('sha256').update(f.deployment).digest('hex');
   f.metadata.files[0].size = f.deployment.length;
   await assert.rejects(f.resolve, /variant mismatch/);
+});
+
+test('Functions embedded package revision cannot disagree with exact-source metadata', async t => {
+  const f = await fixture(t, 'azure-boards-copilot-handover');
+  f.deployment = zip([...readZip(f.deployment)].map(([name, body]) =>
+    [name, name === 'build-revision.json' ? JSON.stringify({ sourceSha: 'b'.repeat(40) }) : body]));
+  f.metadata.files[0].sha256 = createHash('sha256').update(f.deployment).digest('hex');
+  f.metadata.files[0].size = f.deployment.length;
+  await assert.rejects(f.resolve, /embedded package revision mismatch/);
 });
 
 for (const [label, mutate] of [

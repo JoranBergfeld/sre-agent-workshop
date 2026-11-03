@@ -30,9 +30,18 @@ Confirm that you have:
 - Azure DevOps **Contributor** access to the workshop project.
 - GitHub **Write** access to the connected repository.
 - An active paid GitHub Copilot plan.
-- Azure CLI, Git, `curl`, `jq`, Python 3.12, and PowerShell 7 when following
-  the PowerShell path.
-- `zip` when following the Bash deployment path.
+- Azure CLI, Git, `curl`, `jq`, Node.js 20+, authenticated GitHub CLI (`gh`),
+  and PowerShell 7 when following the PowerShell path.
+- A successful **Validate Azure Boards Copilot Handover Application** run in
+  your own repository for the exact commit you will deploy. Pull-request runs
+  never publish deployment packages. Use a push to `main` or manually dispatch
+  the workflow on a branch/tag pointing to that commit, not a raw commit SHA.
+- **Storage Blob Data Contributor** access for your deployment identity,
+  scoped to the scenario storage account's private `application-packages`
+  container. Have an authorized administrator grant this data-plane role
+  after provisioning if it is not already inherited. Control-plane Contributor
+  alone is insufficient. The Function identity receives only **Storage Blob
+  Data Reader** at this container, through Bicep.
 
 Sign in and select the intended subscription:
 
@@ -46,10 +55,18 @@ az login
 az account show --query '{name:name,id:id}' --output table
 ```
 
-## Prepare the application quality tools
+## Optional source-build and local review tools
 
-The setup helper deploys the current checkout and therefore runs the baseline
-Python gates. Create the scenario-local virtual environment before setup:
+The default deployment downloads and verifies the repo-built Linux Python 3.12
+package. Python, pip, quality tools, and ZIP creation tools are not needed
+locally for that path. No SAS, storage key, or public container is needed.
+
+Install Python 3.12 and these quality tools only for local review or the explicit
+`deploy.sh --build-mode source` / `deploy.ps1 --build-mode source` alternative.
+The source path additionally needs `zip` on Bash (PowerShell uses
+`Compress-Archive`). It runs the local baseline gates and uses remote Oryx
+dependency installation; it is never an automatic fallback for a missing build.
+Create the scenario-local virtual environment:
 
 ```bash
 APP_DIR="scenarios/azure-boards-copilot-handover/app"

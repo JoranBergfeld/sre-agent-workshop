@@ -65,10 +65,12 @@ test('Functions packaging preserves the expected-red gate and bundles Linux CPyt
   assert.match(steps[repair].run, /"\$expected_failures" -ne 3/);
   assert.match(steps[packaging].run, /--platform manylinux2014_x86_64 --implementation cp --python-version 3.12 --abi cp312/);
   assert.match(steps[packaging].run, /--only-binary=:all: --no-compile/);
+  assert.match(steps[packaging].run, /--source-sha "\$GITHUB_SHA"/);
   assert.doesNotMatch(steps[packaging].run, /requirements-dev/);
-  const smoke = steps.findIndex(step => step.run?.includes('import function_app'));
+  const smoke = steps.findIndex(step => step.name === 'Smoke test packaged Functions imports');
   const upload = steps.findIndex(step => step.uses === 'actions/upload-artifact@v4');
   assert.ok(smoke > packaging && upload > smoke);
+  assert.match(steps[smoke].run, /function_app.PACKAGE_COMMIT_SHA == os.environ\["GITHUB_SHA"\]/);
 });
 
 test('latency fixtures and reviewed source are isolated and never equated with approval', () => {

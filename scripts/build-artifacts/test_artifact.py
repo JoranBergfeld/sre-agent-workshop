@@ -88,7 +88,7 @@ class ArtifactTests(unittest.TestCase):
         ):
             self.file(f"deps/{name}")
         archive = self.root / "deployment.zip"
-        package_functions(self.root / "app", self.root / "deps", archive)
+        package_functions(self.root / "app", self.root / "deps", archive, SHA)
         with zipfile.ZipFile(archive) as package:
             names = set(package.namelist())
             self.assertEqual(
@@ -97,6 +97,7 @@ class ArtifactTests(unittest.TestCase):
                     "function_app.py",
                     "host.json",
                     "requirements.txt",
+                    "build-revision.json",
                     "order_events/__init__.py",
                     "order_events/normalizer/receipts.py",
                     ".python_packages/lib/site-packages/azure/functions/__init__.py",
@@ -106,6 +107,9 @@ class ArtifactTests(unittest.TestCase):
                     ".python_packages/lib/site-packages/cryptography/hazmat/bindings/_rust.abi3.so",
                     ".python_packages/lib/site-packages/cryptography-1.dist-info/METADATA",
                 },
+            )
+            self.assertEqual(
+                json.loads(package.read("build-revision.json")), {"sourceSha": SHA}
             )
 
     def test_functions_rejects_missing_dependencies(self):
@@ -119,7 +123,16 @@ class ArtifactTests(unittest.TestCase):
         self.file("deps/not-azure.py")
         with self.assertRaisesRegex(ValueError, "Missing packaged dependency"):
             package_functions(
-                self.root / "app", self.root / "deps", self.root / "deployment.zip"
+                self.root / "app", self.root / "deps", self.root / "deployment.zip", SHA
+            )
+
+    def test_functions_rejects_non_commit_revision(self):
+        with self.assertRaisesRegex(ValueError, "full source SHA"):
+            package_functions(
+                self.root / "app",
+                self.root / "deps",
+                self.root / "deployment.zip",
+                "main",
             )
 
     def test_zip_metadata_binds_repository_source_variant_runtime_and_actual_bytes(
