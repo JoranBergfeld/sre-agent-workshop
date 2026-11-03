@@ -10,9 +10,13 @@ on:
       - 'scenarios/appservice-latency-context/scripts/package.mjs'
       - 'scenarios/appservice-latency-context/scripts/build-artifact.mjs'
       - 'scenarios/appservice-latency-context/scripts/local.mjs'
+      - 'scenarios/appservice-latency-context/scripts/lifecycle.mjs'
+      - 'scenarios/appservice-latency-context/scripts/workload.mjs'
+      - 'scenarios/appservice-latency-context/infra/placement.json'
       - 'scenarios/appservice-latency-context/tests/**'
       - 'scenarios/appservice-latency-context/infra/nginx.conf'
       - 'scripts/build-artifacts/**'
+      - 'scripts/placement/**'
       - '.github/workflows/build-appservice-latency-context.yml'
   pull_request:
     paths:
@@ -20,9 +24,13 @@ on:
       - 'scenarios/appservice-latency-context/scripts/package.mjs'
       - 'scenarios/appservice-latency-context/scripts/build-artifact.mjs'
       - 'scenarios/appservice-latency-context/scripts/local.mjs'
+      - 'scenarios/appservice-latency-context/scripts/lifecycle.mjs'
+      - 'scenarios/appservice-latency-context/scripts/workload.mjs'
+      - 'scenarios/appservice-latency-context/infra/placement.json'
       - 'scenarios/appservice-latency-context/tests/**'
       - 'scenarios/appservice-latency-context/infra/nginx.conf'
       - 'scripts/build-artifacts/**'
+      - 'scripts/placement/**'
       - '.github/workflows/build-appservice-latency-context.yml'
 
 permissions:
