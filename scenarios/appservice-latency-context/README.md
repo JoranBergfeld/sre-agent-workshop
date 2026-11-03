@@ -54,7 +54,7 @@ App Service B1 alternatives in Sweden Central, East US 2 and Australia East.
 SRE Agent placement remains separate. Setup, injection, reset and ordinary
 deploy use verified healthy/faulty artifacts for the exact checkout commit
 and origin repository. Missing builds fail closed, before provider registration
-or deployment. See [deployment](docs/01-deploy-infrastructure.md) for build
+or deployment. See the deployment module (step 3) for build
 dispatch, explicit `--local-build`, and the reviewed-source recovery path.
 
 ## Contributor checks

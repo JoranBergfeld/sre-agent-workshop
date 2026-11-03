@@ -21,11 +21,9 @@ workflow.
 - Each workflow covers one scenario. It triggers on:
   - that scenario's application sources;
   - its packaging scripts;
-  - the shared `scripts/build-artifacts/**`.
-
-  The Cloud Agent Handover, Azure Boards and GHCR image workflows also trigger
-  on the scenario's `infra/placement.json` and the shared
-  `scripts/placement/**`.
+  - the shared `scripts/build-artifacts/**`;
+  - the scenario's `infra/placement.json` and the shared
+    `scripts/placement/**`.
 - You can run any of them manually with `workflow_dispatch` against an exact
   branch or tag.
 - They need no Azure credentials.

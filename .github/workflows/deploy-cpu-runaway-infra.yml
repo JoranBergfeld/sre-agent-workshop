@@ -76,12 +76,14 @@ jobs:
             --secure-param-env adminPassword=ADMIN_PASSWORD \
             --outputs-file deployment-outputs.json
 
-          echo "vm_names=$(jq -rc '.vmNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "vm_computer_names=$(jq -rc '.vmComputerNames.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "operations_identity_client_id=$(jq -r '.operationsIdentityClientId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "bastion_name=$(jq -r '.bastionName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          {
+            echo "vm_names=$(jq -rc '.vmNames.value' deployment-outputs.json)"
+            echo "vm_computer_names=$(jq -rc '.vmComputerNames.value' deployment-outputs.json)"
+            echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' deployment-outputs.json)"
+            echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)"
+            echo "operations_identity_client_id=$(jq -r '.operationsIdentityClientId.value' deployment-outputs.json)"
+            echo "bastion_name=$(jq -r '.bastionName.value' deployment-outputs.json)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Print deployment summary
         run: |

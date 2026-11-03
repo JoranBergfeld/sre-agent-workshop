@@ -87,10 +87,12 @@ jobs:
             --param sreAgentPrincipalId="${SRE_AGENT_PRINCIPAL_ID}" \
             --outputs-file vm-size-retirement-deployment-outputs.json
 
-          echo "vm_names=$(jq -rc '.vmNames.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "bastion_name=$(jq -r '.bastionName.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' vm-size-retirement-deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          {
+            echo "vm_names=$(jq -rc '.vmNames.value' vm-size-retirement-deployment-outputs.json)"
+            echo "vm_private_ips=$(jq -rc '.vmPrivateIps.value' vm-size-retirement-deployment-outputs.json)"
+            echo "bastion_name=$(jq -r '.bastionName.value' vm-size-retirement-deployment-outputs.json)"
+            echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' vm-size-retirement-deployment-outputs.json)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Write deployment summary
         run: |

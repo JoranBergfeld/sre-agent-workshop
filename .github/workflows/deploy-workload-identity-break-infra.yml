@@ -61,10 +61,12 @@ jobs:
             --workload "${WORKLOAD}" \
             --outputs-file deployment-outputs.json
 
-          echo "aks_name=$(jq -r '.aksClusterName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "cosmos_endpoint=$(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "uami_client_id=$(jq -r '.uamiClientId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
-          echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          {
+            echo "aks_name=$(jq -r '.aksClusterName.value' deployment-outputs.json)"
+            echo "cosmos_endpoint=$(jq -r '.cosmosDbEndpoint.value' deployment-outputs.json)"
+            echo "uami_client_id=$(jq -r '.uamiClientId.value' deployment-outputs.json)"
+            echo "law_id=$(jq -r '.logAnalyticsWorkspaceId.value' deployment-outputs.json)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Print deployment summary
         run: |

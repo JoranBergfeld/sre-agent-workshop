@@ -167,7 +167,7 @@ jobs:
           set -euo pipefail
 
           echo "Waiting for external IP (up to 60s)..."
-          for i in $(seq 1 12); do
+          for _ in $(seq 1 12); do
             IP=$(kubectl get svc workload-identity-break-app -n workload-identity-break -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
             if [ -n "$IP" ]; then
               break
