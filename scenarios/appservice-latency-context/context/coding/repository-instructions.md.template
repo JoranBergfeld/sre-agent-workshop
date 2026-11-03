@@ -1,0 +1,39 @@
+# Learner-authored coding context
+
+Inactive starter. After the baseline, complete the fields and manually merge
+relevant guidance into `.github/copilot-instructions.md` on the dedicated
+faulty coding base. Preserve existing instructions; this is not a replacement.
+Keep repository-wide guidance short and relevant across tasks.
+
+## Navigation
+
+[Fill: repository entry points and how to locate the assigned capsule's source,
+HTTP contract, tests and operations reference without reading other fix PRs.
+For this capsule start at scenarios/appservice-latency-context/src/index.php
+and tests/http.test.mjs within that capsule.]
+
+## Change boundary
+
+[Fill: how to derive an allowed change boundary from the assigned issue.
+Ask before expanding into unrelated capsules, infrastructure or lifecycle.
+Preserve unrelated learner changes and leave prepared fixtures intact.]
+
+## Regression tests
+
+[Fill: how to choose public HTTP regression checks, demonstrate failure on
+the faulty starting code and success on the repaired candidate. Keep assertions
+meaningful and traffic bounded; record prerequisites and missing tools.]
+
+## Behavior preservation
+
+[Fill: how to identify contracts from the issue and application guidance.
+Preserve valid order-status content, independent health, unrelated behavior
+and the intentional 20 ms pause. A reset, removed pause or disabled injection
+does not establish the requested code repair.]
+
+## Validation report
+
+[Fill: require candidate SHA, changed scope/reason, exact commands and observed
+results, failures/skips with reasons, and remaining uncertainty. Separate
+tested code from deployed runtime recovery. Deliver an unmerged PR; the human
+controls review, merge and any later deployment.]
