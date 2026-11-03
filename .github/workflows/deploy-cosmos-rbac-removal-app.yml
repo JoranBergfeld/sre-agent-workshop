@@ -71,7 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${GHCR_READ_TOKEN:-}" ]; then
-            echo "::error::Repository secret GHCR_READ_TOKEN is required. Set it to a fine-grained (or classic) PAT with Packages read access to this scenario's GHCR package."
+            echo "::error::Repository secret GHCR_READ_TOKEN is required. Set it to a classic PAT with read:packages scope and access to this scenario's GHCR package."
             exit 1
           fi
 

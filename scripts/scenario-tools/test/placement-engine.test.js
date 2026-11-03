@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import {
   AzError, DiscoveryError, PlacementError, TAGS, assessFailedAttempt, boundedDeploymentName, classifyFailure, createAzRunner, evaluateRegion,
@@ -1103,6 +1104,28 @@ test('the real az runner fails explicitly on malformed JSON output', { skip: pro
   const az = createAzRunner({ env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
   await assert.rejects(az(['vm', 'list-skus', '--output', 'json']), /expected JSON output/);
   assert.ok(existsSync(join(bin, 'az')));
+});
+
+test('the Windows az runner explains the PowerShell 7 prerequisite before invoking Azure', { skip: process.platform !== 'win32' }, async () => {
+  const az = createAzRunner({ env: { ...process.env, PATH: '', Path: '' } });
+  await assert.rejects(az(['group', 'list', '--output', 'json']),
+    /PowerShell 7 \(pwsh\.exe\) is required on PATH.*including Git Bash callers/);
+});
+
+test('the Windows PowerShell bridge preserves literal argument values', { skip: process.platform !== 'win32' }, async t => {
+  const bin = mkdtempSync(join(tmpdir(), 'fake-az-bridge-'));
+  t.after(() => rmSync(bin, { recursive: true, force: true }));
+  // Use local files: Windows execution policy can classify WSL UNC paths as remote.
+  for (const file of ['placement.mjs', 'az-bridge.ps1']) {
+    writeFileSync(join(bin, file), readFileSync(join(repositoryRoot, 'scripts', 'placement', file)));
+  }
+  const { createAzRunner: localRunner } = await import(pathToFileURL(join(bin, 'placement.mjs')).href);
+  writeFileSync(join(bin, 'az.ps1'), 'ConvertTo-Json -Compress -InputObject @($args)\n');
+  const values = ['a b', 'x;y', '$env:PATH', 'a&b', '(literal)', 'quote"value', "single'quote"];
+  const az = localRunner({
+    env: { ...process.env, PATH: `${bin};${process.env.PATH ?? process.env.Path}`, Path: `${bin};${process.env.PATH ?? process.env.Path}` },
+  });
+  assert.deepEqual(await az(values), [...values, '--only-show-errors']);
 });
 
 test('an empty resource listing is never proof: in-flight, delayed or ambiguous attempts stop without retry', async () => {

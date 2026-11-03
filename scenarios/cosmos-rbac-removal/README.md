@@ -59,7 +59,7 @@ Time to introduce a realistic infrastructure fault. You'll remove a critical rol
 
 ## GHCR pull prerequisite
 
-Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a fine-grained (or classic) PAT that has **Packages: read** access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
+Before running this scenario's deployment workflow, maintainers must configure the repository secret `GHCR_READ_TOKEN` with a **classic PAT** that has the **`read:packages`** scope and access to this scenario's GHCR package. The workflow creates the `ghcr-pull` Kubernetes secret; the package does not need to be public.
 
 ## The Scenario
 

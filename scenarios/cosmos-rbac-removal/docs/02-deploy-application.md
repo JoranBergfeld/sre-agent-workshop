@@ -21,7 +21,7 @@ This is exactly how production apps authenticate to Azure services in AKS — no
 ## Deploy via GitHub Actions
 
 1. **Publish an immutable image first.** Run `Publish Cosmos RBAC Removal Image` from the **Actions** tab, or push an application change to `main`. It publishes `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app:<commit-sha>`. Copy the published commit SHA from that workflow run.
-2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a fine-grained (or classic) PAT with **Packages: read** access. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
+2. **Configure GHCR access.** Add the repository secret `GHCR_READ_TOKEN`, using a **classic PAT** with the **`read:packages`** scope and access to the package. The deployment workflow uses it to create the `ghcr-pull` Kubernetes secret, so the image does not need to be public.
 3. **Go to your generated repository** on GitHub → **Actions** tab and select `Deploy Cosmos RBAC Removal Application`.
 4. **Click "Run workflow"** (dropdown in the upper right) and fill in:
    - **workloadName** (default: `srelabcosmos`) — **must match what you used in Module 1**.
@@ -141,8 +141,8 @@ kubectl describe pod -n cosmos-rbac-removal <pod-name>
 # Look for the "Events" section — it will show the exact image URL and pull error
 ```
 The workflow deploys the verified digest `ghcr.io/<owner>/<repository>/cosmos-rbac-removal/app@sha256:<digest>` for `<imageTag>` and pulls it using `ghcr-pull`. Common causes:
-- `GHCR_READ_TOKEN` is missing, expired, or lacks **Packages: read** access
-- The value entered for `imageTag` was not published by `Publish Cosmos RBAC Removal Image` (the resolver then fails with the exact `gh workflow run publish-cosmos-rbac-removal-image.yml ...` command to publish it)
+- `GHCR_READ_TOKEN` is missing, expired, or is not a classic PAT with **`read:packages`** scope and package access
+- The value entered for `imageTag` was not published by `Publish Cosmos RBAC Removal Image`. The resolver prints a `gh workflow run publish-cosmos-rbac-removal-image.yml ...` command; on a detached SHA checkout, replace `<branch-or-tag>` with a branch or tag pointing to that exact commit.
 - The pod spec is not using `ghcr-pull` (check the image URL and image pull secrets in the pod events)
 
 **`/items` returns 500 with auth error:**

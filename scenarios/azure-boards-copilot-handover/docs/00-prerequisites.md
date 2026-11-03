@@ -31,7 +31,10 @@ Confirm that you have:
 - GitHub **Write** access to the connected repository.
 - An active paid GitHub Copilot plan.
 - Azure CLI, Git, `curl`, `jq`, Node.js 20+, authenticated GitHub CLI (`gh`),
-  and PowerShell 7 when following the PowerShell path.
+  and PowerShell 7 when following the PowerShell path **or using native Windows
+  Node.js (including Git Bash)**. Verify `pwsh.exe --version` on Windows; the
+  placement engine needs its Azure CLI bridge even for Bash callers. WSL with
+  Linux Node.js and Azure CLI does not need the Windows bridge.
 - A successful **Validate Azure Boards Copilot Handover Application** run in
   your own repository for the exact commit you will deploy. Pull-request runs
   never publish deployment packages. Use a push to `main` or manually dispatch

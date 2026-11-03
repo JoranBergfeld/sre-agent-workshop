@@ -1260,7 +1260,13 @@ export function createAzRunner({ subscription, env = process.env } = {}) {
     child.stdout.on('data', data => { stdout += data; });
     child.stderr.on('data', data => { stderr += data; });
     return new Promise((resolve, reject) => {
-      child.on('error', reject);
+      child.on('error', error => {
+        if (windows && error.code === 'ENOENT') {
+          reject(new Error('PowerShell 7 (pwsh.exe) is required on PATH when running placement with native Windows Node.js, including Git Bash callers. Install PowerShell 7 and verify pwsh.exe --version, or run Node.js and Azure CLI inside WSL.', { cause: error }));
+        } else {
+          reject(error);
+        }
+      });
       child.on('close', code => {
         if (code !== 0) return reject(new AzError(args, code, stderr));
         const text = stdout.trim();

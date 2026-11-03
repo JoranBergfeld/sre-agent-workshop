@@ -17,6 +17,23 @@ const workflows = {
 const imageTagError = '::error::imageTag must be a full 40-character lowercase Git SHA published by the scenario image workflow.';
 
 for (const [workflow, identity] of Object.entries(workflows)) {
+  test(`${workflow} documents classic GHCR authentication and detached dispatch refs`, () => {
+    const paths = [
+      resolve(repositoryRoot, '.github', 'workflows', workflow),
+      resolve(repositoryRoot, 'scenarios', identity.namespace, 'README.md'),
+      resolve(repositoryRoot, 'scenarios', identity.namespace, 'docs', '02-deploy-application.md'),
+    ];
+    for (const file of paths) {
+      const content = readFileSync(file, 'utf8');
+      assert.match(content, /classic PAT/);
+      assert.match(content, /read:packages/);
+      assert.doesNotMatch(content, /fine-grained|Packages: read/);
+    }
+    const guide = readFileSync(paths[2], 'utf8');
+    assert.match(guide, /detached SHA checkout, replace `<branch-or-tag>` with a branch or tag pointing to that exact commit/);
+    assert.doesNotMatch(guide, /fails with the exact .*command to publish it/);
+  });
+
   test(`${workflow} validates immutable tags and keeps GHCR tokens out of command arguments`, () => {
     const content = readFileSync(resolve(repositoryRoot, '.github', 'workflows', workflow), 'utf8');
 

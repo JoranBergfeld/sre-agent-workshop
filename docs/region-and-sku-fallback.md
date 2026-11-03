@@ -9,6 +9,19 @@ region or VM size that works for your subscription.
 Requirements: Azure CLI (signed in) and **Node.js 20 or later**. The engine
 has no npm dependencies.
 
+With **native Windows Node.js**, **PowerShell 7 (`pwsh.exe` on PATH)** is also
+required, including when you invoke Bash scripts from Git Bash. The Azure CLI
+Windows shim runs through an argument-preserving PowerShell bridge. Verify
+`pwsh.exe --version` before setup; if it is missing, the engine stops before
+running any Azure command with installation guidance. Windows PowerShell 5.1
+(`powershell.exe`) is not a supported substitute. WSL uses its own Linux Node.js
+and Azure CLI and does not need this Windows bridge.
+
+Windows script execution policy must permit the repository's bridge script.
+If an organization blocks unsigned scripts or treats a WSL UNC checkout as
+remote, use Linux Node.js and Azure CLI inside WSL rather than weakening that
+policy.
+
 ## What the engine does
 
 1. **Preflight.** For each candidate region in policy order, it checks:
