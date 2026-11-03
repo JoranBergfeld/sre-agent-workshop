@@ -87,11 +87,15 @@ export function parseArgs(argv) {
         options.claimSettleMs = seconds * 1000;
         break;
       }
-      case '--parts':
-        options.parts = Object.fromEntries(['services', 'compute', 'fleet', 'targets']
-          .map(part => [part, value(flag, index + 1).split(',').includes(part)]));
-        index += 1;
+      case '--parts': {
+        const allowed = ['services', 'compute', 'fleet', 'targets'];
+        const selected = value(flag, ++index).split(',');
+        if (selected.some(part => !allowed.includes(part))) {
+          throw new Error('--parts requires a nonempty comma-separated list containing only services,compute,fleet,targets');
+        }
+        options.parts = Object.fromEntries(allowed.map(part => [part, selected.includes(part)]));
         break;
+      }
       case '--param':
       case '--secure-param-env': {
         const pair = value(flag, ++index);

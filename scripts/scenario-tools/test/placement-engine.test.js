@@ -10,9 +10,27 @@ import {
   inspectExisting, loadPolicy, orderedRegions, persistPlacement, preferredSkus, provision, quotaShortfall,
   reconcilePinnedRegion, remediationDemands, resumableRemediationTarget, skuIneligibility, validatePolicy, verifyRemediationTarget,
 } from '../../placement/placement.mjs';
-import { buildParameters, main, resolveNames, runCheck } from '../../placement/provision.mjs';
+import { buildParameters, main, parseArgs, resolveNames, runCheck } from '../../placement/provision.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..', '..', '..');
+
+test('CLI parts rejects empty, unknown and mixed invalid selections', async () => {
+  for (const parts of ['', ',', 'typo', 'fleet,typo', 'fleet,', ',targets', 'fleet,,targets', ' ']) {
+    assert.throws(() => parseArgs(['check', 'vm-size-retirement', '--parts', parts]), /--parts requires a nonempty/);
+  }
+  assert.deepEqual(parseArgs(['check', 'vm-size-retirement', '--parts', 'fleet,targets']).parts,
+    { services: false, compute: false, fleet: true, targets: true });
+  let invoked = false;
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await main(['check', 'vm-size-retirement', '--parts', 'fleet,typo'],
+      { azFactory: () => { invoked = true; throw new Error('must not run'); }, log: () => {} }), 2);
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(invoked, false, 'invalid selections fail before any Azure API call');
+});
 const policyFile = id => resolve(repositoryRoot, 'scenarios', id, 'infra', 'placement.json');
 
 const sku = (name, family, { vcpus = 2, memory = 8, premium = 'True', gens = 'V1,V2', controllers = 'SCSI', restrictedIn } = {}) => ({
