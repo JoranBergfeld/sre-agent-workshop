@@ -7,9 +7,11 @@ separately, then repeat and compare evidence and native consumption.
 
 **Advanced, self-guided; no assessment or promised savings.** Catalog duration
 is planning metadata, not a workshop timetable. Context/comparison pages are
-schema-optional but are part of the supported journey, in the order below.
-Checkpoint placeholders are being completed in #86–#90; lifecycle automation
-and local reproduction can be used independently in the meantime.
+schema-optional but are required parts of this supported learning route:
+baseline → SRE/handover/coding customization → separate review/security →
+second incident/fix PR and native comparison → cleanup. Only local reproduction
+and post-comparison deployed recovery are optional. Missing live capabilities
+have labelled continuation/resume routes; references never count as observations.
 
 ## Journey
 
