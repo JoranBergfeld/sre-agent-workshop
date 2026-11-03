@@ -19,6 +19,14 @@ import { test } from 'node:test';
 
 const capsuleRoot = resolve(import.meta.dirname, '..');
 
+test('checked-in Service Health advisory uses the DSv2 retirement date without an unverified example size', () => {
+  const advisory = JSON.parse(readFileSync(capsulePath('service-health-advisory.json'), 'utf8'));
+  assert.equal(advisory.properties.retirementDate, '2028-05-01');
+  assert.match(advisory.properties.communication, /retired on 2028-05-01/);
+  assert.match(advisory.properties.communication, /eligible current size verified for your region/);
+  assert.doesNotMatch(advisory.properties.communication, /Standard_D2s_v5|2027/);
+});
+
 function capsulePath(...segments) {
   return resolve(capsuleRoot, ...segments);
 }
