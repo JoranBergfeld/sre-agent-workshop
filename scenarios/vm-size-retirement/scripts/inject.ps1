@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabretirement",
     [string]$Workload = "srelabretirement"
@@ -110,7 +111,7 @@ $advisory = @"
 
 Write-Host ""
 Write-Host "================================================================"
-Write-Host "Simulated Azure Service Health advisory — paste into the SRE Agent:"
+Write-Host "Simulated Azure Service Health advisory - paste into the SRE Agent:"
 Write-Host "================================================================"
 Write-Host $advisory
 Write-Host "================================================================"

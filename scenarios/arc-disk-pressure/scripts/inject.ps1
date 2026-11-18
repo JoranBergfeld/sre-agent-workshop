@@ -1,4 +1,5 @@
-# Scenario 1 — Arc-Enabled Server Disk Pressure.
+#Requires -Version 7.0
+# Scenario 1 - Arc-Enabled Server Disk Pressure.
 # Iteratively fills C:\Temp\diskfill\*.bin with 1GB files until the disk is full,
 # so the agent can attribute pressure to the Temp folder during investigation.
 param(

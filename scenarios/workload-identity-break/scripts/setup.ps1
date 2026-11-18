@@ -1,4 +1,5 @@
-# Pre-workshop validation — checks that required tools and config are in place.
+#Requires -Version 7.0
+# Pre-workshop validation - checks that required tools and config are in place.
 # Usage from repository root:
 #   .\scenarios\workload-identity-break\scripts\setup.ps1
 #   .\scenarios\workload-identity-break\scripts\setup.ps1 -Location swedencentral
@@ -24,30 +25,31 @@ if (-not [string]::IsNullOrWhiteSpace($requestedSubscriptionId) -and $activeSubs
 Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 
 function Write-Header($text) { Write-Host "`n-- $text --" }
-function Write-Ok($text)     { Write-Host "  ✅ $text" }
-function Write-Fail($text)   { $script:errors++; Write-Host "  ❌ $text" }
-function Write-Warn($text)   { Write-Host "  ⚠️  $text" }
+function Write-Ok($text)     { Write-Host "  `u{2705} $text" }
+function Write-Fail($text)   { $script:errors++; Write-Host "  `u{274C} $text" }
+function Write-Warn($text)   { Write-Host "  `u{26A0}`u{FE0F}  $text" }
 
 Write-Host "========================================"
-Write-Host "  SRE Agent Workshop — Setup Check"
+Write-Host "  SRE Agent Workshop - Setup Check"
 Write-Host "========================================"
 
 # -- Azure CLI ---
 Write-Header "Azure CLI"
 if (Get-Command az -ErrorAction SilentlyContinue) {
-    $azVersion = (az version --query '"azure-cli"' -o tsv 2>$null) ?? "unknown"
+    $azVersion = az version --query '"azure-cli"' -o tsv 2>$null
+    if (-not $azVersion) { $azVersion = "unknown" }
     Write-Ok "az CLI installed ($azVersion)"
 } else {
-    Write-Fail "az CLI not found — install: https://aka.ms/install-azure-cli"
+    Write-Fail "az CLI not found - install: https://aka.ms/install-azure-cli"
 }
 
 # -- Azure login ---
 Write-Header "Azure Authentication"
 $acct = az account show 2>$null | ConvertFrom-Json
 if ($acct) {
-    Write-Ok "Logged in — $($acct.name) ($($acct.id))"
+    Write-Ok "Logged in - $($acct.name) ($($acct.id))"
 } else {
-    Write-Fail "Not logged in — run: az login"
+    Write-Fail "Not logged in - run: az login"
 }
 
 # -- Azure subscription ---
@@ -72,14 +74,14 @@ if ($acct) {
     foreach ($ns in $requiredProviders) {
         $state = az provider show --namespace $ns --query registrationState -o tsv 2>$null
         if ($state -eq "Registered") {
-            Write-Ok "$ns — Registered"
+            Write-Ok "$ns - Registered"
         } else {
-            Write-Fail "$ns — $state"
+            Write-Fail "$ns - $state"
             Write-Host "       Register with: az provider register --namespace $ns"
         }
     }
 } else {
-    Write-Warn "Skipped — not logged in to Azure"
+    Write-Warn "Skipped - not logged in to Azure"
 }
 
 # -- kubectl ---
@@ -89,7 +91,7 @@ if (Get-Command kubectl -ErrorAction SilentlyContinue) {
     $kvStr = if ($kv) { $kv.clientVersion.gitVersion } else { "unknown" }
     Write-Ok "kubectl installed ($kvStr)"
 } else {
-    Write-Fail "kubectl not found — install: https://kubernetes.io/docs/tasks/tools/"
+    Write-Fail "kubectl not found - install: https://kubernetes.io/docs/tasks/tools/"
 }
 
 # -- GitHub CLI (optional) ---
@@ -98,7 +100,7 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
     $ghv = (gh --version | Select-Object -First 1)
     Write-Ok "gh CLI installed ($ghv)"
 } else {
-    Write-Warn "gh CLI not found (optional) — install: https://cli.github.com"
+    Write-Warn "gh CLI not found (optional) - install: https://cli.github.com"
 }
 
 # -- Placement preflight ---
@@ -120,16 +122,16 @@ if ($acct) {
         }
     }
 } else {
-    Write-Warn "Skipped — not logged in to Azure"
+    Write-Warn "Skipped - not logged in to Azure"
 }
 
 # -- Summary ---
 Write-Host ""
 Write-Host "========================================"
 if ($errors -eq 0) {
-    Write-Host "  All checks passed — you're ready! 🚀"
+    Write-Host "  All checks passed - you're ready! `u{1F680}"
 } else {
-    Write-Host "  $errors issue(s) found — please fix before starting."
+    Write-Host "  $errors issue(s) found - please fix before starting."
 }
 Write-Host "========================================"
 exit $errors

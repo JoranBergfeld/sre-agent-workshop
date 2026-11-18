@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabretirement"
 )
@@ -71,5 +72,5 @@ try {
     Write-Host "Migration complete. Resized $completed VM(s) to $targetSize."
 } catch {
     Write-RemediationResult -Status "failed" -Completed $completed -FailedVm $currentVm
-    throw "Migration failed after completed $completed VM(s); failed VM: $($currentVm ?? 'unknown'). $($_.Exception.Message)"
+    throw "Migration failed after completed $completed VM(s); failed VM: $(if ($null -ne $currentVm) { $currentVm } else { 'unknown' }). $($_.Exception.Message)"
 }

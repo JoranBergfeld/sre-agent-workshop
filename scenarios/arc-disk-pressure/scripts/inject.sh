@@ -21,7 +21,9 @@ requested_subscription_id="${AZURE_SUBSCRIPTION_ID:-}"; [ -z "$requested_subscri
 active_subscription_id=$(az account show --query id -o tsv) || { echo "Azure CLI is not authenticated. Run 'az login'." >&2; exit 1; }; active_subscription_name=$(az account show --query name -o tsv) || exit 1
 [ -n "$active_subscription_id" ] && [ -n "$active_subscription_name" ] || { echo "Unable to read the active Azure subscription." >&2; exit 1; }
 [ -z "$requested_subscription_id" ] || [ "$active_subscription_id" = "$requested_subscription_id" ] || { echo "Azure subscription mismatch: requested '$requested_subscription_id', active '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }; echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
-LOOP_COMMAND=$(cat <<'PWSH'
+# Keep this payload in a function: macOS Bash 3.2 misreads heredocs inside $(...).
+disk_fill_loop_payload() {
+  cat <<'PWSH'
 New-Item -Path "C:\Temp\diskfill" -ItemType Directory -Force | Out-Null
 $scenarioMarker = 'sre-agent-workshop/arc-disk-pressure/v1'
 $pidPath = 'C:\Temp\diskfill.pid'
@@ -47,9 +49,10 @@ try {
   Remove-Item -Path $pidPath -Force -ErrorAction SilentlyContinue
 }
 PWSH
-)
+}
+LOOP_COMMAND=$(disk_fill_loop_payload)
 
-ENCODED_LOOP=$(printf '%s' "$LOOP_COMMAND" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
+ENCODED_LOOP=$(printf '%s' "$LOOP_COMMAND" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
 
 SCRIPT="New-Item -Path 'C:\Temp' -ItemType Directory -Force | Out-Null; \$proc = Start-Process -FilePath powershell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -EncodedCommand $ENCODED_LOOP' -WindowStyle Hidden -PassThru; \$owner = [PSCustomObject]@{ scenario = 'arc-disk-pressure'; marker = 'sre-agent-workshop/arc-disk-pressure/v1'; processId = \$proc.Id; processName = 'powershell.exe'; encodedCommand = '$ENCODED_LOOP' }; \$owner | ConvertTo-Json -Compress | Set-Content -Path 'C:\Temp\diskfill.owner.json' -Encoding ASCII; Set-Content -Path 'C:\Temp\diskfill.pid' -Value \$proc.Id -Encoding ASCII; Write-Output ('Started owned arc-disk-pressure fill loop in C:\Temp with PID {0}' -f \$proc.Id)"
 

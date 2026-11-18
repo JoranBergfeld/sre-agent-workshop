@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Restarts an IIS application pool; paired with stop-iis-app-pool.ps1.
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",

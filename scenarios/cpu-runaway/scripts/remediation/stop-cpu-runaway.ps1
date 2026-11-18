@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Stops only CPU workers that carry this scenario's exact path and marker.
 param(
     [string]$ResourceGroup = "rg-srelabcpurunaway",

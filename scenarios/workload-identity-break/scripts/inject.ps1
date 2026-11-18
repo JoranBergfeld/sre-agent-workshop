@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 param([string]$ResourceGroup, [string]$Workload = "srelabidentity", [string]$Namespace = "workload-identity-break", [string]$Deployment = "workload-identity-break-app", [switch]$Help)
 $ErrorActionPreference = 'Stop'
 

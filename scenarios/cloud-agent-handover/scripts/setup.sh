@@ -188,7 +188,7 @@ json_field() {
 # Unregistered providers (a fresh subscription) are reported as pending here;
 # setup registers them below and the deploy re-runs the complete preflight.
 if ! node scripts/placement/provision.mjs check cloud-agent-handover \
-  --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
+  --location "$LOCATION" ${REGION_FALLBACK_ARGS[@]+"${REGION_FALLBACK_ARGS[@]}"} \
   --workload "$WORKLOAD" \
   --resource-group "$RESOURCE_GROUP" \
   --require-group \
@@ -271,7 +271,7 @@ done
 # relocated, and resources are never deleted automatically.
 OUTPUTS_FILE=$(mktemp)
 node scripts/placement/provision.mjs deploy cloud-agent-handover \
-  --location "$LOCATION" "${REGION_FALLBACK_ARGS[@]}" \
+  --location "$LOCATION" ${REGION_FALLBACK_ARGS[@]+"${REGION_FALLBACK_ARGS[@]}"} \
   --workload "$WORKLOAD" \
   --resource-group "$RESOURCE_GROUP" \
   --outputs-file "$OUTPUTS_FILE"
@@ -296,7 +296,7 @@ gh variable set AZURE_WEBAPP_NAME --repo "$REPOSITORY" --body "$WEB_APP"
 gh variable set AZURE_LOCATION --repo "$REPOSITORY" --body "$LOCATION"
 gh variable set WORKLOAD_NAME --repo "$REPOSITORY" --body "$WORKLOAD"
 
-for line in "${LEGACY_GUIDANCE[@]}"; do
+for line in ${LEGACY_GUIDANCE[@]+"${LEGACY_GUIDANCE[@]}"}; do
   echo "$line"
 done
 

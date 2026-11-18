@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Provisions the Azure Boards Copilot Handover scenario end-to-end: verifies the
 # pre-created designated group and the deployable package read-only, deploys the
 # subscription-scope infrastructure, deploys the (intentionally flawed, v1-only)
@@ -82,7 +83,7 @@ $deployArguments = @('--build-mode', $BuildMode)
 if ($ArtifactRepo) { $deployArguments += @('--repo', $ArtifactRepo) }
 
 Write-Host "========================================"
-Write-Host "  Azure Boards Copilot Handover — Setup"
+Write-Host "  Azure Boards Copilot Handover - Setup"
 Write-Host "========================================"
 Write-Host "Workload: $Workload"
 Write-Host "Location: $Location"

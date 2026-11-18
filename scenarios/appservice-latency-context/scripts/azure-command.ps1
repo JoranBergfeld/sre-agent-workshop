@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 $ErrorActionPreference = 'Stop'
 $azureArgs = @(ConvertFrom-Json $env:ALCTX_AZURE_ARGS)
 $scopeIndex = [Array]::IndexOf($azureArgs, '--subscription')

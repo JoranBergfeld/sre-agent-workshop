@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Invokes the Azure CLI with literal arguments supplied as JSON by placement.mjs.
 # Windows installs az as a .cmd shim, which Node cannot spawn without a shell.
 $ErrorActionPreference = 'Stop'

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$Location = "eastus2",
     [string]$SreAgentPrincipalId = $env:SRE_AGENT_PRINCIPAL_ID
@@ -13,7 +14,7 @@ function Write-Fail($text) {
     Write-Host "  FAIL: $text"
 }
 
-Write-Host "VM Size Retirement — Setup Check"
+Write-Host "VM Size Retirement - Setup Check"
 
 if (Get-Command az -ErrorAction SilentlyContinue) {
     Write-Ok "Azure CLI installed"

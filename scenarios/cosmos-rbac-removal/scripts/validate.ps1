@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 param([string]$Service = "cosmos-rbac-removal-app", [string]$Namespace = "cosmos-rbac-removal")
 $ErrorActionPreference = 'Stop'
 $ip = kubectl get svc $Service -n $Namespace -o jsonpath='{.status.loadBalancer.ingress[0].ip}'

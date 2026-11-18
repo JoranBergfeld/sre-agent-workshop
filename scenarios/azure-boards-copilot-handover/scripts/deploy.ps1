@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Deploys an exact-source Actions package through a private blob URL by default.
 # --build-mode source retains the quality-gated Oryx source deployment alternative.
 # Both routes preserve the SHA readiness and post-cutover coherence checks.
@@ -83,7 +84,7 @@ if ($BuildMode -eq 'source' -and $ArtifactRepo) { throw '--repo applies only to 
 if (-not $ResourceGroupSet) { $ResourceGroup = "$Workload-rg" }
 
 Write-Host "========================================"
-Write-Host "  Azure Boards Copilot Handover — Deploy"
+Write-Host "  Azure Boards Copilot Handover - Deploy"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 
@@ -255,7 +256,7 @@ try {
     #
     # --build-remote true is required, not just the SCM_DO_BUILD_DURING_DEPLOYMENT
     # app setting above: on a freshly-provisioned app, that setting write and
-    # this deploy race — the Kudu build engine can still be starting up on the
+    # this deploy race - the Kudu build engine can still be starting up on the
     # old (false) value when the zip lands, silently skipping the Oryx
     # dependency build and shipping a package with no installed packages
     # (import errors for every third-party dependency, e.g.

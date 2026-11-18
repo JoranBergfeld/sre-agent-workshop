@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",
     [switch]$Yes,
@@ -7,7 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================"
-Write-Host "  IIS App Pool Failure — Cleanup"
+Write-Host "  IIS App Pool Failure - Cleanup"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 

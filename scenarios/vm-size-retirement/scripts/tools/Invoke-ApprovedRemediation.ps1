@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [Parameter(Mandatory = $true)][string]$Action,
     [string]$ResourceGroup = "rg-srelabretirement",
@@ -111,7 +112,7 @@ try {
 }
 
 if ($terminalStatus -ne 'succeeded') {
-    throw "Approved remediation failed after completed $completedVms VM(s); failed VM: $($failedVm ?? 'unknown'). $failureMessage"
+    throw "Approved remediation failed after completed $completedVms VM(s); failed VM: $(if ($null -ne $failedVm) { $failedVm } else { 'unknown' }). $failureMessage"
 }
 
 Write-Host "Approved remediation completed and audited."

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Onboard the disposable evaluation VM as an Azure Arc-enabled server.
 #
 # EVALUATION AND TESTING ONLY. Onboarding an Azure VM to Azure Arc requires
