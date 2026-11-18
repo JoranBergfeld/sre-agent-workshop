@@ -46,6 +46,10 @@ following hold:
 Setup also refuses to use an artifact when the deployable source has
 uncommitted changes. Commit and push them, or use the local-build mode.
 
+Run setup from a git clone of your repository, not a ZIP download. In a fork,
+enable workflows on the **Actions** tab before you push. For other laptop
+issues, see [Run the workshop from your own laptop](run-from-your-laptop.md).
+
 If no matching build exists, the error message prints the exact command to
 start one. For example:
 
@@ -63,6 +67,7 @@ used.
 | --- | --- | --- |
 | Cloud Agent Handover | `setup.sh --local-build` / `setup.ps1 -LocalBuild` | .NET 10 SDK, `zip` |
 | Azure Boards Copilot Handover | `deploy.sh --build-mode source` / `deploy.ps1 --build-mode source` | Python 3.12 test gates; Oryx remote build |
+| App Service Latency Context | `setup.sh --local-build` / `setup.ps1 --local-build` | Node.js only |
 
 ## AKS application images
 

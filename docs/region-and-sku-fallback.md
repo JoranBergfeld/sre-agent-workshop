@@ -40,6 +40,11 @@ policy.
    only for classified regional, SKU, quota and allocation availability
    failures, and only after it has verified that the failed attempt changed
    nothing.
+   - These include App Service plan quota ("Operation cannot be completed
+     without additional quota"), regional "high demand" errors, and Azure
+     Policy denials from an **Allowed locations** or **Allowed virtual machine
+     size SKUs** assignment. Every attempt is validated first, and a policy
+     denial at validation never writes anything.
    - Authentication, discovery, API, template and validation errors stop
      immediately. A failed lookup is never treated as "no capacity".
    - The engine never deletes resources. If it cannot prove that a failed
@@ -49,6 +54,11 @@ policy.
 5. **Records the placement it actually used.** It writes the region, SKU and
    deployment name to the resource group as `sre-workshop-*` tags and to the
    deployment outputs. Connection strings and other secrets are never printed.
+
+Every stop ends with a **What to do next** block for the failures learners
+most often hit in their own or work subscriptions: capacity or quota, a policy
+that blocks the region, missing role-assignment permission, and an
+unregistered resource provider.
 
 ## Reruns stay pinned
 
@@ -146,6 +156,23 @@ scenario `setup.sh`/`setup.ps1` scripts and the **Deploy … Infrastructure**
 workflows pass these options through. The workflows expose them as the
 `location` and `regionFallback` inputs.
 
+## If a deployment stops part-way
+
+Capacity often runs out only when Azure allocates the VM or cluster, after
+other resources in the template already exist. The engine then stops instead
+of retrying, because the attempt changed your resource group. The
+**What to do next** block gives the exact commands:
+
+1. Wait until nothing in the group is still deploying, and confirm it holds
+   nothing you want to keep.
+2. Delete and re-create the group:
+   `az group delete --name <group> --yes`, then
+   `az group create --name <group> --location <next region> --tags sre-workshop-scenario=<scenario>`.
+3. Rerun the same command with `--location <next region>`, or
+   `-Location <next region>` where your scenario guide uses that form in
+   PowerShell, so the run starts from the next supported region instead of
+   the one that just failed.
+
 ## If no candidate works
 
 The error lists each region and size with the reason it was rejected, such as
@@ -155,5 +182,13 @@ The error lists each region and size with the reason it was rejected, such as
 - choose a different subscription;
 - wait and retry.
 
+If an organization's **Allowed locations** policy blocks every listed region,
+the scenario cannot run in that subscription, because each scenario supports
+only its listed regions. Ask your Azure administrator for a policy exemption
+on your resource group, or use a lab or personal subscription.
+
 Do not edit the template to force an unlisted size. The policies only list
 sizes that preserve each scenario's incident behaviour.
+
+For laptop, work-device and corporate-network setup, see
+[Run the workshop from your own laptop](run-from-your-laptop.md).

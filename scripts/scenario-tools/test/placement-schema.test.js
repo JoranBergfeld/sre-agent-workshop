@@ -9,7 +9,10 @@ const repositoryRoot = resolve(import.meta.dirname, "..", "..", "..");
 const schema = JSON.parse(readFileSync(resolve(repositoryRoot, "schemas/placement.schema.json"), "utf8"));
 const validate = new Ajv({ allErrors: true, strict: false }).compile(schema);
 
-for (const scenario of readdirSync(resolve(repositoryRoot, "scenarios"))) {
+// cli.test.js creates short-lived temp-capsule-* directories in parallel runs.
+const scenarios = readdirSync(resolve(repositoryRoot, "scenarios")).filter((name) => !name.startsWith("temp-capsule-"));
+
+for (const scenario of scenarios) {
   test(`${scenario} placement policy satisfies the placement schema and engine rules`, () => {
     const policy = JSON.parse(readFileSync(resolve(repositoryRoot, "scenarios", scenario, "infra/placement.json"), "utf8"));
     assert.equal(policy.$schema, "../../../schemas/placement.schema.json");

@@ -390,6 +390,19 @@ test('authentication errors are propagated, not mistaken for missing builds', as
   await assert.rejects(resolveArtifact(f.options, { run: f.run, cwd: f.directory }), /401 Bad credentials/);
 });
 
+test('a folder that is not a git clone explains how to get one', async t => {
+  const f = await fixture(t);
+  const notCloned = (command) => {
+    if (command === 'git') throw new Error('git failed: fatal: not a git repository (or any of the parent directories): .git');
+    throw new Error(`unexpected ${command} call`);
+  };
+  await assert.rejects(resolveArtifact(f.options, { run: notCloned, cwd: f.directory }), error => {
+    assert.match(error.message, /git clone of the repository, not a ZIP download/);
+    assert.match(error.message, /not a git repository/);
+    return true;
+  });
+});
+
 test('a missing workflow API response includes actionable dispatch guidance', async t => {
   const f = await fixture(t);
   const run = f.run;

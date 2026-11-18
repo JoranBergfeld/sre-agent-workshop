@@ -37,7 +37,9 @@ resource-name collisions.
    ```
 
    Use the selected guide's matching Bash or PowerShell commands for injection,
-   validation, and cleanup; prerequisites vary by scenario.
+   validation, and cleanup; prerequisites vary by scenario. On Windows, run the
+   PowerShell scripts in PowerShell 7 (`pwsh`). Running on your own laptop or a
+   work device? See [Run the workshop from your own laptop](docs/run-from-your-laptop.md).
 
 ## Shared concepts
 
@@ -48,6 +50,7 @@ These guides explain the shared service and incident-response model:
 3. [How it works](docs/02-how-it-works.md)
 4. [Region and VM-size fallback](docs/region-and-sku-fallback.md) — how provisioning chooses and pins a region and size
 5. [Exact-commit build artifacts](docs/build-artifacts.md) — how deployable apps and images are built in your repository
+6. [Run the workshop from your own laptop](docs/run-from-your-laptop.md) — Windows, macOS, corporate networks and work subscriptions
 
 ## Choose a scenario
 
