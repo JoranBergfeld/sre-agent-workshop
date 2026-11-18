@@ -368,6 +368,7 @@ export async function main(argv = process.argv.slice(2), { env = process.env, az
     if (error instanceof PlacementError && error.attempts?.length && !error.message.includes(formatAttempts(error.attempts))) {
       console.error(formatAttempts(error.attempts));
     }
+    if (error instanceof PlacementError && error.advice) console.error(`\n${error.advice}`);
     return 1;
   }
 }

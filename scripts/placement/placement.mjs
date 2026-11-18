@@ -38,12 +38,13 @@ export class DiscoveryError extends Error {
 }
 
 export class PlacementError extends Error {
-  constructor(message, { attempts = [], diagnostic, partial } = {}) {
+  constructor(message, { attempts = [], diagnostic, partial, advice } = {}) {
     super(message);
     this.name = 'PlacementError';
     this.attempts = attempts;
     this.diagnostic = diagnostic;
     this.partial = partial;
+    this.advice = advice;
   }
 }
 
@@ -70,14 +71,28 @@ const REGION_FAILURES = [
   // NoRegisteredProviderFound is deliberately fatal: it usually means an
   // invalid API version or an unregistered provider, not regional capacity.
   /(AgentPool)?K8sVersionNotSupported|KubernetesVersionNotSupported/i,
-  /high demand in (the )?(\w+ )?region/i,
+  // Display names such as "East US 2" span several words.
+  /high demand in (the )?([\w-]+ ){0,4}region/i,
   /SubscriptionIsOverQuotaForSku/i,
   /not (currently )?(supported|available) in (this|the) (region|location)/i,
   /Serverless[\s\S]{0,80}not (supported|available)/i,
+  // App Service plan quota and worker capacity are per subscription and region.
+  /Operation cannot be completed without additional quota/i,
+  /No available instances to satisfy this request/i,
 ];
+// Built-in "Allowed locations" and "Allowed virtual machine size SKUs" policy
+// definitions, plus the names organisations commonly give their own copies.
+const LOCATION_POLICY = /e56962a6-4747-49cd-b67b-bf8b01975c4c|allowed[\s_-]*locations?\b/i;
+const VM_SIZE_POLICY = /cccc23c7-8427-4f53-ad12-b6a63eb452b3|allowed[\s_-]*(virtual[\s_-]*machine|vm)[\s_-]*(size[\s_-]*)?skus?/i;
+const CAPACITY_HINT = /quota|capacity|AllocationFailed|high demand|SkuNotAvailable|restricted|NotAvailableForSubscription|No available instances/i;
 
 export function classifyFailure(text, { hasSkuFallback = true } = {}) {
   const message = String(text ?? '');
+  if (/RequestDisallowedByPolicy/i.test(message)) {
+    // Only a VM-size or location allow-list can be satisfied by another candidate.
+    if (VM_SIZE_POLICY.test(message)) return hasSkuFallback ? 'sku' : 'region';
+    return LOCATION_POLICY.test(message) ? 'region' : 'fatal';
+  }
   if (SKU_FAILURES.some(pattern => pattern.test(message))) return hasSkuFallback ? 'sku' : 'region';
   if (REGION_FAILURES.some(pattern => pattern.test(message))) return 'region';
   return 'fatal';
@@ -857,6 +872,50 @@ export function formatAttempts(attempts) {
   return attempts.map(item => `  - ${item.region}${item.sku ? ` / ${item.sku}` : ''}: ${item.reason}`).join('\n');
 }
 
+/**
+ * Next steps for the failures learners most often hit in their own or work
+ * subscriptions. `stopped` describes a capacity failure that stopped for manual
+ * cleanup: { region, location } where location is the run's preferred region.
+ */
+export function failureAdvice({ policy, resourceGroup, texts = [], stopped } = {}) {
+  const text = texts.map(item => String(item ?? '')).join('\n');
+  const regions = policy.regions.map(normalizeRegion);
+  const steps = [];
+  if (/RequestDisallowedByPolicy/i.test(text)) {
+    steps.push(LOCATION_POLICY.test(text)
+      ? `An Azure Policy location allow-list blocks the region. ${policy.scenario} runs only in ${regions.join(', ')}; `
+        + `ask your Azure administrator for a policy exemption on ${resourceGroup}, or use a subscription that allows one of them.`
+      : `An Azure Policy assignment denied the deployment (the policy is named in the error). Ask your Azure administrator for an exemption on `
+        + `${resourceGroup}, or use a lab or personal subscription without that policy.`);
+  }
+  if (/AuthorizationFailed/i.test(text)) {
+    steps.push(/roleAssignments\/write/i.test(text)
+      ? `Your account cannot create role assignments, which ${policy.scenario} needs. Ask for Owner, or Contributor plus User Access `
+        + `Administrator or Role Based Access Control Administrator, on ${resourceGroup} or the subscription; then run az login again and rerun.`
+      : `Your account is missing a permission ${policy.scenario} needs (the action is named in the error). Ask for Owner on ${resourceGroup} `
+        + 'or the subscription; then run az login again and rerun.');
+  }
+  if (/MissingSubscriptionRegistration/i.test(text)) {
+    const namespace = /namespace '([^']+)'/i.exec(text)?.[1] ?? '<namespace>';
+    steps.push(`Register the resource provider, then rerun:\n      az provider register --namespace ${namespace} --wait`);
+  }
+  if (stopped) {
+    const order = orderedRegions(policy, stopped.location);
+    const next = order[order.indexOf(normalizeRegion(stopped.region)) + 1];
+    steps.push(`${stopped.region} looks short of capacity or quota. Once nothing in ${resourceGroup} is still deploying and it holds nothing `
+      + `you want to keep, delete and re-create the group${next ? ', then rerun the same command from the next supported region' : ''}:\n`
+      + `      az group delete --name ${resourceGroup} --yes\n`
+      + `      az group create --name ${resourceGroup} --location ${next ?? normalizeRegion(stopped.region)} --tags ${TAGS.scenario}=${policy.scenario}\n`
+      + (next
+        ? `      then rerun the same command with --location ${next} (or -Location ${next} where your scenario guide uses that form in PowerShell)`
+        : '      every supported region has now been tried; retry later or request more quota in one of them (Azure portal > Quotas)'));
+  } else if (!steps.length && CAPACITY_HINT.test(text)) {
+    steps.push(`Capacity and quota change over time: retry later, or request more quota for one of the listed sizes in ${regions.join(', ')} `
+      + '(Azure portal > Quotas > Compute, or a support request for App Service).');
+  }
+  return steps.length ? ['What to do next:', ...steps.map(step => `  - ${step}`)].join('\n') : undefined;
+}
+
 function summarize(error) {
   const text = String(error?.stderr || error?.message || error);
   const code = /"code"\s*:\s*"([^"]+)"/.exec(text)?.[1] ?? /\(([A-Z][A-Za-z]+)\)/.exec(text)?.[1];
@@ -1145,6 +1204,7 @@ export async function provision({
 
   const ownershipTags = { ...(policy.groupTags ?? {}), [TAGS.scenario]: policy.scenario, [TAGS.attempt]: attemptId };
   const attempts = [];
+  const failureTexts = [];
   let fleetUnavailableEverywhere = (policy.fixedFleet?.length ?? 0) > 0;
   const cache = new Map();
   let tryNumber = 0;
@@ -1180,18 +1240,25 @@ export async function provision({
         outputs = await deploy({ location: region, sku: candidate.sku, context, tags: ownershipTags, deploymentName: attemptName });
       } catch (error) {
         if (error instanceof PlacementError) throw error;
-        const classification = classifyFailure(error?.stderr ?? error?.message, { hasSkuFallback });
+        const text = String(error?.stderr || error?.message || '');
+        const classification = classifyFailure(text, { hasSkuFallback });
         const summary = summarize(error);
+        failureTexts.push(text);
         attempts.push({ region, sku: candidate.sku, reason: `${classification === 'fatal' ? 'non-retryable failure' : `${classification}-level availability failure`}: ${summary}` });
         log(`  Attempt failed (${classification}): ${summary}`);
         try {
           await assessFailedAttempt({ az, resourceGroup, deploymentName: attemptName, snapshot, scope, error });
         } catch (stop) {
-          if (stop instanceof PlacementError) stop.attempts = attempts;
+          if (stop instanceof PlacementError) {
+            stop.attempts = attempts;
+            stop.advice = failureAdvice({ policy, resourceGroup, texts: [text],
+              stopped: classification === 'fatal' ? undefined : { region, location } });
+          }
           throw stop;
         }
         if (classification === 'fatal') {
-          throw new PlacementError(`Deployment failed with a non-retryable error; the attempt was verified to have made no changes and nothing was deleted.\n${formatAttempts(attempts)}`, { attempts });
+          throw new PlacementError(`Deployment failed with a non-retryable error; the attempt was verified to have made no changes and nothing was deleted.\n${formatAttempts(attempts)}`,
+            { attempts, advice: failureAdvice({ policy, resourceGroup, texts: [text] }) });
         }
         if (classification === 'region') break;
         continue;
@@ -1213,6 +1280,7 @@ export async function provision({
   throw new PlacementError(`No supported placement succeeded for ${policy.scenario}. Tried, in order:\n${formatAttempts(attempts)}`, {
     attempts,
     diagnostic: fleetUnavailableEverywhere ? policy.fleetUnavailableDiagnostic : undefined,
+    advice: failureAdvice({ policy, resourceGroup, texts: [...failureTexts, ...attempts.map(item => item.reason)] }),
   });
 }
 

@@ -63,6 +63,7 @@ used.
 | --- | --- | --- |
 | Cloud Agent Handover | `setup.sh --local-build` / `setup.ps1 -LocalBuild` | .NET 10 SDK, `zip` |
 | Azure Boards Copilot Handover | `deploy.sh --build-mode source` / `deploy.ps1 --build-mode source` | Python 3.12 test gates; Oryx remote build |
+| App Service Latency Context | `setup.sh --local-build` / `setup.ps1 --local-build` | Node.js only |
 
 ## AKS application images
 

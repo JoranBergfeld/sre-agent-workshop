@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
   AzError, DiscoveryError, PlacementError, TAGS, assessFailedAttempt, boundedDeploymentName, classifyFailure, createAzRunner, evaluateRegion,
-  inspectExisting, loadPolicy, orderedRegions, persistPlacement, preferredSkus, provision, quotaShortfall,
+  failureAdvice, inspectExisting, loadPolicy, orderedRegions, persistPlacement, preferredSkus, provision, quotaShortfall,
   reconcilePinnedRegion, remediationDemands, resumableRemediationTarget, skuIneligibility, validatePolicy, verifyRemediationTarget,
 } from '../../placement/placement.mjs';
 import { buildParameters, main, parseArgs, resolveNames, runCheck } from '../../placement/provision.mjs';
@@ -234,7 +234,9 @@ function fakeAzure({
 const silent = () => {};
 
 test('every scenario has a valid, bounded placement policy whose parameters exist in its template', async () => {
-  const scenarios = readdirSync(resolve(repositoryRoot, 'scenarios'), { withFileTypes: true }).filter(entry => entry.isDirectory());
+  // cli.test.js creates short-lived temp-capsule-* directories in parallel runs.
+  const scenarios = readdirSync(resolve(repositoryRoot, 'scenarios'), { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && !entry.name.startsWith('temp-capsule-'));
   assert.ok(scenarios.length >= 9);
   for (const entry of scenarios) {
     const policy = await loadPolicy(policyFile(entry.name));
@@ -289,6 +291,41 @@ test('classifyFailure retries only availability failures', () => {
   assert.equal(classifyFailure('(NoRegisteredProviderFound) No registered resource provider found for API version'), 'fatal');
   assert.equal(classifyFailure('(AuthorizationFailed) does not have authorization'), 'fatal');
   assert.equal(classifyFailure('InvalidTemplate: something is wrong'), 'fatal');
+});
+
+const policyDenial = (name, id) => `(RequestDisallowedByPolicy) Resource 'vm' was disallowed by policy. Policy identifiers: `
+  + `'[{"policyAssignment":{"name":"Contoso guardrail"},"policyDefinition":{"name":"${name}","id":"/providers/Microsoft.Authorization/policyDefinitions/${id}"}}]'.`;
+const LOCATION_DENIAL = policyDenial('Allowed locations', 'e56962a6-4747-49cd-b67b-bf8b01975c4c');
+
+test('classifyFailure recognises multi-word region capacity, App Service quota and allow-list policy denials', () => {
+  assert.equal(classifyFailure('(ServiceUnavailable) Sorry, we are currently experiencing high demand in East US 2 region'), 'region');
+  assert.equal(classifyFailure('Due to high demand in the region, try again later'), 'region');
+  const appServiceQuota = 'Operation cannot be completed without additional quota. Current Limit (Basic VMs): 0';
+  assert.equal(classifyFailure(appServiceQuota, { hasSkuFallback: false }), 'region');
+  assert.equal(classifyFailure(appServiceQuota), 'region');
+  assert.equal(classifyFailure('No available instances to satisfy this request. App Service is attempting to increase capacity.'), 'region');
+  assert.equal(classifyFailure(LOCATION_DENIAL), 'region');
+  const sizeDenial = policyDenial('Allowed virtual machine size SKUs', 'cccc23c7-8427-4f53-ad12-b6a63eb452b3');
+  assert.equal(classifyFailure(sizeDenial), 'sku');
+  assert.equal(classifyFailure(sizeDenial, { hasSkuFallback: false }), 'region');
+  assert.equal(classifyFailure(policyDenial('Require a tag on resources', '871b6d14-10aa-478d-b590-94f262ecfa99')), 'fatal');
+});
+
+test('failureAdvice turns common work-subscription failures into next steps', async () => {
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const advise = (text, extra) => failureAdvice({ policy, resourceGroup: 'rg-test', texts: [text], ...extra });
+  assert.match(advise(LOCATION_DENIAL), /location allow-list.*eastus2, swedencentral, australiaeast.*exemption on rg-test/s);
+  assert.match(advise(policyDenial('Require a tag on resources', '871b6d14-10aa-478d-b590-94f262ecfa99')), /exemption on rg-test/);
+  assert.match(advise("(AuthorizationFailed) does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/write'"),
+    /cannot create role assignments.*User Access Administrator/s);
+  assert.match(advise("(MissingSubscriptionRegistration) The subscription is not registered to use namespace 'Microsoft.OperationalInsights'."),
+    /az provider register --namespace Microsoft\.OperationalInsights --wait/);
+  assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'eastus2' } }), /rerun the same command with --location swedencentral \(or -Location swedencentral where/);
+  assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'swedencentral', location: 'swedencentral' } }),
+    /az group create --name rg-test --location eastus2 .*rerun the same command with --location eastus2/s);
+  assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'australiaeast' } }), /every supported region has now been tried/);
+  assert.match(advise('preflight: quota: needs 4 vCPUs'), /request more quota/);
+  assert.equal(advise('InvalidTemplate: something is wrong'), undefined);
 });
 
 test('skuIneligibility honours subscription restrictions and template capabilities', () => {
@@ -495,6 +532,31 @@ test('a non-retryable failure that left nothing stops and reports that nothing w
     error => error instanceof PlacementError && /non-retryable/.test(error.message) && /nothing was deleted/.test(error.message));
   assert.equal(fake.deployments.length, 1);
   assert.ok(fake.state.groups['rg-test'], 'the resource group is never deleted');
+  assert.deepEqual(deletes(fake), []);
+});
+
+test('provision moves past regions a location policy denies at validation and explains a full denial', async () => {
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const fake = fakeAzure({ deployFailures: [LOCATION_DENIAL] });
+  const result = await provision({ policy, az: fake.az, deploy: fake.deploy, resourceGroup: 'rg-test', log: silent });
+  assert.equal(result.location, 'swedencentral');
+  assert.deepEqual(fake.deployments.map(item => item.location), ['eastus2', 'swedencentral']);
+
+  const denied = fakeAzure({ deployFailures: [LOCATION_DENIAL, LOCATION_DENIAL, LOCATION_DENIAL] });
+  await assert.rejects(provision({ policy, az: denied.az, deploy: denied.deploy, resourceGroup: 'rg-test', log: silent }),
+    error => error instanceof PlacementError && /No supported placement succeeded/.test(error.message) && /location allow-list/.test(error.advice));
+  assert.equal(denied.deployments.length, 3);
+  assert.deepEqual(deletes(denied), []);
+});
+
+test('a capacity stop that left resources tells the learner how to clean up and rerun from the next region', async () => {
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const fake = fakeAzure({ deployFailures: [leaves('(AllocationFailed) Allocation failed. We do not have sufficient capacity')] });
+  await assert.rejects(provision({ policy, az: fake.az, deploy: fake.deploy, resourceGroup: 'rg-test', log: silent }),
+    error => error instanceof PlacementError && /Nothing was deleted/.test(error.message)
+      && /az group delete --name rg-test --yes/.test(error.advice)
+      && /az group create --name rg-test --location swedencentral --tags sre-workshop-scenario=cpu-runaway/.test(error.advice));
+  assert.equal(fake.deployments.length, 1);
   assert.deepEqual(deletes(fake), []);
 });
 

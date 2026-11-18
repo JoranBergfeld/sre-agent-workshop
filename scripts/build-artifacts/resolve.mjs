@@ -124,7 +124,11 @@ export async function resolveArtifact(options, { run = execute, cwd = process.cw
   if (options.repo !== undefined) requireValue(/^[\w.-]+\/[\w.-]+$/.test(options.repo), '--repo must be owner/name');
   let gitCwd = cwd;
   const git = (...args) => run('git', args, { cwd: gitCwd }).toString().trim();
-  const root = git('rev-parse', '--show-toplevel');
+  let root;
+  try { root = git('rev-parse', '--show-toplevel'); } catch (error) {
+    throw new Error('Build artifacts are matched to an exact git commit. Install git and run from a git clone of the '
+      + `repository, not a ZIP download. ${error.message}`, { cause: error });
+  }
   gitCwd = root;
   const sha = git('rev-parse', '--verify', 'HEAD^{commit}');
   requireValue(/^[a-f0-9]{40}$/.test(sha), 'Git HEAD must be a full commit SHA');
