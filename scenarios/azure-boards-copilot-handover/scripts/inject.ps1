@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Injects the v2 incident batch by calling the keyed submit-v2-orders
 # endpoint. A fresh submission returns 202 (accepted); a repeat submission
 # against an already-completed incident returns 200 (idempotent, recoverable).
@@ -56,7 +57,7 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 if (-not $ResourceGroupSet) { $ResourceGroup = "$Workload-rg" }
 
 Write-Host "========================================"
-Write-Host "  Azure Boards Copilot Handover — Inject"
+Write-Host "  Azure Boards Copilot Handover - Inject"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 

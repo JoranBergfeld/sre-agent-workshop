@@ -1,4 +1,5 @@
-# Scenario 2 — IIS App Pool Failure. Stops a target IIS application pool to
+#Requires -Version 7.0
+# Scenario 2 - IIS App Pool Failure. Stops a target IIS application pool to
 # simulate a stopped backend; the scenario alert + agent flow take it from there.
 param(
     [string]$ResourceGroup = "rg-srelabiisapppool",

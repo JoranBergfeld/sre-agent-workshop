@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 param([string]$ResourceGroup, [string]$Workload = "srelabcosmos", [string]$SubscriptionId = $env:AZURE_SUBSCRIPTION_ID, [string]$Namespace = "cosmos-rbac-removal", [string]$Deployment = "cosmos-rbac-removal-app", [switch]$Help)
 $ErrorActionPreference = 'Stop'
 

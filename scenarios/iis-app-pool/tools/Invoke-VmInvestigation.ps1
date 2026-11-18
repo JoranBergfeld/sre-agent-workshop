@@ -1,5 +1,6 @@
-# Visible reasoning chain for a VM scenario: Observe → Investigate → Correlate
-# → Hypothesis → Propose → AwaitApproval → Execute → Validate → Postmortem.
+#Requires -Version 7.0
+# Visible reasoning chain for a VM scenario: Observe -> Investigate -> Correlate
+# -> Hypothesis -> Propose -> AwaitApproval -> Execute -> Validate -> Postmortem.
 # Writes a stage-by-stage trace and a markdown postmortem to this capsule's output.
 param(
     [string]$WorkspaceId,
@@ -130,7 +131,7 @@ $postmortem = @"
 
 See `$(Split-Path $tracePath -Leaf)` for the stage-by-stage reasoning chain:
 
-Observe → Investigate → Correlate → Hypothesis → Propose remediation → Await approval → Execute → Validate → Postmortem
+Observe -> Investigate -> Correlate -> Hypothesis -> Propose remediation -> Await approval -> Execute -> Validate -> Postmortem
 
 ## Proposed Remediation
 

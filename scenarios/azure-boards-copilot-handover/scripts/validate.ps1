@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Proves the Azure Boards Copilot Handover incident has been fully recovered:
 # the deployed commit matches local HEAD, the incident batch is completed,
 # receipts split exactly 3 v1 / 20 v2 (23 total), the Service Bus queue has
@@ -64,7 +65,7 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 if (-not $ResourceGroupSet) { $ResourceGroup = "$Workload-rg" }
 
 Write-Host "========================================"
-Write-Host "  Azure Boards Copilot Handover — Validate"
+Write-Host "  Azure Boards Copilot Handover - Validate"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 

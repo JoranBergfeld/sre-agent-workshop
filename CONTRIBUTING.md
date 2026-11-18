@@ -64,6 +64,21 @@ The platform is scenario metadata, not a directory hierarchy.
    Bash script. Keep the learner guide, scripts, Bicep, and operational
    guidance in the same capsule.
 
+   Learners run these scripts on their own laptops, so keep them portable:
+
+   - Bash must run on macOS Bash 3.2. Avoid `mapfile`, associative arrays,
+     `${var,,}`, and `"${arr[@]}"` on a possibly empty array under `set -u`
+     (use `${arr[@]+"${arr[@]}"}`). Do not put a heredoc inside `$(...)`;
+     capture it from a function instead.
+   - PowerShell scripts start with `#Requires -Version 7.0` (after any
+     shebang), stay ASCII-only, and avoid PowerShell 7-only syntax such as
+     `??`. Windows PowerShell 5.1 then stops with a clear "run PowerShell 7"
+     message instead of a parse error.
+
+   `scripts/scenario-tools/test/azure-subscription-context.test.js` checks
+   the syntax rules. Only running the script under Bash 3.2 (`/bin/bash` on
+   macOS) catches the empty-array case.
+
    Do not make SRE Agent apply a remediation directly. VM scenarios use their
    local approval gate with a `CHG-`/`INC-` ticket, explicit `APPROVE`, and an
    audit record. AKS scenarios use the GitOps route: an issue assigned to

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Runs a PowerShell script on an Azure Arc-enabled server through Arc Run Command.
 #
 # `az connectedmachine run-command create` is synchronous and requires

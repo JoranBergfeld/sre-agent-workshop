@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabcpurunaway",
     [string]$VmName = "srelabcpurunaway-vm01",

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -44,7 +45,7 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 }
 
 Write-Host "========================================"
-Write-Host "  CPU Runaway Scenario — Cleanup"
+Write-Host "  CPU Runaway Scenario - Cleanup"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 

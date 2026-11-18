@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # CPU Runaway scenario. Starts one controlled CPU worker per logical processor
 # (at least two) so a Standard_B2s VM reliably exceeds the alert threshold.
 param(

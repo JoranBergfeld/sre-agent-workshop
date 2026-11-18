@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Tears down all Azure resources created by the workshop.
 # Usage from repository root:
 #   .\scenarios\workload-identity-break\scripts\cleanup.ps1
@@ -61,7 +62,7 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 if (-not $ResourceGroupSet) { $ResourceGroup = "rg-$Workload" }
 
 Write-Host "========================================"
-Write-Host "  SRE Agent Workshop — Cleanup"
+Write-Host "  SRE Agent Workshop - Cleanup"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 Write-Host ""

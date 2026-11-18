@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabarcdisk",
     [switch]$Yes,
@@ -5,7 +6,7 @@ param(
 )
 
 Write-Host "========================================"
-Write-Host "  Arc-Enabled Server Disk Pressure Scenario — Cleanup"
+Write-Host "  Arc-Enabled Server Disk Pressure Scenario - Cleanup"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 

@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Provision vm-size-retirement infrastructure with bounded, policy-driven region and VM
 # family fallback (infra/placement.json). Existing deployments stay pinned to
 # their region. Options: scripts/placement/provision.mjs --help

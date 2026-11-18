@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$Location = "eastus2"
 )
@@ -9,11 +10,11 @@ $activeSubscriptionName = [string](az account show --query name -o tsv); if ($LA
 $activeSubscriptionId = $activeSubscriptionId.Trim(); $activeSubscriptionName = $activeSubscriptionName.Trim(); if ($requestedSubscriptionId -and $activeSubscriptionId -cne $requestedSubscriptionId) { throw "Azure subscription mismatch: requested '$requestedSubscriptionId', active '$activeSubscriptionId'. Run: az account set --subscription `"$requestedSubscriptionId`"" }; Write-Host "Azure subscription: $activeSubscriptionName ($activeSubscriptionId)"
 
 $errors = 0
-function Write-Ok($text)   { Write-Host "  ✅ $text" }
-function Write-Fail($text) { $script:errors++; Write-Host "  ❌ $text" }
+function Write-Ok($text)   { Write-Host "  `u{2705} $text" }
+function Write-Fail($text) { $script:errors++; Write-Host "  `u{274C} $text" }
 
 Write-Host "========================================"
-Write-Host "  CPU Runaway Scenario — Setup Check"
+Write-Host "  CPU Runaway Scenario - Setup Check"
 Write-Host "========================================"
 
 if (Get-Command az -ErrorAction SilentlyContinue) {

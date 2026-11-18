@@ -1,5 +1,6 @@
+#Requires -Version 7.0
 # Runs a PowerShell script on a Windows VM via `az vm run-command` using an
-# encoded-command wrapper — robust against quoting/parsing edge cases that can
+# encoded-command wrapper - robust against quoting/parsing edge cases that can
 # silently swallow inline scripts.
 param(
     [Parameter(Mandatory = $true)][string]$ResourceGroup,

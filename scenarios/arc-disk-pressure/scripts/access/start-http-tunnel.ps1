@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 param(
     [string]$ResourceGroup = "rg-srelabarcdisk",
     [string]$VmName = "srelabarcdisk-vm01",

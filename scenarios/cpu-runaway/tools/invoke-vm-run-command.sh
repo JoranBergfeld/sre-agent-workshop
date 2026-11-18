@@ -39,7 +39,7 @@ for tool in az iconv base64 jq; do
   fi
 done
 
-ENCODED_SCRIPT=$(printf '%s' "$SCRIPT" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
+ENCODED_SCRIPT=$(printf '%s' "$SCRIPT" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
 WRAPPER_LINE="powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $ENCODED_SCRIPT"
 
 if ! RESULT_JSON=$(az vm run-command invoke \

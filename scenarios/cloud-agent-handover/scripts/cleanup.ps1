@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 param(
     [ValidateNotNullOrEmpty()]
     [string]$ResourceGroup = $(if ($env:AZURE_RESOURCE_GROUP) {

@@ -21,7 +21,9 @@ active_subscription_id=$(az account show --query id -o tsv) || { echo "Azure CLI
 [ -n "$active_subscription_id" ] && [ -n "$active_subscription_name" ] || { echo "Unable to read the active Azure subscription." >&2; exit 1; }
 [ -z "$requested_subscription_id" ] || [ "$active_subscription_id" = "$requested_subscription_id" ] || { echo "Azure subscription mismatch: requested '$requested_subscription_id', active '$active_subscription_id'. Run: az account set --subscription \"$requested_subscription_id\"" >&2; exit 1; }; echo "Azure subscription: $active_subscription_name ($active_subscription_id)"
 
-SCRIPT=$(cat <<'PWSH'
+# Keep this payload in a function: macOS Bash 3.2 misreads heredocs inside $(...).
+cpu_stop_payload() {
+  cat <<'PWSH'
 $scenarioDirectory = 'C:\SreCpuRunaway'
 $workerScriptPath = Join-Path $scenarioDirectory 'cpu-runaway-worker.ps1'
 $statePath = Join-Path $scenarioDirectory 'cpu-runaway-state.json'
@@ -56,7 +58,8 @@ foreach ($workerPid in $workerPids) {
 Remove-Item -Path $statePath, $workerScriptPath -Force -ErrorAction SilentlyContinue
 Write-Output 'Stopped only CPU Runaway worker processes'
 PWSH
-)
+}
+SCRIPT=$(cpu_stop_payload)
 
 "$SCRIPT_DIR/../../tools/invoke-vm-run-command.sh" \
   --resource-group "$RESOURCE_GROUP" \

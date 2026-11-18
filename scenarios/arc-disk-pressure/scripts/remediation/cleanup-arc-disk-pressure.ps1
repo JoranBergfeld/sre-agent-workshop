@@ -1,5 +1,6 @@
+#Requires -Version 7.0
 # Surgical disk remediation. Stops only a verified diskfill process and removes
-# the scenario's artifacts under C:\Temp\diskfill — narrower than cleanup-arc-disk-pressure.
+# the scenario's artifacts under C:\Temp\diskfill - narrower than cleanup-arc-disk-pressure.
 param(
     [string]$ResourceGroup = "rg-srelabarcdisk",
     [string]$VmName = "srelabarcdisk-vm01"

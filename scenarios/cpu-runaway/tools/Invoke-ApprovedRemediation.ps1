@@ -1,7 +1,8 @@
+#Requires -Version 7.0
 # Approval-gated remediation wrapper.
 # Maps an action name to a constrained remediation script, requires a
 # CHG/INC ticket and explicit "APPROVE" confirmation, and writes an audit
-# entry per execution. The SRE Agent never runs remediation directly —
+# entry per execution. The SRE Agent never runs remediation directly -
 # every action passes through this gate.
 param(
     [Parameter(Mandatory = $true)][string]$Action,

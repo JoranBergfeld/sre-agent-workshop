@@ -4,5 +4,15 @@
 .squad/log/** merge=union
 .squad/orchestration-log/** merge=union
 
+# Workshop shell scripts and their test fixtures must keep LF endings so they
+# still run under Bash after a Windows checkout with core.autocrlf=true.
+scenarios/**/*.sh text eol=lf
+scripts/**/*.sh text eol=lf
+.devcontainer/**/*.sh text eol=lf
+scenarios/**/fixtures/**/az text eol=lf
+scenarios/**/fixtures/**/curl text eol=lf
+scenarios/**/fixtures/**/node text eol=lf
+scripts/scenario-tools/test/fixtures/lifecycle-bin/* text eol=lf
+
 # gh-aw: compiled agentic workflow lock files are generated artifacts
 .github/workflows/*.lock.yml linguist-generated=true merge=ours

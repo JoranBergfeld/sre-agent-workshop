@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 # Approval-gated manual fallback for this scenario's constrained remediation.
 param(
     [Parameter(Mandatory = $true)][string]$Action,

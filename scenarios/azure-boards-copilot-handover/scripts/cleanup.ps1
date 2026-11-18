@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -Version 7.0
 # Tears down the Azure Boards Copilot Handover scenario resource group. Never
 # touches GitHub or Azure Boards state: the scenario's Copilot handover work
 # item/issue lifecycle is entirely out of scope for this script.
@@ -55,7 +56,7 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 if (-not $ResourceGroupSet) { $ResourceGroup = "$Workload-rg" }
 
 Write-Host "========================================"
-Write-Host "  Azure Boards Copilot Handover — Cleanup"
+Write-Host "  Azure Boards Copilot Handover - Cleanup"
 Write-Host "========================================"
 Write-Host "Resource group: $ResourceGroup"
 Write-Host ""
