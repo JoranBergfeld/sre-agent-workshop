@@ -18,8 +18,9 @@ const USAGE = `Usage: provision.mjs <deploy|check> <scenario> [options]
 
 Options:
   --location <region>        Preferred region (must be in the scenario policy); the
-                             rest of the policy order follows. An existing
-                             deployment keeps its actual region.
+                             remaining policy order follows without revisiting
+                             earlier regions. Existing deployments keep their
+                             actual region.
   --no-region-fallback       Strict: only the given region; an existing deployment
                              elsewhere is an error instead of being reused
   --sku <vm-size>            Preferred compute SKU (must be in the policy); the

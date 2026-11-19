@@ -144,7 +144,7 @@ The SRE Agent's own placement is independent of the workload's placement.
 
 | Option | Effect |
 | --- | --- |
-| `--location <region>` | Preferred region. It must be in the policy; the rest of the policy order follows. |
+| `--location <region>` | Starting region. It must be in the policy; fallback continues through later policy regions without revisiting earlier regions. |
 | `--no-region-fallback` | Only the given region. A deployment elsewhere is an error. |
 | `--sku <size>` | Preferred size. It must be in the policy. |
 | `--workload <name>` | Workload name. Determines the resource names and the default group. |
@@ -171,7 +171,8 @@ of retrying, because the attempt changed your resource group. The
 3. Rerun the same command with `--location <next region>`, or
    `-Location <next region>` where your scenario guide uses that form in
    PowerShell, so the run starts from the next supported region instead of
-   the one that just failed.
+   the one that just failed. If another partial failure occurs, repeat with
+   the next region in policy order; earlier regions are not retried.
 
 ## If no candidate works
 

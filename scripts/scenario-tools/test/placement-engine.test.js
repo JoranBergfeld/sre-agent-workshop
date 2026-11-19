@@ -322,7 +322,7 @@ test('failureAdvice turns common work-subscription failures into next steps', as
     /az provider register --namespace Microsoft\.OperationalInsights --wait/);
   assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'eastus2' } }), /rerun the same command with --location swedencentral \(or -Location swedencentral where/);
   assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'swedencentral', location: 'swedencentral' } }),
-    /az group create --name rg-test --location eastus2 .*rerun the same command with --location eastus2/s);
+    /az group create --name rg-test --location australiaeast .*rerun the same command with --location australiaeast/s);
   assert.match(advise('(AllocationFailed) no capacity', { stopped: { region: 'australiaeast' } }), /every supported region has now been tried/);
   assert.match(advise('preflight: quota: needs 4 vCPUs'), /request more quota/);
   assert.equal(advise('InvalidTemplate: something is wrong'), undefined);
@@ -445,9 +445,11 @@ test('check reports whether the resource group is created and designated, and pr
   assert.equal(ready.resourceGroupReady, true);
 });
 
-test('orderedRegions puts a supported preference first and rejects unsupported regions', async () => {
+test('orderedRegions starts at a supported preference and does not revisit earlier regions', async () => {
   const policy = await loadPolicy(policyFile('cpu-runaway'));
-  assert.deepEqual(orderedRegions(policy, 'Australia East'), ['australiaeast', 'eastus2', 'swedencentral']);
+  assert.deepEqual(orderedRegions(policy, 'East US 2'), ['eastus2', 'swedencentral', 'australiaeast']);
+  assert.deepEqual(orderedRegions(policy, 'Sweden Central'), ['swedencentral', 'australiaeast']);
+  assert.deepEqual(orderedRegions(policy, 'Australia East'), ['australiaeast']);
   assert.deepEqual(orderedRegions(policy, 'swedencentral', { noFallback: true }), ['swedencentral']);
   assert.throws(() => orderedRegions(policy, 'westus'), /not supported/);
 });
@@ -558,6 +560,31 @@ test('a capacity stop that left resources tells the learner how to clean up and 
       && /az group create --name rg-test --location swedencentral --tags sre-workshop-scenario=cpu-runaway/.test(error.advice));
   assert.equal(fake.deployments.length, 1);
   assert.deepEqual(deletes(fake), []);
+});
+
+test('recovery after consecutive partial capacity failures advances to an untried region', async () => {
+  const policy = await loadPolicy(policyFile('cpu-runaway'));
+  const capacityFailure = leaves('(AllocationFailed) Allocation failed. We do not have sufficient capacity');
+  const first = fakeAzure({ deployFailures: [capacityFailure] });
+  let firstAdvice;
+  await assert.rejects(provision({
+    policy, az: first.az, deploy: first.deploy, resourceGroup: 'rg-test', location: 'eastus2', log: silent,
+  }), error => {
+    firstAdvice = error.advice;
+    return error instanceof PlacementError;
+  });
+  assert.match(firstAdvice, /rerun the same command with --location swedencentral/);
+
+  const second = fakeAzure({ deployFailures: [capacityFailure] });
+  let secondAdvice;
+  await assert.rejects(provision({
+    policy, az: second.az, deploy: second.deploy, resourceGroup: 'rg-test', location: 'swedencentral', log: silent,
+  }), error => {
+    secondAdvice = error.advice;
+    return error instanceof PlacementError;
+  });
+  assert.match(secondAdvice, /rerun the same command with --location australiaeast/);
+  assert.doesNotMatch(secondAdvice, /--location eastus2/);
 });
 
 test('assessFailedAttempt fails closed when the group cannot be listed', async () => {

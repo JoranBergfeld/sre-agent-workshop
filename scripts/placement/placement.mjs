@@ -555,7 +555,7 @@ export function orderedRegions(policy, requested, { noFallback = false } = {}) {
   if (!regions.includes(wanted)) {
     throw new PlacementError(`Region ${requested} is not supported by ${policy.scenario}. Supported, in order: ${regions.join(', ')}`);
   }
-  return noFallback ? [wanted] : [wanted, ...regions.filter(region => region !== wanted)];
+  return noFallback ? [wanted] : regions.slice(regions.indexOf(wanted));
 }
 
 // A --sku is a preference: it is tried first, followed by the rest of the
